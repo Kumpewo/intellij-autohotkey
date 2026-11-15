@@ -58,6 +58,11 @@ unparsed and only get a warning.
 - [User guide](docs/user-guide.md): all features, settings and the comment pragmas.
 - [Architecture](docs/architecture.md): how the classes work together, for developers.
 
+## Installation
+
+From the JetBrains Marketplace: [AutoHotkey v2 Language Support](https://plugins.jetbrains.com/plugin/36153-autohotkey-v2-language-support), or in the IDE under
+*Settings > Plugins > Marketplace*, search for "AutoHotkey".
+
 ## Requirements
 
 - An IDE based on the IntelliJ platform 2025.3 or later (IntelliJ IDEA, PyCharm, WebStorm ...); the plugin uses

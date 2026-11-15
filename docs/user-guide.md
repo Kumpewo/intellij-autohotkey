@@ -21,7 +21,8 @@ Shortcuts are given for the default Windows keymap of IntelliJ IDEA.
 
 ## Getting started
 
-1. Install the plugin (see the [README](../README.md)).
+1. Install the plugin: *Settings > Plugins > Marketplace*, search for "AutoHotkey" (plugin page:
+   [AutoHotkey v2 Language Support](https://plugins.jetbrains.com/plugin/36153-autohotkey-v2-language-support)).
 2. Open a folder with `.ahk` files as a project, or create a script with *File > New > AutoHotkey Script*.
 3. Optionally check *Settings > Languages & Frameworks > AutoHotkey*. The plugin detects a standard
    AutoHotkey installation by itself; the path is only needed for unusual locations.
