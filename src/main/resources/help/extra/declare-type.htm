@@ -1,0 +1,84 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>;@declare-type - Pragma | AutoHotkey v2 Plugin</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../styles/theme.css" rel="stylesheet" />
+</head>
+<body>
+
+<h1>;@declare-type</h1>
+
+<p>Declares the class of one or more variables, so that the plugin knows their members. This is a <a href="pragmas.htm">pragma</a>: AutoHotkey treats it as an ordinary comment.</p>
+
+<pre class="Syntax">;@<span class="func">declare-type</span> Pattern as Class <span class="optional">, Pattern as Class, ...</span></pre>
+
+<h2 id="Parameters">Parameters</h2>
+<dl>
+
+  <dt>Pattern</dt>
+  <dd>
+    <p>The names the declaration applies to. One of the following:</p>
+    <ul>
+      <li><strong>Name:</strong> exactly this name, e.g. <code>myGui</code>.</li>
+      <li><strong>Prefix:</strong> all names starting with the prefix, e.g. <code>btn*</code> for <code>btnOK</code> and <code>btnCancel</code>.</li>
+      <li><strong>Suffix:</strong> all names ending with the suffix, e.g. <code>*Edit</code> for <code>nameEdit</code>.</li>
+    </ul>
+    <p>The wildcard <code>*</code> also matches nothing: <code>*Edit</code> covers <code>edit</code> as well. A pattern may contain only one wildcard, at its start or end; <code>*</code> alone and <code>a*b</code> are invalid.</p>
+  </dd>
+
+  <dt>Class</dt>
+  <dd>
+    <p>One of the following:</p>
+    <ul>
+      <li>A built-in class, also a nested one: <code>Gui</code>, <code>Map</code>, <code>Gui.Edit</code>.</li>
+      <li>A class defined in the same file or in a file included directly with <code>#Include</code> (not in files included by those), also a nested one: <code>MyList</code>, <code>Outer.Inner</code>.</li>
+    </ul>
+    <p>If an own class has the same name as a built-in class, the built-in class is used.</p>
+  </dd>
+
+</dl>
+
+<h2 id="Effect">Effect</h2>
+<p>For a declared name the plugin</p>
+<ul>
+  <li>shows the name in the color <em>Special: Variable with declared type</em> (Settings &gt; Editor &gt; Color Scheme &gt; AutoHotkey);</li>
+  <li>offers only the members of the class and its base classes after the dot (<code>myGui.</code>), the class's own members first;</li>
+  <li>narrows the parameter info of method calls (<code>myGui.Add(</code>) to the class and its base classes;</li>
+  <li>narrows the help of methods and properties with several help pages (<code>Add</code> of <code>Gui</code> and <code>Menu</code>) to the declared class.</li>
+</ul>
+<p>Base classes are taken into account: a variable declared as <code>Gui.Edit</code> also knows the members of <code>Gui.Control</code>, <code>Object</code> and <code>Any</code>. An own class without <code>extends</code> has the base class <code>Object</code>.</p>
+
+<h2 id="Remarks">Remarks</h2>
+<p>The declaration applies to the whole file in which it stands, no matter where it is placed. It never applies to other files, neither to included files nor to files including this one, with one exception: the pragmas of a directly included file named <code>pragmas.ahk</code> apply in the including file (see <a href="pragmas.htm#PragmaFile">Pragmas</a>).</p>
+<p>Case does not matter, neither in the patterns nor in the class names.</p>
+<p>A name may be covered by several patterns and thus have several classes; the members of all of them are offered.</p>
+<p>A built-in name (e.g. a variable called <code>Edit</code>) keeps its built-in color if it is only covered by a pattern with a wildcard. Declare the exact name to give it the color of a declared variable.</p>
+<p>Mistakes are marked in the comment: "Invalid pattern.", "'as' expected.", "Class expected.", "Unknown class." and "',' expected.".</p>
+<p>Several pragmas may be used in one file; they add up.</p>
+
+<h2 id="Related">Related</h2>
+<p><a href="declare-auto-type.htm">;@declare-auto-type</a>, <a href="pragmas.htm">Pragmas</a></p>
+
+<h2 id="Examples">Examples</h2>
+<div class="ex" id="ExGui">
+<p><a class="ex_number" href="#ExGui"></a> Declares a GUI window and all edit controls whose names end with "Edit".</p>
+<pre>;@declare-type win as Gui, *Edit as Gui.Edit
+win := Gui()
+nameEdit := win.AddEdit()
+nameEdit.Focus()   <em>; completion offers the members of Gui.Edit and its base classes</em></pre>
+</div>
+
+<div class="ex" id="ExOwn">
+<p><a class="ex_number" href="#ExOwn"></a> Declares variables of an own class derived from Array.</p>
+<pre>;@declare-type list* as ItemList
+class ItemList extends Array {
+    Last() => this[this.Length]
+}
+listA := ItemList()
+listA.Last()   <em>; offers Last as well as Push, Pop ... of Array</em></pre>
+</div>
+
+</body>
+</html>

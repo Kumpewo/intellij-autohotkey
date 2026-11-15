@@ -1,0 +1,160 @@
+<!-- Live templates for AutoHotkey (Settings > Editor > Live Templates > AutoHotkey). Descriptions in
+     messages/AhkBundle.properties (livetemplate.*), keywords in the spelling "as in list" from
+     names/keyword-case.txt. toReformat: indent and possibly case come from the formatter. -->
+<templateSet group="AutoHotkey">
+
+  <!-- Header and directives -->
+  <template name="req" value="#Requires AutoHotkey v2.0$END$" resource-bundle="messages.AhkBundle" key="livetemplate.req" toReformat="false" toShortenFQNames="false">
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="si" value="#SingleInstance $MODE$$END$" resource-bundle="messages.AhkBundle" key="livetemplate.si" toReformat="false" toShortenFQNames="false">
+    <variable name="MODE" expression="enum(&quot;Force&quot;, &quot;Ignore&quot;, &quot;Prompt&quot;, &quot;Off&quot;)" defaultValue="" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="hotif" value="#HotIf WinActive(&quot;$TITLE$&quot;)&#10;$END$&#10;#HotIf" resource-bundle="messages.AhkBundle" key="livetemplate.hotif" toReformat="false" toShortenFQNames="false">
+    <variable name="TITLE" expression="" defaultValue="&quot;ahk_exe notepad.exe&quot;" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+
+  <!-- Hotkeys and hotstrings -->
+  <template name="hk" value="$KEY$:: {&#10;$END$&#10;}" resource-bundle="messages.AhkBundle" key="livetemplate.hk" toReformat="true" toShortenFQNames="false">
+    <variable name="KEY" expression="" defaultValue="&quot;^!a&quot;" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="hs" value="::$ABBR$::$TEXT$" resource-bundle="messages.AhkBundle" key="livetemplate.hs" toReformat="false" toShortenFQNames="false">
+    <variable name="ABBR" expression="" defaultValue="&quot;btw&quot;" alwaysStopAt="true"/>
+    <variable name="TEXT" expression="" defaultValue="&quot;by the way&quot;" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="hsx" value=":X:$ABBR$::$END$" resource-bundle="messages.AhkBundle" key="livetemplate.hsx" toReformat="false" toShortenFQNames="false">
+    <variable name="ABBR" expression="" defaultValue="&quot;btw&quot;" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+
+  <!-- Definitions -->
+  <template name="fn" value="$NAME$($PARAMS$) {&#10;$END$&#10;}" resource-bundle="messages.AhkBundle" key="livetemplate.fn" toReformat="true" toShortenFQNames="false">
+    <variable name="NAME" expression="" defaultValue="&quot;MyFunction&quot;" alwaysStopAt="true"/>
+    <variable name="PARAMS" expression="" defaultValue="" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="cls" value="Class $NAME$ {&#10;__New($PARAMS$) {&#10;$END$&#10;}&#10;}" resource-bundle="messages.AhkBundle" key="livetemplate.cls" toReformat="true" toShortenFQNames="false">
+    <variable name="NAME" expression="" defaultValue="&quot;MyClass&quot;" alwaysStopAt="true"/>
+    <variable name="PARAMS" expression="" defaultValue="" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="clse" value="Class $NAME$ Extends $BASE$ {&#10;__New($PARAMS$) {&#10;super.__New($ARGS$)&#10;$END$&#10;}&#10;}" resource-bundle="messages.AhkBundle" key="livetemplate.clse" toReformat="true" toShortenFQNames="false">
+    <variable name="NAME" expression="" defaultValue="&quot;MyClass&quot;" alwaysStopAt="true"/>
+    <variable name="BASE" expression="" defaultValue="&quot;Object&quot;" alwaysStopAt="true"/>
+    <variable name="PARAMS" expression="" defaultValue="" alwaysStopAt="true"/>
+    <variable name="ARGS" expression="" defaultValue="" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="prop" value="$NAME$ {&#10;get => this._$NAME$&#10;set => this._$NAME$ := value&#10;}$END$" resource-bundle="messages.AhkBundle" key="livetemplate.prop" toReformat="true" toShortenFQNames="false">
+    <variable name="NAME" expression="" defaultValue="&quot;Value&quot;" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="arrow" value="$NAME$($PARAMS$) => $END$" resource-bundle="messages.AhkBundle" key="livetemplate.arrow" toReformat="false" toShortenFQNames="false">
+    <variable name="NAME" expression="" defaultValue="&quot;MyFunction&quot;" alwaysStopAt="true"/>
+    <variable name="PARAMS" expression="" defaultValue="" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+
+  <!-- Control structures -->
+  <template name="if" value="If $COND$ {&#10;$END$&#10;}" resource-bundle="messages.AhkBundle" key="livetemplate.if" toReformat="true" toShortenFQNames="false">
+    <variable name="COND" expression="" defaultValue="&quot;condition&quot;" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="ife" value="If $COND$ {&#10;$END$&#10;} Else {&#10;}" resource-bundle="messages.AhkBundle" key="livetemplate.ife" toReformat="true" toShortenFQNames="false">
+    <variable name="COND" expression="" defaultValue="&quot;condition&quot;" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="while" value="While $COND$ {&#10;$END$&#10;}" resource-bundle="messages.AhkBundle" key="livetemplate.while" toReformat="true" toShortenFQNames="false">
+    <variable name="COND" expression="" defaultValue="&quot;condition&quot;" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="loop" value="Loop $COUNT$ {&#10;$END$&#10;}" resource-bundle="messages.AhkBundle" key="livetemplate.loop" toReformat="true" toShortenFQNames="false">
+    <variable name="COUNT" expression="" defaultValue="&quot;10&quot;" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="lf" value="Loop Files &quot;$PATTERN$&quot;, &quot;$MODE$&quot; {&#10;path := A_LoopFileFullPath$END$&#10;}" resource-bundle="messages.AhkBundle" key="livetemplate.lf" toReformat="true" toShortenFQNames="false">
+    <variable name="PATTERN" expression="" defaultValue="&quot;*.*&quot;" alwaysStopAt="true"/>
+    <variable name="MODE" expression="enum(&quot;F&quot;, &quot;D&quot;, &quot;FD&quot;, &quot;FR&quot;, &quot;DR&quot;, &quot;FDR&quot;)" defaultValue="" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="lp" value="Loop Parse $TEXT$, &quot;$DELIM$&quot; {&#10;field := A_LoopField$END$&#10;}" resource-bundle="messages.AhkBundle" key="livetemplate.lp" toReformat="true" toShortenFQNames="false">
+    <variable name="TEXT" expression="" defaultValue="&quot;text&quot;" alwaysStopAt="true"/>
+    <variable name="DELIM" expression="" defaultValue="&quot;,&quot;" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="lr" value="Loop Read $FILE$ {&#10;line := A_LoopReadLine$END$&#10;}" resource-bundle="messages.AhkBundle" key="livetemplate.lr" toReformat="true" toShortenFQNames="false">
+    <variable name="FILE" expression="" defaultValue="&quot;fileName&quot;" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="for" value="For $KEY$, $VALUE$ in $OBJ$ {&#10;$END$&#10;}" resource-bundle="messages.AhkBundle" key="livetemplate.for" toReformat="true" toShortenFQNames="false">
+    <variable name="KEY" expression="" defaultValue="&quot;key&quot;" alwaysStopAt="true"/>
+    <variable name="VALUE" expression="" defaultValue="&quot;value&quot;" alwaysStopAt="true"/>
+    <variable name="OBJ" expression="" defaultValue="&quot;obj&quot;" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="forv" value="For $VALUE$ in $OBJ$ {&#10;$END$&#10;}" resource-bundle="messages.AhkBundle" key="livetemplate.forv" toReformat="true" toShortenFQNames="false">
+    <variable name="VALUE" expression="" defaultValue="&quot;value&quot;" alwaysStopAt="true"/>
+    <variable name="OBJ" expression="" defaultValue="&quot;obj&quot;" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="try" value="Try {&#10;$END$&#10;} Catch Error as e {&#10;MsgBox e.Message&#10;}" resource-bundle="messages.AhkBundle" key="livetemplate.try" toReformat="true" toShortenFQNames="false">
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="sw" value="Switch $VALUE$ {&#10;Case $CASE$:&#10;$END$&#10;Default:&#10;}" resource-bundle="messages.AhkBundle" key="livetemplate.sw" toReformat="true" toShortenFQNames="false">
+    <variable name="VALUE" expression="" defaultValue="&quot;value&quot;" alwaysStopAt="true"/>
+    <variable name="CASE" expression="" defaultValue="&quot;1&quot;" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+
+  <!-- Surround With (Ctrl+Alt+T): wrap the selected lines -->
+  <template name="sif" value="If $COND$ {&#10;$SELECTION$&#10;}$END$" resource-bundle="messages.AhkBundle" key="livetemplate.sif" toReformat="true" toShortenFQNames="false">
+    <variable name="COND" expression="" defaultValue="&quot;condition&quot;" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="swhile" value="While $COND$ {&#10;$SELECTION$&#10;}$END$" resource-bundle="messages.AhkBundle" key="livetemplate.swhile" toReformat="true" toShortenFQNames="false">
+    <variable name="COND" expression="" defaultValue="&quot;condition&quot;" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="sloop" value="Loop $COUNT$ {&#10;$SELECTION$&#10;}$END$" resource-bundle="messages.AhkBundle" key="livetemplate.sloop" toReformat="true" toShortenFQNames="false">
+    <variable name="COUNT" expression="" defaultValue="&quot;10&quot;" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="sfor" value="For $VALUE$ in $OBJ$ {&#10;$SELECTION$&#10;}$END$" resource-bundle="messages.AhkBundle" key="livetemplate.sfor" toReformat="true" toShortenFQNames="false">
+    <variable name="VALUE" expression="" defaultValue="&quot;value&quot;" alwaysStopAt="true"/>
+    <variable name="OBJ" expression="" defaultValue="&quot;obj&quot;" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="stry" value="Try {&#10;$SELECTION$&#10;} Catch Error as e {&#10;MsgBox e.Message$END$&#10;}" resource-bundle="messages.AhkBundle" key="livetemplate.stry" toReformat="true" toShortenFQNames="false">
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+
+  <!-- Common patterns -->
+  <template name="gui" value="myGui := Gui(, &quot;$TITLE$&quot;)&#10;myGui.AddText(, &quot;$TEXT$&quot;)&#10;myGui.AddButton(&quot;Default w80&quot;, &quot;OK&quot;).OnEvent(&quot;Click&quot;, (*) => myGui.Destroy())&#10;myGui.Show()$END$" resource-bundle="messages.AhkBundle" key="livetemplate.gui" toReformat="false" toShortenFQNames="false">
+    <variable name="TITLE" expression="" defaultValue="&quot;My Window&quot;" alwaysStopAt="true"/>
+    <variable name="TEXT" expression="" defaultValue="&quot;Hello&quot;" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="timer" value="SetTimer $FUNC$, $MS$$END$" resource-bundle="messages.AhkBundle" key="livetemplate.timer" toReformat="false" toShortenFQNames="false">
+    <variable name="FUNC" expression="" defaultValue="&quot;MyFunction&quot;" alwaysStopAt="true"/>
+    <variable name="MS" expression="" defaultValue="&quot;1000&quot;" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="onexit" value="OnExit(ExitHandler)&#10;&#10;ExitHandler(ExitReason, ExitCode) {&#10;$END$&#10;}" resource-bundle="messages.AhkBundle" key="livetemplate.onexit" toReformat="true" toShortenFQNames="false">
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+
+  <!-- Pragmas of the plugin -->
+  <template name="dt" value=";@declare-type $NAME$ as $CLASS$$END$" resource-bundle="messages.AhkBundle" key="livetemplate.dt" toReformat="false" toShortenFQNames="false">
+    <variable name="NAME" expression="" defaultValue="&quot;myGui&quot;" alwaysStopAt="true"/>
+    <variable name="CLASS" expression="" defaultValue="&quot;Gui&quot;" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="ign" value=";@ignore-next-line $REASON$" resource-bundle="messages.AhkBundle" key="livetemplate.ign" toReformat="false" toShortenFQNames="false">
+    <variable name="REASON" expression="" defaultValue="" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+</templateSet>

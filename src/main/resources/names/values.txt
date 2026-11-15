@@ -1,0 +1,59 @@
+; Values for parameters (completion). Maintained by hand, values from the help (help/docs/lib/<Command>.htm).
+; Format: Name Position: Value Value ...   (Position = number of the argument from 1; ";" = comment)
+; The case of the name does not matter; the value is inserted exactly as written here.
+; Functions/commands: value in the string ("Screen"; for CoordMode <caret> "Screen" is inserted with quotes).
+; Directives: value without quotes (#SingleInstance Force).
+; Initial set 2026-11-08, to be extended.
+; Methods: Class.Method Position: ... (Class = built-in class from members.txt; also applies to derived
+; classes and declared names, without a known type to every obj.Method).
+
+; help/docs/lib/gui.htm#Add, ControlType (short forms DDL and Pic)
+Gui.Add 1: ActiveX Button CheckBox ComboBox Custom DateTime DropDownList DDL Edit GroupBox Hotkey Link ListBox ListView MonthCal Picture Pic Progress Radio Slider StatusBar Tab Tab2 Tab3 Text TreeView UpDown
+
+CoordMode 1: ToolTip Pixel Mouse Caret Menu
+CoordMode 2: Screen Window Client
+SendMode 1: Event Input Play InputThenPlay
+; SetTitleMatchMode has two forms with one parameter each (mode or speed)
+SetTitleMatchMode 1: 1 2 3 RegEx Fast Slow
+SetCapsLockState 1: On Off AlwaysOn AlwaysOff
+SetNumLockState 1: On Off AlwaysOn AlwaysOff
+SetScrollLockState 1: On Off AlwaysOn AlwaysOff
+; BlockInput has three forms with one parameter each (OnOff, SendMouse, MouseMove)
+BlockInput 1: On Off Send Mouse SendAndMouse Default MouseMove MouseMoveOff
+FileEncoding 1: CP0 UTF-8 UTF-8-RAW UTF-16 UTF-16-RAW
+GetKeyState 2: P T
+MouseClick 1: Left Right Middle X1 X2 WheelUp WheelDown WheelLeft WheelRight
+ProcessSetPriority 1: Low BelowNormal Normal AboveNormal High Realtime
+
+#SingleInstance 1: Force Ignore Prompt Off
+#Warn 1: VarUnset LocalSameAsGlobal Unreachable All
+#Warn 2: MsgBox StdOut OutputDebug Off
+
+; Event names for OnEvent (Z.19 C11; help/docs/lib/guionevent.htm, "Applies to" of each event).
+; Window events:
+Gui.OnEvent 1: Close ContextMenu DropFiles Escape Size
+; Control events: all, and per control class (an entry of the derived class wins over Gui.Control)
+Gui.Control.OnEvent 1: Change Click DoubleClick ColClick ContextMenu Focus LoseFocus ItemCheck ItemEdit ItemExpand ItemFocus ItemSelect
+Gui.ActiveX.OnEvent 1: ContextMenu
+Gui.Button.OnEvent 1: Click DoubleClick ContextMenu Focus LoseFocus
+Gui.CheckBox.OnEvent 1: Click DoubleClick ContextMenu Focus LoseFocus
+Gui.ComboBox.OnEvent 1: Change DoubleClick ContextMenu Focus LoseFocus
+Gui.Custom.OnEvent 1: ContextMenu
+Gui.DateTime.OnEvent 1: Change ContextMenu Focus LoseFocus
+Gui.DDL.OnEvent 1: Change ContextMenu Focus LoseFocus
+Gui.Edit.OnEvent 1: Change Focus LoseFocus
+Gui.GroupBox.OnEvent 1: ContextMenu
+Gui.Hotkey.OnEvent 1: Change ContextMenu
+Gui.Link.OnEvent 1: Click ContextMenu
+Gui.ListBox.OnEvent 1: Change DoubleClick ContextMenu Focus LoseFocus
+Gui.ListView.OnEvent 1: Click DoubleClick ColClick ContextMenu Focus LoseFocus ItemCheck ItemEdit ItemFocus ItemSelect
+Gui.MonthCal.OnEvent 1: Change
+Gui.Pic.OnEvent 1: Click DoubleClick ContextMenu
+Gui.Progress.OnEvent 1: ContextMenu
+Gui.Radio.OnEvent 1: Click DoubleClick ContextMenu Focus LoseFocus
+Gui.Slider.OnEvent 1: Change ContextMenu
+Gui.StatusBar.OnEvent 1: Click DoubleClick ContextMenu
+Gui.Tab.OnEvent 1: Change ContextMenu
+Gui.Text.OnEvent 1: Click DoubleClick ContextMenu
+Gui.TreeView.OnEvent 1: Click DoubleClick ContextMenu Focus LoseFocus ItemCheck ItemEdit ItemExpand ItemSelect
+Gui.UpDown.OnEvent 1: Change ContextMenu

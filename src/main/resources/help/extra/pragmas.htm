@@ -1,0 +1,59 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>Pragmas | AutoHotkey v2 Plugin</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../styles/theme.css" rel="stylesheet" />
+</head>
+<body>
+
+<h1>Pragmas</h1>
+
+<p>Pragmas are comments with a special marker that give the IntelliJ plugin information AutoHotkey itself does not need. AutoHotkey treats them as ordinary comments, so a script with pragmas runs unchanged.</p>
+
+<p>A pragma is a line comment which starts with <code>;@</code> followed by the name of the pragma. The marker must be the first thing in the comment and must be followed by whitespace or the end of the line (<code>;@declare-types</code> is not a pragma). Case does not matter.</p>
+
+<pre class="Syntax">;@<span class="func">PragmaName</span> <span class="optional">Arguments</span></pre>
+
+<h2 id="List">Available pragmas</h2>
+<table class="info">
+  <tr>
+    <th>Pragma</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td nowrap="nowrap"><a href="declare-type.htm">;@declare-type</a></td>
+    <td>Declares the class of variables, so that completion, parameter info and help know their members.</td>
+  </tr>
+  <tr>
+    <td nowrap="nowrap"><a href="declare-auto-type.htm">;@declare-auto-type</a></td>
+    <td>Declares the class of variables by the end of their names (<code>okButton</code> as <code>Gui.Button</code>) for a group of built-in classes.</td>
+  </tr>
+  <tr>
+    <td nowrap="nowrap"><a href="declare-private.htm">;@declare-private</a></td>
+    <td>Shows members with certain names (<code>_*</code>, <code>§*</code> ...) in the color for private members.</td>
+  </tr>
+  <tr>
+    <td nowrap="nowrap"><a href="ignore-next-line.htm">;@ignore-next-line</a></td>
+    <td>Hides the parser errors of the next line, for code the plugin's parser does not understand.</td>
+  </tr>
+</table>
+
+<h2 id="PragmaFile">Pragmas for a whole project: pragmas.ahk</h2>
+<p>A pragma applies to the file in which it stands. To make declarations once for many scripts, put them into a file named <code>pragmas.ahk</code> (case does not matter) and include it directly in each script:</p>
+<pre>#Include &lt;pragmas&gt;            <em>; from a library folder, or e.g. &lt;v2\pragmas&gt;</em>
+#Include ..\shared\pragmas.ahk  <em>; or with a relative path</em></pre>
+<p>The pragmas <code>;@declare-type</code>, <code>;@declare-auto-type</code> and <code>;@declare-private</code> of such a file apply in every file that includes it directly (not in files that include those). Own classes named in <code>;@declare-type</code> are looked up in the including file, so <code>pragmas.ahk</code> itself does not report them as unknown. Since the file contains only comments, including it has no effect when the script runs. <code>;@ignore-next-line</code> always refers to the next line of its own file.</p>
+
+<h2 id="Remarks">Remarks</h2>
+<p>Mistakes in a pragma are marked in the comment itself, for example "Unknown class." or "Invalid pattern.".</p>
+<p>Pressing <kbd>Ctrl</kbd>+<kbd>Q</kbd> anywhere in a pragma comment shows its help page.</p>
+<p>The live templates <code>dt</code> and <code>ign</code> insert <code>;@declare-type</code> and <code>;@ignore-next-line</code>.</p>
+<p>Comments starting with <code>;@Ahk2Exe-</code> look similar, but are directives of the compiler Ahk2Exe, not pragmas of the plugin. The plugin checks for <code>;@Ahk2Exe-Base</code> before compiling, can insert a head of directives (see <a href="compile.htm#Head">Compiling with Ahk2Exe</a>), and shows the help page of the directives with <kbd>Ctrl</kbd>+<kbd>Q</kbd> in such a comment.</p>
+
+<h2 id="Related">Related</h2>
+<p><a href="index.htm">Plugin manual</a>, <a href="types.htm">Type declarations</a>, <a href="editor.htm#Ignore">Suppressing parser errors</a></p>
+
+</body>
+</html>

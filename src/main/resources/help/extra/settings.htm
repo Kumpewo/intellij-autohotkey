@@ -1,0 +1,98 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>Settings | AutoHotkey v2 Plugin</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../styles/theme.css" rel="stylesheet" />
+</head>
+<body>
+
+<h1>Settings</h1>
+
+<p>The plugin's settings are spread over the usual places of the IDE (<em>File &gt; Settings</em>, <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>S</kbd>):</p>
+<table class="info">
+  <tr><th>Where</th><th>What</th><th>Applies to</th></tr>
+  <tr><td nowrap="nowrap"><a href="#AutoHotkey">Languages &amp; Frameworks &gt; AutoHotkey</a></td><td>AutoHotkey program, external help, automatic validation, Ahk2Exe, compression</td><td>all projects</td></tr>
+  <tr><td nowrap="nowrap"><a href="#Colors">Editor &gt; Color Scheme &gt; AutoHotkey</a></td><td>colors</td><td>the color scheme</td></tr>
+  <tr><td nowrap="nowrap"><a href="formatting.htm#Options">Editor &gt; Code Style &gt; AutoHotkey</a></td><td>indent, spaces, blank lines, tab <em>Case</em></td><td>the code style scheme (IDE or project)</td></tr>
+  <tr><td nowrap="nowrap"><a href="templates.htm">Editor &gt; Live Templates &gt; AutoHotkey</a></td><td>live templates</td><td>all projects</td></tr>
+  <tr><td nowrap="nowrap"><a href="templates.htm#File">Editor &gt; File and Code Templates</a></td><td>template <em>AutoHotkey Script</em></td><td>IDE or project</td></tr>
+  <tr><td nowrap="nowrap"><a href="#RunConfiguration">Run &gt; Edit Configurations</a></td><td>run configurations of type <em>AutoHotkey</em></td><td>the project</td></tr>
+</table>
+
+<p><img src="images/settings-autohotkey.png" alt="Settings page AutoHotkey" style="max-width:100%; border:1px solid #ccc"><br><em><em>Languages &amp; Frameworks &gt; AutoHotkey</em> with all paths empty: the grey texts show what the plugin found automatically.</em></p>
+
+<h2 id="AutoHotkey">Languages &amp; Frameworks &gt; AutoHotkey</h2>
+<p>Empty fields mean "automatic"; the field then shows in grey what the plugin found. The settings apply to all projects.</p>
+
+<h3 id="Program">AutoHotkey executable</h3>
+<p>The program used to run, validate and debug scripts. Leave it empty for automatic detection. The plugin looks in <code>%ProgramW6432%</code>, <code>%ProgramFiles%</code>, <code>%ProgramFiles(x86)%</code> and <code>%LOCALAPPDATA%\Programs</code>, each in the subfolder <code>AutoHotkey</code>, for</p>
+<ol>
+  <li>the launcher <code>UX\AutoHotkeyUX.exe</code>, which chooses the AutoHotkey version by the <code>#Requires</code> line of the script;</li>
+  <li><code>v2\AutoHotkey.exe</code>;</li>
+  <li><code>AutoHotkey.exe</code>.</li>
+</ol>
+<p>Enter a path if AutoHotkey is installed elsewhere, or to always use a particular interpreter, e.g. <code>C:\Tools\AutoHotkey\v2\AutoHotkey64.exe</code>. How the program is used:</p>
+<ul>
+  <li>For the launcher the plugin adds the script <code>launcher.ahk</code> next to it, as the AutoHotkey documentation requires.</li>
+  <li>If the program is the launcher and the script requires AutoHotkey 2.0 (<code>#Requires AutoHotkey v2.0</code>), the plugin starts the interpreter <code>v2\AutoHotkey.exe</code> directly (<code>AutoHotkey32.exe</code>/<code>AutoHotkey64.exe</code> for <code>32-bit</code>/<code>64-bit</code> in the <code>#Requires</code> line). See <a href="running.htm#Program">Running scripts</a>.</li>
+  <li>The debugger never uses the launcher, always the v2 interpreter.</li>
+  <li>The library folder <code>Lib</code> of the installation (<a href="navigation.htm#Library">AutoHotkey Lib</a>) and <code>AutoHotkey.chm</code> for the external help are searched next to this program.</li>
+</ul>
+
+<h3 id="ExternalHelp">External help</h3>
+<p>The command line for <kbd>Shift</kbd>+<kbd>F1</kbd> on AutoHotkey topics. <code>%s</code> is replaced by the key of the help page, a path inside the AutoHotkey help, optionally with an anchor: <code>/docs/lib/MsgBox.htm</code>, <code>/docs/lib/File.htm#Close</code>. The line is split at spaces; quotes keep a part together. Leave it empty for</p>
+<pre>hh.exe "mk:@MSITStore:<i>folder of AutoHotkey</i>\AutoHotkey.chm::%s"</pre>
+<div class="ex" id="ExOtherChm">
+<p><a class="ex_number" href="#ExOtherChm"></a> Use a particular copy of the help file.</p>
+<pre>hh.exe "mk:@MSITStore:C:\Docs\AutoHotkey-v2.0.31.chm::%s"</pre>
+</div>
+<div class="ex" id="ExOwnViewer">
+<p><a class="ex_number" href="#ExOwnViewer"></a> Pass the key to an own program or script, which may for example map it to a web address.</p>
+<pre>"C:\Program Files\AutoHotkey\v2\AutoHotkey.exe" "C:\Tools\OpenHelp.ahk" %s</pre>
+</div>
+<p>The pages of the plugin itself (pragmas, this manual) always open in <code>hh.exe</code> with the plugin's own help file; this setting does not apply to them.</p>
+
+<h3 id="Validate">Validate with AutoHotkey</h3>
+<table class="info">
+  <tr><th>Value</th><th>Meaning</th></tr>
+  <tr><td nowrap="nowrap">Only with the action (Alt+Shift+V)</td><td>Default. The script is only validated when you start <em>Validate with AutoHotkey</em>.</td></tr>
+  <tr><td nowrap="nowrap">Also after Reformat Code</td><td>Additionally after every <em>Reformat Code</em> of an AutoHotkey file.</td></tr>
+  <tr><td nowrap="nowrap">Also when a file is saved</td><td>Additionally after every save of an AutoHotkey file, including the automatic saving of the IDE (e.g. when it loses focus).</td></tr>
+</table>
+<p>Automatic validations open the console only if AutoHotkey reports an error. Details in <a href="validate.htm">Validating with AutoHotkey</a>.</p>
+
+<h3 id="Ahk2Exe">Ahk2Exe compiler and compression</h3>
+<p><em>Ahk2Exe compiler</em>: path to <code>Ahk2Exe.exe</code>. Leave it empty for automatic detection: <code>Compiler\Ahk2Exe.exe</code> in the folder of the AutoHotkey program and its parent folder, then in the installation folders listed above.</p>
+<p><em>Compression</em> of the executable:</p>
+<ul>
+  <li><em>None</em> (default): no compression.</li>
+  <li><em>UPX</em>: compresses with UPX; <code>upx.exe</code> must be in the folder of Ahk2Exe. Smaller files, but some virus scanners distrust compressed executables.</li>
+</ul>
+<p>Details in <a href="compile.htm">Compiling with Ahk2Exe</a>.</p>
+
+<h3 id="ManualLink">Open the plugin manual</h3>
+<p>The link at the bottom of the page opens this manual.</p>
+
+<h2 id="Colors">Color scheme</h2>
+<p><em>Editor &gt; Color Scheme &gt; AutoHotkey</em> lists all colors of the plugin with a preview, in four groups: <em>Core</em> (Flow control, Reserved word, Directive, Number, String, Label, Comment), <em>Declaration</em> (Function, Class, Hotkey, Hotstring), <em>Built-in elements</em> (Function, Variable, Class, Method, Property) and <em>Special</em> (Escape sequence in string, Variable with declared type, Declared private member, Unchecked code line). Click a word in the preview to select its entry. Which word gets which color is explained in <a href="editor.htm#Colors">Editor</a>.</p>
+<p>Errors, warnings and the mark of a validation error use the general colors of the IDE (<em>Editor &gt; Color Scheme &gt; General</em>).</p>
+
+<h2 id="RunConfiguration">Run configuration</h2>
+<p>A run configuration of type <em>AutoHotkey</em> (<em>Run &gt; Edit Configurations</em>, <kbd>+</kbd>, <em>AutoHotkey</em>) has these fields:</p>
+<table class="info">
+  <tr><th>Field</th><th>Meaning</th></tr>
+  <tr><td nowrap="nowrap">Script</td><td>The script to run (the main script). Required.</td></tr>
+  <tr><td nowrap="nowrap">Script parameters</td><td>Passed to the script (<code>A_Args</code>), separated by spaces; quotes keep a parameter with spaces together.</td></tr>
+  <tr><td nowrap="nowrap">Working directory</td><td>Empty = folder of the script. Note that AutoHotkey v2 sets <code>A_WorkingDir</code> to the script folder at startup; this directory is available as <code>A_InitialWorkingDir</code>.</td></tr>
+  <tr><td nowrap="nowrap">Compile with Ahk2Exe and run the executable</td><td>Off by default. Compiles the script first and runs the executable instead of the script (see <a href="compile.htm#CompileAndRun">Compile and run</a>).</td></tr>
+  <tr><td nowrap="nowrap">Run the executable in</td><td>Only with the option above: <em>Terminal in the Run tool window</em> or <em>Separate console window</em>.</td></tr>
+</table>
+<p>The configuration selected in the toolbar also decides which script is <a href="validate.htm#Target">validated</a> and <a href="compile.htm#Target">compiled</a> when the current file is its script or included by it.</p>
+
+<h2 id="Related">Related</h2>
+<p><a href="index.htm">Plugin manual</a>, <a href="formatting.htm">Formatting</a>, <a href="running.htm">Running scripts</a></p>
+
+</body>
+</html>

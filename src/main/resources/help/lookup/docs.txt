@@ -1,0 +1,825 @@
+as	/docs/lib/Catch.htm	<null>
+case	/docs/lib/Switch.htm	<null>
+extends	/docs/lib/Class.htm	<null>
+global	/docs/Functions.htm	Global
+local	/docs/Functions.htm	Local
+static	/docs/Functions.htm	static
+Files	/docs/lib/LoopFiles.htm	<null>
+Parse	/docs/lib/LoopParse.htm	<null>
+Reg	/docs/lib/LoopReg.htm	<null>
+struct	/docs/lib/Class.htm	<null>
+super	/docs/Objects.htm	Custom_Classes_super
+this	/docs/Objects.htm	Custom_Classes_method
+true	/docs/Concepts.htm	boolean
+unset	/docs/Concepts.htm	nothing
+false	/docs/Concepts.htm	boolean
+and	/docs/Variables.htm	operators
+or	/docs/Variables.htm	operators
+not	/docs/Variables.htm	operators
+in	/docs/Variables.htm	operators
+contains	/docs/Variables.htm	operators
+#IncludeAgain	/docs/lib/_Include.htm	<null>
+A_CoordModeCaret	/docs/Variables.htm	settings
+A_CoordModeMenu	/docs/Variables.htm	settings
+A_CoordModeMouse	/docs/Variables.htm	settings
+A_CoordModePixel	/docs/Variables.htm	settings
+A_CoordModeToolTip	/docs/Variables.htm	settings
+A_KeyDuration	/docs/Variables.htm	settings
+A_KeyDurationPlay	/docs/Variables.htm	settings
+A_LoopField	/docs/Variables.htm	loop
+A_LoopFileAttrib	/docs/Variables.htm	loop
+A_LoopFileDir	/docs/Variables.htm	loop
+A_LoopFileExt	/docs/Variables.htm	loop
+A_LoopFileFullPath	/docs/Variables.htm	loop
+A_LoopFileName	/docs/Variables.htm	loop
+A_LoopFilePath	/docs/Variables.htm	loop
+A_LoopFileShortName	/docs/Variables.htm	loop
+A_LoopFileShortPath	/docs/Variables.htm	loop
+A_LoopFileSize	/docs/Variables.htm	loop
+A_LoopFileSizeKB	/docs/Variables.htm	loop
+A_LoopFileSizeMB	/docs/Variables.htm	loop
+A_LoopFileTimeAccessed	/docs/Variables.htm	loop
+A_LoopFileTimeCreated	/docs/Variables.htm	loop
+A_LoopFileTimeModified	/docs/Variables.htm	loop
+A_LoopReadLine	/docs/Variables.htm	loop
+A_LoopRegKey	/docs/Variables.htm	loop
+A_LoopRegName	/docs/Variables.htm	loop
+A_LoopRegTimeModified	/docs/Variables.htm	loop
+A_LoopRegType	/docs/Variables.htm	loop
+A_MDay	/docs/Variables.htm	date
+A_Mon	/docs/Variables.htm	date
+A_MouseDelayPlay	/docs/Variables.htm	settings
+A_OSVersion	/docs/Variables.htm	os
+A_OsVersion	/docs/Variables.htm	os
+A_ScreenHeight	/docs/Variables.htm	os
+A_ScreenWidth	/docs/Variables.htm	os
+A_Year	/docs/Variables.htm	date
+Clone	/docs/lib/ComObjArray.htm	Methods	ComObjArray
+Count	/docs/lib/ListView.htm	Parameters	Gui.ListView
+Count	/docs/lib/RegExMatch.htm	MatchObject	RegExMatchInfo
+Name	/docs/lib/RegExMatch.htm	MatchObject	RegExMatchInfo
+AddActiveX	/docs/lib/GuiControls.htm	ActiveX	Gui
+AddButton	/docs/lib/GuiControls.htm	Button	Gui
+AddCheckBox	/docs/lib/GuiControls.htm	CheckBox	Gui
+AddComboBox	/docs/lib/GuiControls.htm	ComboBox	Gui
+AddCustom	/docs/lib/GuiControls.htm	Custom	Gui
+AddDateTime	/docs/lib/GuiControls.htm	DateTime	Gui
+AddDropDownList	/docs/lib/GuiControls.htm	DDL	Gui
+AddEdit	/docs/lib/GuiControls.htm	Edit	Gui
+AddGroupBox	/docs/lib/GuiControls.htm	GroupBox	Gui
+AddHotkey	/docs/lib/GuiControls.htm	Hotkey	Gui
+AddLink	/docs/lib/GuiControls.htm	Link	Gui
+AddListBox	/docs/lib/GuiControls.htm	ListBox	Gui
+AddListView	/docs/lib/GuiControls.htm	ListView	Gui
+AddMonthCal	/docs/lib/GuiControls.htm	MonthCal	Gui
+AddPicture	/docs/lib/GuiControls.htm	Picture	Gui
+AddProgress	/docs/lib/GuiControls.htm	Progress	Gui
+AddRadio	/docs/lib/GuiControls.htm	Radio	Gui
+AddSlider	/docs/lib/GuiControls.htm	Slider	Gui
+AddStatusBar	/docs/lib/GuiControls.htm	StatusBar	Gui
+AddTab	/docs/lib/GuiControls.htm	Tab	Gui
+AddText	/docs/lib/GuiControls.htm	Text	Gui
+AddTreeView	/docs/lib/GuiControls.htm	TreeView	Gui
+AddUpDown	/docs/lib/GuiControls.htm	UpDown	Gui
+ComValueRef	/docs/lib/ComValue.htm	<null>
+ControlGetExStyle	/docs/lib/ControlGetStyle.htm	<null>
+ControlSendText	/docs/lib/ControlSend.htm	<null>
+ControlSetExStyle	/docs/lib/ControlSetStyle.htm	<null>
+DriveRetract	/docs/lib/DriveEject.htm	<null>
+HotIfWinActive	/docs/lib/HotIf.htm	IfWin
+HotIfWinExist	/docs/lib/HotIf.htm	IfWin
+HotIfWinNotActive	/docs/lib/HotIf.htm	IfWin
+HotIfWinNotExist	/docs/lib/HotIf.htm	IfWin
+Len	/docs/lib/RegExMatch.htm	MatchObject
+Mark	/docs/lib/RegExMatch.htm	MatchObject
+MaxIndex	/docs/lib/ComObjArray.htm	Methods	ComObjArray
+MinIndex	/docs/lib/ComObjArray.htm	Methods	ComObjArray
+ObjFromPtr	/docs/Objects.htm	ObjFromPtr
+ObjFromPtrAddRef	/docs/Objects.htm	ObjFromPtr
+ObjGetBase	/docs/lib/any.htm	GetBase
+ObjGetCapacity	/docs/lib/Object.htm	GetCapacity
+ObjHasOwnProp	/docs/lib/Object.htm	HasOwnProp
+ObjOwnPropCount	/docs/lib/Object.htm	OwnPropCount
+ObjOwnProps	/docs/lib/Object.htm	OwnProps
+ObjPtrAddRef	/docs/lib/ObjAddRef.htm	<null>
+ObjRelease	/docs/lib/ObjAddRef.htm	<null>
+ObjSetBase	/docs/lib/Object.htm	SetBase
+ObjSetCapacity	/docs/lib/Object.htm	SetCapacity
+ObjPtr	/docs/Objects.htm	ObjPtr
+SendPlay	/docs/lib/Send.htm	SendPlay
+Min	/docs/lib/Math.htm	Min
+ProcessGetPath	/docs/lib/ProcessGetName.htm	<null>
+ReadChar	/docs/lib/File.htm	ReadNum	File
+ReadDouble	/docs/lib/File.htm	ReadNum	File
+ReadFloat	/docs/lib/File.htm	ReadNum	File
+ReadInt	/docs/lib/File.htm	ReadNum	File
+ReadInt64	/docs/lib/File.htm	ReadNum	File
+ReadShort	/docs/lib/File.htm	ReadNum	File
+ReadUChar	/docs/lib/File.htm	ReadNum	File
+ReadUInt	/docs/lib/File.htm	ReadNum	File
+ReadUShort	/docs/lib/File.htm	ReadNum	File
+RegExMatchInfo	/docs/lib/RegExMatch.htm	MatchObject
+RTrim	/docs/lib/Trim.htm	<null>
+RunWait	/docs/lib/Run.htm	<null>
+SetCapslockState	/docs/lib/SetNumScrollCapsLockState.htm	<null>
+SetNumLockState	/docs/lib/SetNumScrollCapsLockState.htm	<null>
+SetParts	/docs/lib/GuiControls.htm	StatusBar_Methods	Gui.StatusBar
+SetText	/docs/lib/GuiControls.htm	StatusBar_Methods	Gui.StatusBar
+SetScrollLockState	/docs/lib/SetNumScrollCapsLockState.htm	<null>
+StrTitle	/docs/lib/StrLower.htm	<null>
+StrUpper	/docs/lib/StrLower.htm	<null>
+WinGetExStyle	/docs/lib/WinGetStyle.htm	<null>
+WinMinimizeAllUndo	/docs/lib/WinMinimizeAll.htm	<null>
+WinSetExStyle	/docs/lib/WinSetStyle.htm	<null>
+WinWaitNotActive	/docs/lib/WinWaitActive.htm	<null>
+WriteChar	/docs/lib/File.htm	WriteNum	File
+WriteDouble	/docs/lib/File.htm	WriteNum	File
+WriteFloat	/docs/lib/File.htm	WriteNum	File
+WriteInt	/docs/lib/File.htm	WriteNum	File
+WriteInt64	/docs/lib/File.htm	WriteNum	File
+WriteShort	/docs/lib/File.htm	WriteNum	File
+WriteUChar	/docs/lib/File.htm	WriteNum	File
+WriteUInt	/docs/lib/File.htm	WriteNum	File
+WriteUShort	/docs/lib/File.htm	WriteNum	File
+#ClipboardTimeout	/docs/lib/_ClipboardTimeout.htm	<null>
+#DllLoad	/docs/lib/_DllLoad.htm	<null>
+#ErrorStdout	/docs/lib/_ErrorStdout.htm	<null>
+#HotIf	/docs/lib/_HotIf.htm	<null>
+#HotIfTimeout	/docs/lib/_HotIfTimeout.htm	<null>
+#Hotstring	/docs/lib/_Hotstring.htm	<null>
+#Include	/docs/lib/_Include.htm	<null>
+#InputLevel	/docs/lib/_InputLevel.htm	<null>
+#MaxThreads	/docs/lib/_MaxThreads.htm	<null>
+#MaxThreadsBuffer	/docs/lib/_MaxThreadsBuffer.htm	<null>
+#MaxThreadsPerHotkey	/docs/lib/_MaxThreadsPerHotkey.htm	<null>
+#NoTrayIcon	/docs/lib/_NoTrayIcon.htm	<null>
+#Requires	/docs/lib/_Requires.htm	<null>
+#SingleInstance	/docs/lib/_SingleInstance.htm	<null>
+#SuspendExempt	/docs/lib/_SuspendExempt.htm	<null>
+#UseHook	/docs/lib/_UseHook.htm	<null>
+#Warn	/docs/lib/_Warn.htm	<null>
+#WinActivateForce	/docs/lib/_WinActivateForce.htm	<null>
+A_Clipboard	/docs/lib/A_Clipboard.htm	<null>
+A_HotkeyModifierTimeout	/docs/lib/A_HotkeyModifierTimeout.htm	<null>
+A_MaxHotkeysPerInterval	/docs/lib/A_MaxHotkeysPerInterval.htm	<null>
+A_MenuMaskKey	/docs/lib/A_MenuMaskKey.htm	<null>
+Any	/docs/lib/Any.htm	<null>
+Array	/docs/lib/Array.htm	<null>
+BlockInput	/docs/lib/BlockInput.htm	<null>
+break	/docs/lib/break.htm	<null>
+Buffer	/docs/lib/Buffer.htm	<null>
+CallbackCreate	/docs/lib/CallbackCreate.htm	<null>
+CaretGetPos	/docs/lib/CaretGetPos.htm	<null>
+catch	/docs/lib/catch.htm	<null>
+Chr	/docs/lib/Chr.htm	<null>
+class	/docs/lib/class.htm	<null>
+Click	/docs/lib/Click.htm	<null>
+ClipboardAll	/docs/lib/ClipboardAll.htm	<null>
+ClipWait	/docs/lib/ClipWait.htm	<null>
+ComCall	/docs/lib/ComCall.htm	<null>
+ComObjActive	/docs/lib/ComObjActive.htm	<null>
+ComObjArray	/docs/lib/ComObjArray.htm	<null>
+ComObjConnect	/docs/lib/ComObjConnect.htm	<null>
+ComObject	/docs/lib/ComObject.htm	<null>
+ComObjFlags	/docs/lib/ComObjFlags.htm	<null>
+ComObjFromPtr	/docs/lib/ComObjFromPtr.htm	<null>
+ComObjGet	/docs/lib/ComObjGet.htm	<null>
+ComObjQuery	/docs/lib/ComObjQuery.htm	<null>
+ComObjType	/docs/lib/ComObjType.htm	<null>
+ComObjValue	/docs/lib/ComObjValue.htm	<null>
+ComValue	/docs/lib/ComValue.htm	<null>
+continue	/docs/lib/continue.htm	<null>
+ControlAddItem	/docs/lib/ControlAddItem.htm	<null>
+ControlChooseIndex	/docs/lib/ControlChooseIndex.htm	<null>
+ControlChooseString	/docs/lib/ControlChooseString.htm	<null>
+ControlClick	/docs/lib/ControlClick.htm	<null>
+ControlDeleteItem	/docs/lib/ControlDeleteItem.htm	<null>
+ControlFindItem	/docs/lib/ControlFindItem.htm	<null>
+ControlFocus	/docs/lib/ControlFocus.htm	<null>
+ControlGetChecked	/docs/lib/ControlGetChecked.htm	<null>
+ControlGetChoice	/docs/lib/ControlGetChoice.htm	<null>
+ControlGetClassNN	/docs/lib/ControlGetClassNN.htm	<null>
+ControlGetEnabled	/docs/lib/ControlGetEnabled.htm	<null>
+ControlGetFocus	/docs/lib/ControlGetFocus.htm	<null>
+ControlGetHwnd	/docs/lib/ControlGetHwnd.htm	<null>
+ControlGetIndex	/docs/lib/ControlGetIndex.htm	<null>
+ControlGetItems	/docs/lib/ControlGetItems.htm	<null>
+ControlGetPos	/docs/lib/ControlGetPos.htm	<null>
+ControlGetStyle	/docs/lib/ControlGetStyle.htm	<null>
+ControlGetText	/docs/lib/ControlGetText.htm	<null>
+ControlGetVisible	/docs/lib/ControlGetVisible.htm	<null>
+ControlHide	/docs/lib/ControlHide.htm	<null>
+ControlHideDropDown	/docs/lib/ControlHideDropDown.htm	<null>
+ControlMove	/docs/lib/ControlMove.htm	<null>
+ControlSend	/docs/lib/ControlSend.htm	<null>
+ControlSetChecked	/docs/lib/ControlSetChecked.htm	<null>
+ControlSetEnabled	/docs/lib/ControlSetEnabled.htm	<null>
+ControlSetStyle	/docs/lib/ControlSetStyle.htm	<null>
+ControlSetText	/docs/lib/ControlSetText.htm	<null>
+ControlShow	/docs/lib/ControlShow.htm	<null>
+ControlShowDropDown	/docs/lib/ControlShowDropDown.htm	<null>
+CoordMode	/docs/lib/CoordMode.htm	<null>
+Critical	/docs/lib/Critical.htm	<null>
+DateAdd	/docs/lib/DateAdd.htm	<null>
+DateDiff	/docs/lib/DateDiff.htm	<null>
+DetectHiddenText	/docs/lib/DetectHiddenText.htm	<null>
+DetectHiddenWindows	/docs/lib/DetectHiddenWindows.htm	<null>
+DirCopy	/docs/lib/DirCopy.htm	<null>
+DirCreate	/docs/lib/DirCreate.htm	<null>
+DirDelete	/docs/lib/DirDelete.htm	<null>
+DirExist	/docs/lib/DirExist.htm	<null>
+DirMove	/docs/lib/DirMove.htm	<null>
+DirSelect	/docs/lib/DirSelect.htm	<null>
+DllCall	/docs/lib/DllCall.htm	<null>
+Download	/docs/lib/Download.htm	<null>
+DriveEject	/docs/lib/DriveEject.htm	<null>
+DriveGetCapacity	/docs/lib/DriveGetCapacity.htm	<null>
+DriveGetFilesystem	/docs/lib/DriveGetFilesystem.htm	<null>
+DriveGetLabel	/docs/lib/DriveGetLabel.htm	<null>
+DriveGetList	/docs/lib/DriveGetList.htm	<null>
+DriveGetSerial	/docs/lib/DriveGetSerial.htm	<null>
+DriveGetSpaceFree	/docs/lib/DriveGetSpaceFree.htm	<null>
+DriveGetStatus	/docs/lib/DriveGetStatus.htm	<null>
+DriveGetStatusCD	/docs/lib/DriveGetStatusCD.htm	<null>
+DriveGetType	/docs/lib/DriveGetType.htm	<null>
+DriveLock	/docs/lib/DriveLock.htm	<null>
+DriveSetLabel	/docs/lib/DriveSetLabel.htm	<null>
+DriveUnlock	/docs/lib/DriveUnlock.htm	<null>
+Edit	/docs/lib/Edit.htm	<null>
+EditGetCurrentCol	/docs/lib/EditGetCurrentCol.htm	<null>
+EditGetCurrentLine	/docs/lib/EditGetCurrentLine.htm	<null>
+EditGetLine	/docs/lib/EditGetLine.htm	<null>
+EditGetLineCount	/docs/lib/EditGetLineCount.htm	<null>
+EditGetSelectedText	/docs/lib/EditGetSelectedText.htm	<null>
+EditPaste	/docs/lib/EditPaste.htm	<null>
+else	/docs/lib/else.htm	<null>
+Enumerator	/docs/lib/Enumerator.htm	<null>
+EnvGet	/docs/lib/EnvGet.htm	<null>
+EnvSet	/docs/lib/EnvSet.htm	<null>
+Error	/docs/lib/Error.htm	<null>
+Exit	/docs/lib/Exit.htm	<null>
+ExitApp	/docs/lib/ExitApp.htm	<null>
+File	/docs/lib/File.htm	<null>
+FileAppend	/docs/lib/FileAppend.htm	<null>
+FileCopy	/docs/lib/FileCopy.htm	<null>
+FileCreateShortcut	/docs/lib/FileCreateShortcut.htm	<null>
+FileDelete	/docs/lib/FileDelete.htm	<null>
+FileEncoding	/docs/lib/FileEncoding.htm	<null>
+FileExist	/docs/lib/FileExist.htm	<null>
+FileGetAttrib	/docs/lib/FileGetAttrib.htm	<null>
+FileGetShortcut	/docs/lib/FileGetShortcut.htm	<null>
+FileGetSize	/docs/lib/FileGetSize.htm	<null>
+FileGetTime	/docs/lib/FileGetTime.htm	<null>
+FileGetVersion	/docs/lib/FileGetVersion.htm	<null>
+FileInstall	/docs/lib/FileInstall.htm	<null>
+FileMove	/docs/lib/FileMove.htm	<null>
+FileOpen	/docs/lib/FileOpen.htm	<null>
+FileRead	/docs/lib/FileRead.htm	<null>
+FileRecycle	/docs/lib/FileRecycle.htm	<null>
+FileRecycleEmpty	/docs/lib/FileRecycleEmpty.htm	<null>
+FileSelect	/docs/lib/FileSelect.htm	<null>
+FileSetAttrib	/docs/lib/FileSetAttrib.htm	<null>
+FileSetTime	/docs/lib/FileSetTime.htm	<null>
+finally	/docs/lib/finally.htm	<null>
+Float	/docs/lib/Float.htm	<null>
+for	/docs/lib/for.htm	<null>
+Format	/docs/lib/Format.htm	<null>
+FormatTime	/docs/lib/FormatTime.htm	<null>
+Func	/docs/lib/Func.htm	<null>
+GetKeyName	/docs/lib/GetKeyName.htm	<null>
+GetKeySC	/docs/lib/GetKeySC.htm	<null>
+GetKeyState	/docs/lib/GetKeyState.htm	<null>
+GetKeyVK	/docs/lib/GetKeyVK.htm	<null>
+GetMethod	/docs/lib/GetMethod.htm	<null>
+goto	/docs/lib/goto.htm	<null>
+GroupActivate	/docs/lib/GroupActivate.htm	<null>
+GroupAdd	/docs/lib/GroupAdd.htm	<null>
+GroupClose	/docs/lib/GroupClose.htm	<null>
+GroupDeactivate	/docs/lib/GroupDeactivate.htm	<null>
+Gui	/docs/lib/Gui.htm	<null>
+GuiCtrlFromHwnd	/docs/lib/GuiCtrlFromHwnd.htm	<null>
+GuiFromHwnd	/docs/lib/GuiFromHwnd.htm	<null>
+HasBase	/docs/lib/HasBase.htm	<null>
+HasMethod	/docs/lib/HasMethod.htm	<null>
+HasProp	/docs/lib/HasProp.htm	<null>
+HotIf	/docs/lib/HotIf.htm	<null>
+Hotkey	/docs/lib/Hotkey.htm	<null>
+Hotstring	/docs/lib/Hotstring.htm	<null>
+if	/docs/lib/if.htm	<null>
+ImageSearch	/docs/lib/ImageSearch.htm	<null>
+IniDelete	/docs/lib/IniDelete.htm	<null>
+IniRead	/docs/lib/IniRead.htm	<null>
+IniWrite	/docs/lib/IniWrite.htm	<null>
+InputBox	/docs/lib/InputBox.htm	<null>
+InputHook	/docs/lib/InputHook.htm	<null>
+InstallKeybdHook	/docs/lib/InstallKeybdHook.htm	<null>
+InstallMouseHook	/docs/lib/InstallMouseHook.htm	<null>
+InStr	/docs/lib/InStr.htm	<null>
+Integer	/docs/lib/Integer.htm	<null>
+is	/docs/lib/is.htm	<null>
+IsLabel	/docs/lib/IsLabel.htm	<null>
+IsObject	/docs/lib/IsObject.htm	<null>
+IsSet	/docs/lib/IsSet.htm	<null>
+KeyHistory	/docs/lib/KeyHistory.htm	<null>
+KeyWait	/docs/lib/KeyWait.htm	<null>
+ListHotkeys	/docs/lib/ListHotkeys.htm	<null>
+ListLines	/docs/lib/ListLines.htm	<null>
+ListVars	/docs/lib/ListVars.htm	<null>
+ListViewGetContent	/docs/lib/ListViewGetContent.htm	<null>
+LoadPicture	/docs/lib/LoadPicture.htm	<null>
+loop	/docs/lib/loop.htm	<null>
+Map	/docs/lib/Map.htm	<null>
+Menu	/docs/lib/Menu.htm	<null>
+MenuFromHandle	/docs/lib/MenuFromHandle.htm	<null>
+MenuSelect	/docs/lib/MenuSelect.htm	<null>
+MonitorGet	/docs/lib/MonitorGet.htm	<null>
+MonitorGetCount	/docs/lib/MonitorGetCount.htm	<null>
+MonitorGetName	/docs/lib/MonitorGetName.htm	<null>
+MonitorGetPrimary	/docs/lib/MonitorGetPrimary.htm	<null>
+MonitorGetWorkArea	/docs/lib/MonitorGetWorkArea.htm	<null>
+MouseClick	/docs/lib/MouseClick.htm	<null>
+MouseClickDrag	/docs/lib/MouseClickDrag.htm	<null>
+MouseGetPos	/docs/lib/MouseGetPos.htm	<null>
+MouseMove	/docs/lib/MouseMove.htm	<null>
+MsgBox	/docs/lib/MsgBox.htm	<null>
+Number	/docs/lib/Number.htm	<null>
+NumGet	/docs/lib/NumGet.htm	<null>
+NumPut	/docs/lib/NumPut.htm	<null>
+ObjAddRef	/docs/lib/ObjAddRef.htm	<null>
+ObjBindMethod	/docs/lib/ObjBindMethod.htm	<null>
+Object	/docs/lib/Object.htm	<null>
+OnClipboardChange	/docs/lib/OnClipboardChange.htm	<null>
+OnError	/docs/lib/OnError.htm	<null>
+OnExit	/docs/lib/OnExit.htm	<null>
+OnMessage	/docs/lib/OnMessage.htm	<null>
+Ord	/docs/lib/Ord.htm	<null>
+OutputDebug	/docs/lib/OutputDebug.htm	<null>
+Pause	/docs/lib/Pause.htm	<null>
+Persistent	/docs/lib/Persistent.htm	<null>
+PixelGetColor	/docs/lib/PixelGetColor.htm	<null>
+PixelSearch	/docs/lib/PixelSearch.htm	<null>
+PostMessage	/docs/lib/PostMessage.htm	<null>
+ProcessClose	/docs/lib/ProcessClose.htm	<null>
+ProcessExist	/docs/lib/ProcessExist.htm	<null>
+ProcessGetName	/docs/lib/ProcessGetName.htm	<null>
+ProcessGetParent	/docs/lib/ProcessGetParent.htm	<null>
+ProcessSetPriority	/docs/lib/ProcessSetPriority.htm	<null>
+ProcessWait	/docs/lib/ProcessWait.htm	<null>
+ProcessWaitClose	/docs/lib/ProcessWaitClose.htm	<null>
+Random	/docs/lib/Random.htm	<null>
+RegCreateKey	/docs/lib/RegCreateKey.htm	<null>
+RegDelete	/docs/lib/RegDelete.htm	<null>
+RegDeleteKey	/docs/lib/RegDeleteKey.htm	<null>
+RegExMatch	/docs/lib/RegExMatch.htm	<null>
+RegExReplace	/docs/lib/RegExReplace.htm	<null>
+RegRead	/docs/lib/RegRead.htm	<null>
+RegWrite	/docs/lib/RegWrite.htm	<null>
+Reload	/docs/lib/Reload.htm	<null>
+return	/docs/lib/return.htm	<null>
+Run	/docs/lib/Run.htm	<null>
+RunAs	/docs/lib/RunAs.htm	<null>
+Send	/docs/lib/Send.htm	<null>
+SendLevel	/docs/lib/SendLevel.htm	<null>
+SendMessage	/docs/lib/SendMessage.htm	<null>
+SendMode	/docs/lib/SendMode.htm	<null>
+SetControlDelay	/docs/lib/SetControlDelay.htm	<null>
+SetDefaultMouseSpeed	/docs/lib/SetDefaultMouseSpeed.htm	<null>
+SetKeyDelay	/docs/lib/SetKeyDelay.htm	<null>
+SetMouseDelay	/docs/lib/SetMouseDelay.htm	<null>
+SetRegView	/docs/lib/SetRegView.htm	<null>
+SetStoreCapsLockMode	/docs/lib/SetStoreCapsLockMode.htm	<null>
+SetTimer	/docs/lib/SetTimer.htm	<null>
+SetTitleMatchMode	/docs/lib/SetTitleMatchMode.htm	<null>
+SetWinDelay	/docs/lib/SetWinDelay.htm	<null>
+SetWorkingDir	/docs/lib/SetWorkingDir.htm	<null>
+Shutdown	/docs/lib/Shutdown.htm	<null>
+Sleep	/docs/lib/Sleep.htm	<null>
+Sort	/docs/lib/Sort.htm	<null>
+SoundBeep	/docs/lib/SoundBeep.htm	<null>
+SoundGetInterface	/docs/lib/SoundGetInterface.htm	<null>
+SoundGetMute	/docs/lib/SoundGetMute.htm	<null>
+SoundGetName	/docs/lib/SoundGetName.htm	<null>
+SoundGetVolume	/docs/lib/SoundGetVolume.htm	<null>
+SoundPlay	/docs/lib/SoundPlay.htm	<null>
+SoundSetMute	/docs/lib/SoundSetMute.htm	<null>
+SoundSetVolume	/docs/lib/SoundSetVolume.htm	<null>
+SplitPath	/docs/lib/SplitPath.htm	<null>
+StatusBarGetText	/docs/lib/StatusBarGetText.htm	<null>
+StatusBarWait	/docs/lib/StatusBarWait.htm	<null>
+StrCompare	/docs/lib/StrCompare.htm	<null>
+StrGet	/docs/lib/StrGet.htm	<null>
+String	/docs/lib/String.htm	<null>
+StrLen	/docs/lib/StrLen.htm	<null>
+StrLower	/docs/lib/StrLower.htm	<null>
+StrPtr	/docs/lib/StrPtr.htm	<null>
+StrPut	/docs/lib/StrPut.htm	<null>
+StrReplace	/docs/lib/StrReplace.htm	<null>
+StrSplit	/docs/lib/StrSplit.htm	<null>
+SubStr	/docs/lib/SubStr.htm	<null>
+Suspend	/docs/lib/Suspend.htm	<null>
+switch	/docs/lib/switch.htm	<null>
+SysGet	/docs/lib/SysGet.htm	<null>
+SysGetIPAddresses	/docs/lib/SysGetIPAddresses.htm	<null>
+Thread	/docs/lib/Thread.htm	<null>
+throw	/docs/lib/throw.htm	<null>
+ToolTip	/docs/lib/ToolTip.htm	<null>
+TraySetIcon	/docs/lib/TraySetIcon.htm	<null>
+TrayTip	/docs/lib/TrayTip.htm	<null>
+Trim	/docs/lib/Trim.htm	<null>
+try	/docs/lib/try.htm	<null>
+Type	/docs/lib/Type.htm	<null>
+until	/docs/lib/until.htm	<null>
+VarSetStrCapacity	/docs/lib/VarSetStrCapacity.htm	<null>
+VerCompare	/docs/lib/VerCompare.htm	<null>
+while	/docs/lib/while.htm	<null>
+WinActivate	/docs/lib/WinActivate.htm	<null>
+WinActivateBottom	/docs/lib/WinActivateBottom.htm	<null>
+WinActive	/docs/lib/WinActive.htm	<null>
+WinClose	/docs/lib/WinClose.htm	<null>
+WinExist	/docs/lib/WinExist.htm	<null>
+WinGetClass	/docs/lib/WinGetClass.htm	<null>
+WinGetClientPos	/docs/lib/WinGetClientPos.htm	<null>
+WinGetControls	/docs/lib/WinGetControls.htm	<null>
+WinGetControlsHwnd	/docs/lib/WinGetControlsHwnd.htm	<null>
+WinGetCount	/docs/lib/WinGetCount.htm	<null>
+WinGetId	/docs/lib/WinGetId.htm	<null>
+WinGetIdLast	/docs/lib/WinGetIdLast.htm	<null>
+WinGetList	/docs/lib/WinGetList.htm	<null>
+WinGetMinMax	/docs/lib/WinGetMinMax.htm	<null>
+WinGetPid	/docs/lib/WinGetPid.htm	<null>
+WinGetPos	/docs/lib/WinGetPos.htm	<null>
+WinGetProcessName	/docs/lib/WinGetProcessName.htm	<null>
+WinGetProcessPath	/docs/lib/WinGetProcessPath.htm	<null>
+WinGetStyle	/docs/lib/WinGetStyle.htm	<null>
+WinGetText	/docs/lib/WinGetText.htm	<null>
+WinGetTitle	/docs/lib/WinGetTitle.htm	<null>
+WinGetTransColor	/docs/lib/WinGetTransColor.htm	<null>
+WinGetTransparent	/docs/lib/WinGetTransparent.htm	<null>
+WinHide	/docs/lib/WinHide.htm	<null>
+WinKill	/docs/lib/WinKill.htm	<null>
+WinMaximize	/docs/lib/WinMaximize.htm	<null>
+WinMinimize	/docs/lib/WinMinimize.htm	<null>
+WinMinimizeAll	/docs/lib/WinMinimizeAll.htm	<null>
+WinMove	/docs/lib/WinMove.htm	<null>
+WinMoveBottom	/docs/lib/WinMoveBottom.htm	<null>
+WinMoveTop	/docs/lib/WinMoveTop.htm	<null>
+WinRedraw	/docs/lib/WinRedraw.htm	<null>
+WinRestore	/docs/lib/WinRestore.htm	<null>
+WinSetAlwaysOnTop	/docs/lib/WinSetAlwaysOnTop.htm	<null>
+WinSetEnabled	/docs/lib/WinSetEnabled.htm	<null>
+WinSetRegion	/docs/lib/WinSetRegion.htm	<null>
+WinSetStyle	/docs/lib/WinSetStyle.htm	<null>
+WinSetTitle	/docs/lib/WinSetTitle.htm	<null>
+WinSetTransColor	/docs/lib/WinSetTransColor.htm	<null>
+WinSetTransparent	/docs/lib/WinSetTransparent.htm	<null>
+WinShow	/docs/lib/WinShow.htm	<null>
+WinWait	/docs/lib/WinWait.htm	<null>
+WinWaitActive	/docs/lib/WinWaitActive.htm	<null>
+WinWaitClose	/docs/lib/WinWaitClose.htm	<null>
+A_AhkPath	/docs/Variables.htm	prop
+A_AhkVersion	/docs/Variables.htm	prop
+A_AllowMainWindow	/docs/Variables.htm	settings
+A_AppData	/docs/Variables.htm	os
+A_AppDataCommon	/docs/Variables.htm	os
+A_Args	/docs/Variables.htm	prop
+A_ComputerName	/docs/Variables.htm	os
+A_ComSpec	/docs/Variables.htm	os
+A_ControlDelay	/docs/Variables.htm	settings
+A_Cursor	/docs/Variables.htm	misc
+A_DD	/docs/Variables.htm	date
+A_DDD	/docs/Variables.htm	date
+A_DDDD	/docs/Variables.htm	date
+A_DefaultMouseSpeed	/docs/Variables.htm	settings
+A_Desktop	/docs/Variables.htm	os
+A_DesktopCommon	/docs/Variables.htm	os
+A_DetectHiddenText	/docs/Variables.htm	settings
+A_DetectHiddenWindows	/docs/Variables.htm	settings
+A_EndChar	/docs/Variables.htm	h
+A_EventInfo	/docs/Variables.htm	misc
+A_FileEncoding	/docs/Variables.htm	settings
+A_HotkeyInterval	/docs/Variables.htm	h
+A_Hour	/docs/Variables.htm	date
+A_IconFile	/docs/Variables.htm	settings
+A_IconHidden	/docs/Variables.htm	settings
+A_IconNumber	/docs/Variables.htm	settings
+A_IconTip	/docs/Variables.htm	settings
+A_Index	/docs/Variables.htm	loop
+A_InitialWorkingDir	/docs/Variables.htm	prop
+A_Is64bitOS	/docs/Variables.htm	os
+A_IsAdmin	/docs/Variables.htm	os
+A_IsCompiled	/docs/Variables.htm	prop
+A_IsCritical	/docs/Variables.htm	settings
+A_IsPaused	/docs/Variables.htm	settings
+A_IsSuspended	/docs/Variables.htm	settings
+A_KeyDelay	/docs/Variables.htm	settings
+A_KeyDelayPlay	/docs/Variables.htm	settings
+A_Language	/docs/Variables.htm	os
+A_LastError	/docs/Variables.htm	misc
+A_LineFile	/docs/Variables.htm	prop
+A_LineNumber	/docs/Variables.htm	prop
+A_ListLines	/docs/Variables.htm	settings
+A_Min	/docs/Variables.htm	date
+A_MM	/docs/Variables.htm	date
+A_MMM	/docs/Variables.htm	date
+A_MMMM	/docs/Variables.htm	date
+A_MouseDelay	/docs/Variables.htm	settings
+A_MSec	/docs/Variables.htm	date
+A_MyDocuments	/docs/Variables.htm	os
+A_Now	/docs/Variables.htm	date
+A_NowUTC	/docs/Variables.htm	date
+A_PriorHotkey	/docs/Variables.htm	h
+A_PriorKey	/docs/Variables.htm	h
+A_ProgramFiles	/docs/Variables.htm	os
+A_Programs	/docs/Variables.htm	os
+A_ProgramsCommon	/docs/Variables.htm	os
+A_PtrSize	/docs/Variables.htm	os
+A_RegView	/docs/Variables.htm	settings
+A_ScreenDPI	/docs/Variables.htm	os
+A_ScriptDir	/docs/Variables.htm	prop
+A_ScriptFullPath	/docs/Variables.htm	prop
+A_ScriptHwnd	/docs/Variables.htm	prop
+A_ScriptName	/docs/Variables.htm	prop
+A_Sec	/docs/Variables.htm	date
+A_SendLevel	/docs/Variables.htm	settings
+A_SendMode	/docs/Variables.htm	settings
+A_Space	/docs/Variables.htm	Special_Characters
+A_StartMenu	/docs/Variables.htm	os
+A_StartMenuCommon	/docs/Variables.htm	os
+A_Startup	/docs/Variables.htm	os
+A_StartupCommon	/docs/Variables.htm	os
+A_StoreCapsLockMode	/docs/Variables.htm	settings
+A_Tab	/docs/Variables.htm	Special_Characters
+A_Temp	/docs/Variables.htm	os
+A_ThisFunc	/docs/Variables.htm	prop
+A_ThisHotkey	/docs/Variables.htm	h
+A_TickCount	/docs/Variables.htm	date
+A_TimeIdle	/docs/Variables.htm	User_Idle_Time
+A_TimeIdleKeyboard	/docs/Variables.htm	User_Idle_Time
+A_TimeIdleMouse	/docs/Variables.htm	User_Idle_Time
+A_TimeIdlePhysical	/docs/Variables.htm	User_Idle_Time
+A_TimeSincePriorHotkey	/docs/Variables.htm	h
+A_TimeSinceThisHotkey	/docs/Variables.htm	h
+A_TitleMatchMode	/docs/Variables.htm	settings
+A_TitleMatchModeSpeed	/docs/Variables.htm	settings
+A_TrayMenu	/docs/Variables.htm	settings
+A_UserName	/docs/Variables.htm	os
+A_WDay	/docs/Variables.htm	date
+A_WinDelay	/docs/Variables.htm	settings
+A_WinDir	/docs/Variables.htm	os
+A_WorkingDir	/docs/Variables.htm	prop
+A_YDay	/docs/Variables.htm	date
+A_YWeek	/docs/Variables.htm	date
+A_YYYY	/docs/Variables.htm	date
+Abs	/docs/lib/Math.htm	Abs
+ACos	/docs/lib/Math.htm	ACos
+Add	/docs/lib/Gui.htm	Add	Gui
+Add	/docs/lib/GuiControl.htm	Add	Gui.Control
+Add	/docs/lib/ListView.htm	Add	Gui.ListView
+Add	/docs/lib/TreeView.htm	Add	Gui.TreeView
+Add	/docs/lib/Menu.htm	Add	Menu
+AddStandard	/docs/lib/Menu.htm	AddStandard	Menu
+ASin	/docs/lib/Math.htm	ASin
+ATan	/docs/lib/Math.htm	ATan
+AtEOF	/docs/lib/File.htm	AtEOF	File
+BackColor	/docs/lib/Gui.htm	BackColor	Gui
+BackspaceIsUndo	/docs/lib/InputHook.htm	BackspaceIsUndo	InputHook
+Base	/docs/lib/Any.htm	Base	Any
+Base	/docs/lib/Object.htm	Base	Object
+Bind	/docs/lib/Func.htm	Bind	Func
+BoundFunc	/docs/misc/Functor.htm	BoundFunc
+Call	/docs/lib/Object.htm	Call	Object
+Call	/docs/lib/Array.htm	Call	Array
+Call	/docs/lib/Buffer.htm	Call	Buffer
+Call	/docs/lib/Class.htm	Call	Class
+Call	/docs/lib/Error.htm	Call	Error
+Call	/docs/lib/Func.htm	Call	Func
+Call	/docs/lib/Enumerator.htm	Call	Enumerator
+Call	/docs/lib/Gui.htm	Call	Gui
+Call	/docs/lib/Map.htm	Call	Map
+Call	/docs/lib/Menu.htm	Call	Menu
+CallbackFree	/docs/lib/CallbackCreate.htm	CallbackFree
+Capacity	/docs/lib/Array.htm	Capacity	Array
+Capacity	/docs/lib/Map.htm	Capacity	Map
+CaseSense	/docs/lib/Map.htm	CaseSense	Map
+CaseSensitive	/docs/lib/InputHook.htm	CaseSensitive	InputHook
+Ceil	/docs/lib/Math.htm	Ceil
+Check	/docs/lib/Menu.htm	Check	Menu
+Choose	/docs/lib/GuiControl.htm	Choose	Gui.Control
+ClassNN	/docs/lib/GuiControl.htm	ClassNN	Gui.Control
+Clear	/docs/lib/Map.htm	Clear	Map
+ClickCount	/docs/lib/Menu.htm	ClickCount	Menu
+Clone	/docs/lib/Object.htm	Clone	Object
+Clone	/docs/lib/Array.htm	Clone	Array
+Clone	/docs/lib/Map.htm	Clone	Map
+Close	/docs/lib/File.htm	Close	File
+Cos	/docs/lib/Math.htm	Cos
+Count	/docs/lib/Map.htm	Count	Map
+Default	/docs/lib/Array.htm	Default	Array
+Default	/docs/lib/Map.htm	Default	Map
+Default	/docs/lib/Menu.htm	Default	Menu
+DefineProp	/docs/lib/Object.htm	DefineProp	Object
+Delete	/docs/lib/Array.htm	Delete	Array
+Delete	/docs/lib/GuiControl.htm	Delete	Gui.Control
+Delete	/docs/lib/ListView.htm	Delete	Gui.ListView
+Delete	/docs/lib/TreeView.htm	Delete	Gui.TreeView
+Delete	/docs/lib/Map.htm	Delete	Map
+Delete	/docs/lib/Menu.htm	Delete	Menu
+DeleteCol	/docs/lib/ListView.htm	DeleteCol	Gui.ListView
+DeleteProp	/docs/lib/Object.htm	DeleteProp	Object
+Destroy	/docs/lib/Gui.htm	Destroy	Gui
+Disable	/docs/lib/Menu.htm	Disable	Menu
+Enable	/docs/lib/Menu.htm	Enable	Menu
+Enabled	/docs/lib/GuiControl.htm	Enabled	Gui.Control
+Encoding	/docs/lib/File.htm	Encoding	File
+EndKey	/docs/lib/InputHook.htm	EndKey	InputHook
+EndMods	/docs/lib/InputHook.htm	EndMods	InputHook
+EndReason	/docs/lib/InputHook.htm	EndReason	InputHook
+Exp	/docs/lib/Math.htm	Exp
+Extra	/docs/lib/Error.htm	Extra	Error
+FindAnywhere	/docs/lib/InputHook.htm	FindAnywhere	InputHook
+Flash	/docs/lib/Gui.htm	Flash	Gui
+Floor	/docs/lib/Math.htm	Floor
+Focus	/docs/lib/GuiControl.htm	Focus	Gui.Control
+Focused	/docs/lib/GuiControl.htm	Focused	Gui.Control
+FocusedCtrl	/docs/lib/Gui.htm	FocusedCtrl	Gui
+Get	/docs/lib/Array.htm	Get	Array
+Get	/docs/lib/TreeView.htm	Get	Gui.TreeView
+Get	/docs/lib/Map.htm	Get	Map
+GetChild	/docs/lib/TreeView.htm	GetChild	Gui.TreeView
+GetClientPos	/docs/lib/Gui.htm	GetClientPos	Gui
+GetCount	/docs/lib/ListView.htm	GetCount	Gui.ListView
+GetCount	/docs/lib/TreeView.htm	GetCount	Gui.TreeView
+GetNext	/docs/lib/ListView.htm	GetNext	Gui.ListView
+GetNext	/docs/lib/TreeView.htm	GetNext	Gui.TreeView
+GetOwnPropDesc	/docs/lib/Object.htm	GetOwnPropDesc	Object
+GetParent	/docs/lib/TreeView.htm	GetParent	Gui.TreeView
+GetPos	/docs/lib/Gui.htm	GetPos	Gui
+GetPos	/docs/lib/GuiControl.htm	GetPos	Gui.Control
+GetPrev	/docs/lib/TreeView.htm	GetPrev	Gui.TreeView
+GetSelection	/docs/lib/TreeView.htm	GetSelection	Gui.TreeView
+GetText	/docs/lib/ListView.htm	GetText	Gui.ListView
+GetText	/docs/lib/TreeView.htm	GetText	Gui.TreeView
+Gui.ActiveX	/docs/lib/GuiControls.htm	ActiveX
+Gui.Button	/docs/lib/GuiControls.htm	Button
+Gui.CheckBox	/docs/lib/GuiControls.htm	CheckBox
+Gui.ComboBox	/docs/lib/GuiControls.htm	ComboBox
+Gui.Control	/docs/lib/GuiControl.htm	<null>
+Gui.Custom	/docs/lib/GuiControls.htm	Custom
+Gui.DateTime	/docs/lib/GuiControls.htm	DateTime
+Gui.DDL	/docs/lib/GuiControls.htm	DDL
+Gui.Edit	/docs/lib/Edit.htm	<null>
+Gui.GroupBox	/docs/lib/GuiControls.htm	GroupBox
+Gui.Hotkey	/docs/lib/Hotkey.htm	<null>
+Gui.Link	/docs/lib/GuiControls.htm	Link
+Gui.ListBox	/docs/lib/GuiControls.htm	ListBox
+Gui.ListView	/docs/lib/ListView.htm	<null>
+Gui.MonthCal	/docs/lib/GuiControls.htm	MonthCal
+Gui.Pic	/docs/lib/GuiControls.htm	Pic
+Gui.Progress	/docs/lib/GuiControls.htm	Progress
+Gui.Radio	/docs/lib/GuiControls.htm	Radio
+Gui.Slider	/docs/lib/GuiControls.htm	Slider
+Gui.StatusBar	/docs/lib/GuiControls.htm	StatusBar
+Gui.Tab	/docs/lib/GuiControls.htm	Tab
+Gui.Text	/docs/lib/GuiControls.htm	Text
+Gui.TreeView	/docs/lib/TreeView.htm	<null>
+Gui.UpDown	/docs/lib/GuiControls.htm	UpDown
+Handle	/docs/lib/File.htm	Handle	File
+Handle	/docs/lib/Menu.htm	Handle	Menu
+Has	/docs/lib/Array.htm	Has	Array
+Has	/docs/lib/Map.htm	Has	Map
+HasOwnProp	/docs/lib/Object.htm	HasOwnProp	Object
+Hide	/docs/lib/Gui.htm	Hide	Gui
+Hwnd	/docs/lib/Gui.htm	Hwnd	Gui
+Hwnd	/docs/lib/GuiControl.htm	Hwnd	Gui.Control
+IL_Add	/docs/lib/ListView.htm	IL_Add
+IL_Create	/docs/lib/ListView.htm	IL_Create
+IL_Destroy	/docs/lib/ListView.htm	IL_Destroy
+IndexError	/docs/lib/Error.htm	error-types
+InProgress	/docs/lib/InputHook.htm	InProgress	InputHook
+Input	/docs/lib/InputHook.htm	Input	InputHook
+Insert	/docs/lib/ListView.htm	Insert	Gui.ListView
+Insert	/docs/lib/Menu.htm	Insert	Menu
+InsertAt	/docs/lib/Array.htm	InsertAt	Array
+InsertCol	/docs/lib/ListView.htm	InsertCol	Gui.ListView
+IsAlnum	/docs/lib/Is.htm	cat-string
+IsAlpha	/docs/lib/Is.htm	cat-string
+IsBuiltIn	/docs/lib/Func.htm	IsBuiltIn	Func
+IsByRef	/docs/lib/Func.htm	IsByRef	Func
+IsDigit	/docs/lib/Is.htm	cat-string
+IsFloat	/docs/lib/Is.htm	cat-type
+IsInteger	/docs/lib/Is.htm	cat-type
+IsLower	/docs/lib/Is.htm	cat-string
+IsNumber	/docs/lib/Is.htm	cat-type
+IsOptional	/docs/lib/Func.htm	IsOptional	Func
+IsSetRef	/docs/lib/Is.htm	cat-misc
+IsSpace	/docs/lib/Is.htm	cat-string
+IsTime	/docs/lib/Is.htm	cat-string
+IsUpper	/docs/lib/Is.htm	cat-string
+IsVariadic	/docs/lib/Func.htm	IsVariadic	Func
+IsXDigit	/docs/lib/Is.htm	cat-string
+KeyOpt	/docs/lib/InputHook.htm	KeyOpt	InputHook
+Length	/docs/lib/Array.htm	Length	Array
+Length	/docs/lib/File.htm	Length	File
+Line	/docs/lib/Error.htm	Line	Error
+Ln	/docs/lib/Math.htm	Ln
+Log	/docs/lib/Math.htm	Log
+LTrim	/docs/Scripts.htm	LTrim
+MarginX	/docs/lib/Gui.htm	MarginX	Gui
+MarginY	/docs/lib/Gui.htm	MarginY	Gui
+Match	/docs/lib/InputHook.htm	Match	InputHook
+Max	/docs/lib/Math.htm	Max
+Maximize	/docs/lib/Gui.htm	Maximize	Gui
+MaxParams	/docs/lib/Func.htm	MaxParams	Func
+MemberError	/docs/lib/Error.htm	error-types
+MemoryError	/docs/lib/Error.htm	error-types
+MenuBar	/docs/lib/Gui.htm	MenuBar	Gui
+Message	/docs/lib/Error.htm	Message	Error
+MethodError	/docs/lib/Error.htm	error-types
+Minimize	/docs/lib/Gui.htm	Minimize	Gui
+MinParams	/docs/lib/Func.htm	MinParams	Func
+MinSendLevel	/docs/lib/InputHook.htm	MinSendLevel	InputHook
+Mod	/docs/lib/Math.htm	Mod
+Modify	/docs/lib/ListView.htm	Modify	Gui.ListView
+Modify	/docs/lib/TreeView.htm	Modify	Gui.TreeView
+ModifyCol	/docs/lib/ListView.htm	ModifyCol	Gui.ListView
+Move	/docs/lib/Gui.htm	Move	Gui
+Move	/docs/lib/GuiControl.htm	Move	Gui.Control
+Name	/docs/lib/Func.htm	Name	Func
+Name	/docs/lib/Gui.htm	Name	Gui
+Name	/docs/lib/GuiControl.htm	Name	Gui.Control
+NotifyNonText	/docs/lib/InputHook.htm	NotifyNonText	InputHook
+OnChar	/docs/lib/InputHook.htm	OnChar	InputHook
+OnCommand	/docs/lib/GuiControl.htm	OnCommand	Gui.Control
+OnEnd	/docs/lib/InputHook.htm	OnEnd	InputHook
+OnEvent	/docs/lib/Gui.htm	OnEvent	Gui
+OnEvent	/docs/lib/GuiControl.htm	OnEvent	Gui.Control
+OnKeyDown	/docs/lib/InputHook.htm	OnKeyDown	InputHook
+OnKeyUp	/docs/lib/InputHook.htm	OnKeyUp	InputHook
+OnNotify	/docs/lib/GuiControl.htm	OnNotify	Gui.Control
+Opt	/docs/lib/Gui.htm	Opt	Gui
+Opt	/docs/lib/GuiControl.htm	Opt	Gui.Control
+OSError	/docs/lib/Error.htm	error-types
+OwnProps	/docs/lib/Object.htm	OwnProps	Object
+Pop	/docs/lib/Array.htm	Pop	Array
+Pos	/docs/lib/File.htm	Pos	File
+Pos	/docs/lib/File.htm	Pos	RegExMatchInfo
+PropertyError	/docs/lib/Error.htm	error-types
+Prototype	/docs/lib/Class.htm	Prototype	Class
+Ptr	/docs/lib/Buffer.htm	Ptr	Buffer
+Ptr	/docs/lib/ComValue.htm	Ptr	ComValue
+Push	/docs/lib/Array.htm	Push	Array
+RawRead	/docs/lib/File.htm	RawRead	File
+RawWrite	/docs/lib/File.htm	RawWrite	File
+Read	/docs/lib/File.htm	Read	File
+ReadLine	/docs/lib/File.htm	ReadLine	File
+Redraw	/docs/lib/GuiControl.htm	Redraw	Gui.Control
+RemoveAt	/docs/lib/Array.htm	RemoveAt	Array
+Rename	/docs/lib/Menu.htm	Rename	Menu
+Restore	/docs/lib/Gui.htm	Restore	Gui
+Round	/docs/lib/Math.htm	Round
+Seek	/docs/lib/File.htm	Seek	File
+SendEvent	/docs/lib/Send.htm	SendEvent
+SendInput	/docs/lib/Send.htm	SendInput
+SendText	/docs/lib/Send.htm	SendText
+Set	/docs/lib/Map.htm	Set	Map
+SetColor	/docs/lib/Menu.htm	SetColor	Menu
+SetFont	/docs/lib/Gui.htm	SetFont	Gui
+SetFont	/docs/lib/GuiControl.htm	SetFont	Gui.Control
+SetFormat	/docs/lib/GuiControls.htm	DateTime_SetFormat	Gui.DateTime
+SetIcon	/docs/lib/Menu.htm	SetIcon	Gui.StatusBar
+SetIcon	/docs/lib/Menu.htm	SetIcon	Menu
+SetImageList	/docs/lib/ListView.htm	SetImageList	Gui.ListView
+SetImageList	/docs/lib/TreeView.htm	SetImageList	Gui.TreeView
+Show	/docs/lib/Gui.htm	Show	Gui
+Show	/docs/lib/Menu.htm	Show	Menu
+Sin	/docs/lib/Math.htm	Sin
+Size	/docs/lib/Buffer.htm	Size	Buffer
+Sqrt	/docs/lib/Math.htm	Sqrt
+Stack	/docs/lib/Error.htm	Stack	Error
+Start	/docs/lib/InputHook.htm	Start	InputHook
+Stop	/docs/lib/InputHook.htm	Stop	InputHook
+Submit	/docs/lib/Gui.htm	Submit	Gui
+Tan	/docs/lib/Math.htm	Tan
+TargetError	/docs/lib/Error.htm	error-types
+Text	/docs/lib/GuiControl.htm	Text	Gui.Control
+Timeout	/docs/lib/InputHook.htm	Timeout	InputHook
+TimeoutError	/docs/lib/Error.htm	error-types
+Title	/docs/lib/Gui.htm	Title	Gui
+ToggleCheck	/docs/lib/Menu.htm	ToggleCheck	Menu
+ToggleEnable	/docs/lib/Menu.htm	ToggleEnable	Menu
+TypeError	/docs/lib/Error.htm	error-types
+Uncheck	/docs/lib/Menu.htm	Uncheck	Menu
+UnsetError	/docs/lib/Error.htm	error-types
+UnsetItemError	/docs/lib/Error.htm	error-types
+UseTab	/docs/lib/GuiControls.htm	Tab_UseTab	Gui.Tab
+Value	/docs/lib/GuiControl.htm	Value	Gui.Control
+ValueError	/docs/lib/Error.htm	error-types
+Visible	/docs/lib/GuiControl.htm	Visible	Gui.Control
+VisibleNonText	/docs/lib/InputHook.htm	VisibleNonText	InputHook
+VisibleText	/docs/lib/InputHook.htm	VisibleText	InputHook
+Wait	/docs/lib/InputHook.htm	Wait	InputHook
+What	/docs/lib/Error.htm	What	Error
+Write	/docs/lib/File.htm	Write	File
+WriteLine	/docs/lib/File.htm	WriteLine	File
+ZeroDivisionError	/docs/lib/Error.htm	error-types
+@Ahk2Exe	/docs/misc/Ahk2ExeDirectives.htm	<null>

@@ -1,0 +1,338 @@
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin>
+    <!-- Unique identifier of the plugin. It should be FQN. It cannot be changed between the plugin versions. -->
+    <id>de.kumpewo.intellij-autohotkey</id>
+
+    <!-- Public plugin name should be written in Title Case.
+     Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-name -->
+    <name>AutoHotkey v2 Language Support</name>
+
+    <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
+    <vendor url="https://www.kumpewo.de">Kumpewo</vendor>
+
+    <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
+         Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-description -->
+    <description><![CDATA[
+<p>Complete support for <a href="https://www.autohotkey.com/">AutoHotkey</a> v2 in IntelliJ IDEA, PyCharm, WebStorm and
+the other JetBrains IDEs: a real parser, completion that knows the AutoHotkey help, the original documentation where
+you need it, a debugger, and running, validating and compiling scripts without leaving the editor.</p>
+
+<p><b>Everything you expect from a language plugin</b></p>
+<ul>
+  <li>Syntax and error highlighting from a real parser, with colors by role: flow control, directives, built-in
+      variables, functions, classes, methods and properties, hotkeys, hotstrings, labels.</li>
+  <li>Code formatter with its own code style page; optionally adjusts the case of keywords and built-in names
+      (<code>msgbox</code> becomes <code>MsgBox</code>).</li>
+  <li>Structure view, breadcrumbs, sticky lines, code folding (also <code>;region</code>), brace matching,
+      highlighting of the occurrences of a name, spell checking of comments and strings.</li>
+  <li>Live templates for functions, classes, loops, hotkeys and Gui windows, <i>Surround With</i> and a template
+      for new scripts.</li>
+</ul>
+
+<p><b>Completion that saves you a trip to the help</b></p>
+<p>Besides built-in and own names, members and key names, the plugin completes what usually sends you to the
+documentation: the values and options inside strings.</p>
+<ul>
+  <li><code>MsgBox "Saved", "Title", "|"</code> offers <code>YesNo</code>, <code>Iconi</code>, <code>T&hellip;</code>
+      and the other options of a message box.</li>
+  <li><code>MyGui.Add("|")</code> offers the control types; <code>MyGui.Add("Edit", "w200 |")</code> the options of
+      an Edit control: <code>ReadOnly</code>, <code>Number</code>, <code>Limit&hellip;</code>, <code>WantTab</code>
+      &hellip;</li>
+  <li><code>btn.OnEvent("|")</code> offers the events of a button (<code>Click</code>, <code>DoubleClick</code>
+      &hellip;), <code>CoordMode "|"</code> its modes, <code>Send "{|"</code> and the hotkey before <code>::</code>
+      the key names.</li>
+  <li><code>#Include &lt;</code> lists the files of your library folders.</li>
+</ul>
+<p>Parameter info shows the parameters of built-in functions and methods, of your own functions, and the
+description of the current parameter from your doc comment.</p>
+
+<p><b>The original help, right where you need it</b></p>
+<ul>
+  <li><i>Ctrl+Q</i> or hovering shows the page of the AutoHotkey help for the word under the caret, chosen by its
+      role: <code>Gui.Add</code> and <code>Menu.Add</code> lead to different pages, a nested class like
+      <code>Gui.Button</code> to its own.</li>
+  <li><i>Shift+F1</i> opens the topic in <code>AutoHotkey.chm</code> of your installation.</li>
+  <li>Help for the plugin's pragmas and for the Ahk2Exe compiler directives; the AutoHotkey help and a complete
+      user manual in the <i>Help</i> menu.</li>
+</ul>
+
+<p><b>Tell the plugin what your variables are</b></p>
+<p>AutoHotkey decides the class of a value only at run time. One comment line closes that gap:
+<code>;@declare-type win as Gui</code> lets <code>win.</code> offer exactly the members of <code>Gui</code>, narrows
+the parameter info and the help to that class, and works with your own classes as well. <code>;@declare-auto-type</code>
+declares whole groups by name, <code>;@declare-private</code> marks private members, and a <code>pragmas.ahk</code>
+included by your scripts holds the declarations for a whole project.</p>
+
+<p><b>Document your own code</b></p>
+<p>Doc comments <code>/** ... */</code> before functions, methods and classes, with Markdown and the tags
+<code>@param</code>, <code>@returns</code>, <code>@throws</code>, <code>@example</code>, <code>@see</code> and
+<code>@deprecated</code>, appear in the quick documentation, in the completion list and in the parameter info.
+<code>@param {Gui} win</code> declares the type of a parameter, deprecated definitions are struck out where they are
+used, <code>/**</code> + <i>Enter</i> writes the skeleton, and the formatter can align and wrap the comments with
+settings like those for JavaDoc.</p>
+
+<p><b>Your own library, a year later</b></p>
+<p>This is where the pieces come together. You write a library once and document it. Months later you type
+<code>#Include &lt;</code> and pick it from the list. A declared variable completes the method names of your class,
+<i>Ctrl+Q</i> on a method shows what you wrote about it, and the parameter info reminds you what each argument
+means. Your own libraries stay easy to use, even when you are no longer deep in their details.</p>
+
+<p><b>Find your way</b></p>
+<p>Wherever you want to go, the plugin takes you there: <i>Ctrl+B</i> to functions, classes, methods, properties,
+fields, labels and <code>#Include</code> files (including the AutoHotkey library folders), <i>Find Usages</i>,
+<i>Rename</i> with preview, <i>Go to Symbol</i> and <i>Go to Class</i> across the project, and the structure of the
+file.</p>
+
+<p><b>Run, validate, debug, compile</b></p>
+<ul>
+  <li>Run configurations with clickable load errors; the launcher or the matching v2 interpreter is chosen by
+      <code>#Requires</code>.</li>
+  <li><i>Validate with AutoHotkey</i> checks the script with <code>/validate</code> (manually, on save or after
+      reformatting) and marks the error line in the editor; warnings of <code>#Warn</code> appear in the
+      console.</li>
+  <li>A debugger built on the DBGp engine of AutoHotkey v2: breakpoints (also conditional and logging), stepping,
+      call stack, variables and objects, changing values, inline values in the editor, exception breakpoints and
+      attaching to a running script.</li>
+  <li>Compiling with Ahk2Exe from the <code>;@Ahk2Exe-...</code> directives in the script, and running the
+      compiled console program in the IDE.</li>
+</ul>
+
+<p><b>Good to know</b></p>
+<ul>
+  <li>The plugin understands AutoHotkey v2. Files with <code>#Requires AutoHotkey v1</code> are left unparsed; for
+      files without <code>#Requires</code> it detects v1 code and offers to insert the right line.</li>
+  <li>There is no type inference: navigation and completion work by name, so check the preview of a rename.</li>
+  <li>Editing works without AutoHotkey; running, validating, debugging and compiling need an AutoHotkey v2
+      installation (Windows).</li>
+</ul>
+
+<p>Free and open source (GPL-2.0-or-later).
+<a href="https://github.com/Kumpewo/intellij-autohotkey">Source code, issues and feedback on GitHub</a>.</p>
+        ]]></description>
+
+    <!-- Product and plugin compatibility requirements.
+         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
+    <!-- only platform modules: the plugin runs in every IntelliJ-based IDE (IDEA, PyCharm, WebStorm ...) -->
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.xdebugger</depends>
+    <!-- spell checking of comments, strings and hotstrings (spellchecker module of the platform) -->
+    <depends optional="true" config-file="ahk-spellchecker.xml">com.intellij.modules.spellchecker</depends>
+
+
+    <!-- Extensions defined by the plugin.
+         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
+    <extensions defaultExtensionNs="com.intellij">
+        <fileType
+                name="AutoHotkey"
+                implementationClass="de.kumpewo.autohotkey.AhkFileType"
+                fieldName="INSTANCE"
+                language="AutoHotkey"
+                extensions="ahk"/>
+        <lang.parserDefinition
+                language="AutoHotkey"
+                implementationClass="de.kumpewo.autohotkey.parser.AhkParserDefinition"/>
+        <lang.syntaxHighlighterFactory
+                language="AutoHotkey"
+                implementationClass="de.kumpewo.autohotkey.highlighting.AhkSyntaxHighlighterFactory"/>
+        <lang.braceMatcher
+                language="AutoHotkey"
+                implementationClass="de.kumpewo.autohotkey.highlighting.AhkBraceMatcher"/>
+        <colorSettingsPage
+                implementation="de.kumpewo.autohotkey.highlighting.AhkColorSettingsPage"/>
+        <annotator language="AutoHotkey"
+                   implementationClass="de.kumpewo.autohotkey.annotation.AhkAnnotator"/>
+        <annotator language="AutoHotkey"
+                   implementationClass="de.kumpewo.autohotkey.annotation.AhkBlockBraceAnnotator"/>
+        <!-- doc comments: unknown @param / classes, deprecated definitions struck out -->
+        <annotator language="AutoHotkey"
+                   implementationClass="de.kumpewo.autohotkey.annotation.AhkDocCommentAnnotator"/>
+        <annotator language="AutoHotkey"
+                   implementationClass="de.kumpewo.autohotkey.annotation.AhkElseBodyAnnotator"/>
+        <annotator language="AutoHotkey"
+                   implementationClass="de.kumpewo.autohotkey.annotation.AhkBadCommentAnnotator"/>
+        <annotator language="AutoHotkey"
+                   implementationClass="de.kumpewo.autohotkey.annotation.AhkIgnoredLineAnnotator"/>
+        <annotator language="AutoHotkey"
+                   implementationClass="de.kumpewo.autohotkey.annotation.AhkVersionAnnotator"/>
+        <annotator language="AutoHotkey"
+                   implementationClass="de.kumpewo.autohotkey.annotation.AhkDeclAnnotator"/>
+        <annotator language="AutoHotkey"
+                   implementationClass="de.kumpewo.autohotkey.annotation.AhkTypeDeclarationAnnotator"/>
+        <!-- No "Non-ASCII characters" warning for names (AutoHotkey allows them, e.g. "§" as prefix) -->
+        <lang.inspectionSuppressor language="AutoHotkey"
+                implementationClass="de.kumpewo.autohotkey.annotation.AhkInspectionSuppressor"/>
+        <highlightErrorFilter
+                implementation="de.kumpewo.autohotkey.annotation.AhkIgnoredLineErrorFilter"/>
+        <highlightErrorFilter
+                implementation="de.kumpewo.autohotkey.annotation.AhkSyntaxErrorFilter"/>
+        <annotator language="AutoHotkey"
+                   implementationClass="de.kumpewo.autohotkey.annotation.AhkSyntaxErrorAnnotator"/>
+        <annotator language="AutoHotkey"
+                   implementationClass="de.kumpewo.autohotkey.validate.AhkValidationAnnotator"/>
+        <lang.psiStructureViewFactory
+                language="AutoHotkey"
+                implementationClass="de.kumpewo.autohotkey.structure.AhkStructureViewFactory"/>
+        <completion.contributor
+                language="AutoHotkey"
+                implementationClass="de.kumpewo.autohotkey.completion.AhkCompletionContributor"/>
+        <typedHandler
+                implementation="de.kumpewo.autohotkey.completion.AhkTypedHandler"/>
+        <codeInsight.parameterInfo
+                language="AutoHotkey"
+                implementationClass="de.kumpewo.autohotkey.completion.AhkParameterInfoHandler"/>
+        <lang.quoteHandler
+                language="AutoHotkey"
+                implementationClass="de.kumpewo.autohotkey.completion.AhkQuoteHandler"/>
+        <breadcrumbsInfoProvider
+                implementation="de.kumpewo.autohotkey.structure.AhkBreadcrumbsProvider"/>
+        <!-- code folding: braces, block comments, continuation sections, comment and #Include runs, ;region -->
+        <lang.foldingBuilder
+                language="AutoHotkey"
+                implementationClass="de.kumpewo.autohotkey.structure.AhkFoldingBuilder"/>
+        <!-- highlight the occurrences of the name under the caret (same name, case-insensitive) -->
+        <highlightUsagesHandlerFactory
+                implementation="de.kumpewo.autohotkey.navigation.AhkHighlightUsagesHandlerFactory"/>
+        <!-- Find Usages (Alt+F7): file of the definition and the files that include it directly -->
+        <lang.findUsagesProvider
+                language="AutoHotkey"
+                implementationClass="de.kumpewo.autohotkey.navigation.AhkFindUsagesProvider"/>
+        <referencesSearch
+                implementation="de.kumpewo.autohotkey.navigation.AhkReferencesSearcher"/>
+        <!-- Go to Symbol / Go to Class: project-wide search over all definitions (index of the names) -->
+        <fileBasedIndex
+                implementation="de.kumpewo.autohotkey.navigation.AhkSymbolIndex"/>
+        <gotoSymbolContributor
+                implementation="de.kumpewo.autohotkey.navigation.AhkGotoSymbolContributor"/>
+        <gotoClassContributor
+                implementation="de.kumpewo.autohotkey.navigation.AhkGotoClassContributor"/>
+        <!-- Rename (Shift+F6) with forced preview, also in indirectly including files, comments and strings -->
+        <renamePsiElementProcessor
+                implementation="de.kumpewo.autohotkey.navigation.AhkRenameProcessor"/>
+        <lang.namesValidator
+                language="AutoHotkey"
+                implementationClass="de.kumpewo.autohotkey.navigation.AhkNamesValidator"/>
+        <lang.refactoringSupport
+                language="AutoHotkey"
+                implementationClass="de.kumpewo.autohotkey.navigation.AhkRefactoringSupportProvider"/>
+        <vetoRenameCondition
+                implementation="de.kumpewo.autohotkey.navigation.AhkRenameVeto"/>
+        <additionalTextAttributes scheme="Default" file="colorSchemes/AhkDefault.xml"/>
+        <additionalTextAttributes scheme="Darcula" file="colorSchemes/AhkDarcula.xml"/>
+        <additionalLibraryRootsProvider
+                implementation="de.kumpewo.autohotkey.include.AhkLibraryRootsProvider"/>
+        <lang.formatter
+                language="AutoHotkey"
+                implementationClass="de.kumpewo.autohotkey.formatter.AhkFormattingModelBuilder"/>
+        <!-- Adjusts the case when formatting (main switch in the code style settings) -->
+        <postFormatProcessor
+                implementation="de.kumpewo.autohotkey.formatter.AhkCasePostFormatProcessor"/>
+        <!-- doc comments: the lines with * get the indentation of the /** line -->
+        <postFormatProcessor
+                implementation="de.kumpewo.autohotkey.formatter.AhkDocCommentPostFormatProcessor"/>
+        <codeStyleSettingsProvider
+                implementation="de.kumpewo.autohotkey.formatter.AhkCodeStyleSettingsProvider"/>
+        <langCodeStyleSettingsProvider
+                implementation="de.kumpewo.autohotkey.formatter.AhkLanguageCodeStyleSettingsProvider"/>
+<!--        <psi.referenceContributor-->
+<!--                language="AutoHotkey"-->
+<!--                implementation="de.kumpewo.autohotkey.navigation.AhkReferenceContributor"/>-->
+        <psi.referenceContributor
+                language="AutoHotkey"
+                implementation="de.kumpewo.autohotkey.navigation.AhkLabelReferenceContributor"/>
+        <psi.referenceContributor
+                language="AutoHotkey"
+                implementation="de.kumpewo.autohotkey.navigation.AhkDefinitionReferenceContributor"/>
+        <psi.referenceContributor
+                language="AutoHotkey"
+                implementation="de.kumpewo.autohotkey.include.AhkIncludeReferenceContributor"/>
+        <lang.commenter
+                language="AutoHotkey"
+                implementationClass="de.kumpewo.autohotkey.formatter.AhkCommenter"/>
+        <!-- doc comments: skeleton after /** + Enter, " * " on new lines -->
+        <enterHandlerDelegate
+                implementation="de.kumpewo.autohotkey.template.AhkDocEnterHandler"/>
+        <lang.documentationProvider
+                language="AutoHotkey"
+                implementationClass="de.kumpewo.autohotkey.documentation.AhkDocumentationProvider"/>
+        <applicationConfigurable
+                parentId="language"
+                id="de.kumpewo.autohotkey.settings"
+                displayName="AutoHotkey"
+                instance="de.kumpewo.autohotkey.settings.AhkSettingsConfigurable"/>
+        <configurationType
+                implementation="de.kumpewo.autohotkey.run.AhkRunConfigurationType"/>
+        <runConfigurationProducer
+                implementation="de.kumpewo.autohotkey.run.AhkRunConfigurationProducer"/>
+        <!-- Debugger (DBGp, debug/) -->
+        <programRunner implementation="de.kumpewo.autohotkey.debug.AhkDebugRunner"/>
+        <xdebugger.breakpointType implementation="de.kumpewo.autohotkey.debug.AhkLineBreakpointType"/>
+        <xdebugger.breakpointType implementation="de.kumpewo.autohotkey.debug.AhkExceptionBreakpointType"/>
+        <!-- Live templates and file template -->
+        <defaultLiveTemplates file="/liveTemplates/AutoHotkey.xml"/>
+        <liveTemplateContext
+                contextId="AUTOHOTKEY"
+                implementation="de.kumpewo.autohotkey.template.AhkTemplateContextType$Generic"/>
+        <liveTemplateContext
+                contextId="AUTOHOTKEY_CODE"
+                baseContextId="AUTOHOTKEY"
+                implementation="de.kumpewo.autohotkey.template.AhkTemplateContextType$Code"/>
+        <liveTemplateContext
+                contextId="AUTOHOTKEY_COMMENT"
+                baseContextId="AUTOHOTKEY"
+                implementation="de.kumpewo.autohotkey.template.AhkTemplateContextType$Comment"/>
+        <internalFileTemplate name="AutoHotkey Script"/>
+        <!-- Alt+Enter: insert a head of Ahk2Exe compiler directives (compile/AhkAhk2ExeHeader) -->
+        <intentionAction>
+            <language>AutoHotkey</language>
+            <className>de.kumpewo.autohotkey.compile.AhkAddAhk2ExeHeaderIntention</className>
+            <bundleName>messages.AhkBundle</bundleName>
+            <categoryKey>intention.category</categoryKey>
+        </intentionAction>
+        <!-- Balloon notifications (e.g. "Compile with Ahk2Exe" without ;@Ahk2Exe-Base) -->
+        <notificationGroup id="AutoHotkey" displayType="BALLOON" bundle="messages.AhkBundle" key="notification.group"/>
+    </extensions>
+
+    <!-- Texts of the actions: action.<id>.text / .description -->
+    <resource-bundle>messages.AhkBundle</resource-bundle>
+    <actions>
+        <action id="AutoHotkey.NewFile" class="de.kumpewo.autohotkey.template.AhkCreateFileAction" icon="/icons/autohotkey.png">
+            <add-to-group group-id="NewGroup" anchor="after" relative-to-action="NewFile"/>
+        </action>
+        <!-- Validation with AutoHotkey /validate (AhkValidator) -->
+        <action id="AutoHotkey.Validate" class="de.kumpewo.autohotkey.validate.AhkValidateAction" icon="/icons/autohotkey.png">
+            <keyboard-shortcut keymap="$default" first-keystroke="alt shift V"/>
+            <add-to-group group-id="CodeMenu" anchor="last"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+        </action>
+        <!-- Compilation into an executable with Ahk2Exe (AhkCompiler) -->
+        <action id="AutoHotkey.Compile" class="de.kumpewo.autohotkey.compile.AhkCompileAction" icon="/icons/autohotkey.png">
+            <add-to-group group-id="CodeMenu" anchor="last"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+        </action>
+        <!-- Attach the debugger to a running script (AhkAttach) -->
+        <action id="AutoHotkey.AttachDebugger" class="de.kumpewo.autohotkey.debug.AhkAttachAction" icon="/icons/autohotkey.png">
+            <add-to-group group-id="RunMenu" anchor="after" relative-to-action="XDebugger.AttachToProcess"/>
+        </action>
+        <!-- User manual of the plugin (help/extra/, AhkManual) -->
+        <action id="AutoHotkey.Manual" class="de.kumpewo.autohotkey.documentation.AhkManualAction" icon="/icons/autohotkey.png">
+            <add-to-group group-id="HelpMenu" anchor="after" relative-to-action="HelpTopics"/>
+        </action>
+        <!-- Help of the AutoHotkey installation (AhkExternalHelp.openDocs) -->
+        <action id="AutoHotkey.Help" class="de.kumpewo.autohotkey.documentation.AhkHelpAction" icon="/icons/autohotkey.png">
+            <add-to-group group-id="HelpMenu" anchor="after" relative-to-action="AutoHotkey.Manual"/>
+        </action>
+    </actions>
+
+    <!-- Automatic validation after saving / after Reformat Code (setting "Validate with AutoHotkey") -->
+    <applicationListeners>
+        <listener class="de.kumpewo.autohotkey.validate.AhkValidateTriggers"
+                  topic="com.intellij.openapi.fileEditor.FileDocumentManagerListener"/>
+        <listener class="de.kumpewo.autohotkey.validate.AhkValidateTriggers"
+                  topic="com.intellij.openapi.actionSystem.ex.AnActionListener"/>
+        <!-- New empty .ahk file created by the IDE ("New > File"): content of the file template (AhkNewFileListener) -->
+        <listener class="de.kumpewo.autohotkey.template.AhkNewFileListener"
+                  topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
+    </applicationListeners>
+</idea-plugin>

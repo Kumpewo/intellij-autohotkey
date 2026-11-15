@@ -1,0 +1,396 @@
+; Signatures for the parameter info (Ctrl+P). Generated from help/docs/lib/*.htm (<pre class="Syntax">
+; <span class="func">), only names from functions/classes/directives.txt. As of 2026-11-08.
+; Format: Name Param1, [optional], ... One line per form; ";" = comment.
+
+#ClipboardTimeout Milliseconds
+#DllLoad [FileOrDirName]
+#ErrorStdout [Encoding]
+#HotIf [Expression]
+#HotIfTimeout Timeout
+#Hotstring NoMouse
+#Hotstring EndChars NewChars
+#Hotstring NewOptions
+#Include FileOrDirName
+#Include <LibName>
+#IncludeAgain FileOrDirName
+#InputLevel [Level]
+#MaxThreads Value
+#MaxThreadsBuffer [Setting]
+#MaxThreadsPerHotkey Value
+#NoTrayIcon
+#Requires Requirement
+#SingleInstance [ForceIgnorePromptOff]
+#SuspendExempt [Setting]
+#UseHook [Setting]
+#Warn [WarningType], [WarningMode]
+#WinActivateForce
+Abs Number
+ACos Number
+ASin Number
+ATan Number
+BlockInput OnOff
+BlockInput SendMouse
+BlockInput MouseMove
+CallbackCreate Function, [Options], [ParamCount]
+CallbackFree Address
+CaretGetPos [&OutputVarX], [&OutputVarY]
+Ceil Number
+Chr Number
+Click [Options]
+Click GuiCtrlObj, Info
+Click GuiCtrlObj, Info, Href
+ClipboardAll [Data], [Size]
+ClipWait [Timeout], [WaitFor]
+ComCall Index, ComObj, [Type1], [Arg1], [Type2], [Arg2], [ReturnType]
+ComObjActive CLSID
+ComObjArray VarType, Count1, [Count2], [... Count8]
+ComObjConnect ComObj, [PrefixOrSink]
+ComObject CLSID, [IID]
+ComObjFlags ComObj, [NewFlags], [Mask]
+ComObjFromPtr DispPtr
+ComObjGet Name
+ComObjQuery ComObj, SID, IID
+ComObjQuery ComObj, IID
+ComObjType ComObj, [InfoType]
+ComObjValue ComObj
+ComValue VarType, Value, [Flags]
+ControlAddItem String, ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlChooseIndex N, ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlChooseString String, ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlClick [ControlID-or-Pos], [WinTitle], [WinText], [WhichButton], [ClickCount], [Options], [ExcludeTitle], [ExcludeText]
+ControlDeleteItem N, ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlFindItem String, ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlFocus ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlGetChecked ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlGetChoice ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlGetClassNN ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlGetEnabled ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlGetExStyle ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlGetFocus [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlGetHwnd ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlGetIndex ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlGetItems ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlGetPos [&OutX], [&OutY], [&OutWidth], [&OutHeight], [ControlID], [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlGetStyle ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlGetText ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlGetVisible ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlHide ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlHideDropDown ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlMove [X], [Y], [Width], [Height], [ControlID], [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlSend Keys, [ControlID], [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlSendText Keys, [ControlID], [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlSetChecked NewSetting, ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlSetEnabled NewSetting, ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlSetExStyle Value, ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlSetStyle Value, ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlSetText NewText, ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlShow ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ControlShowDropDown ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+CoordMode TargetType, [RelativeTo]
+Cos Number
+Critical [Setting]
+DateAdd DateTime, Time, TimeUnits
+DateDiff DateTime1, DateTime2, TimeUnits
+DetectHiddenText Setting
+DetectHiddenWindows Setting
+DirCopy Source, Dest, [Overwrite]
+DirCreate DirName
+DirDelete DirName, [Recurse]
+DirExist FilePattern
+DirMove Source, Dest, [OverwriteOrRename]
+DirSelect [StartingFolder], [Options], [Prompt]
+DllCall [DllFile\]Function, [Type1], [Arg1], [Type2], [Arg2], ["CDecl ReturnType"]
+Download URL, Filename
+DriveEject [Drive]
+DriveGetCapacity Path
+DriveGetFilesystem Drive
+DriveGetLabel Drive
+DriveGetList [DriveType]
+DriveGetSerial Drive
+DriveGetSpaceFree Path
+DriveGetStatus Path
+DriveGetStatusCD [Drive]
+DriveGetType Path
+DriveLock Drive
+DriveRetract [Drive]
+DriveSetLabel Drive, [NewLabel]
+DriveUnlock Drive
+Edit
+EditGetCurrentCol ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+EditGetCurrentLine ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+EditGetLine N, ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+EditGetLineCount ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+EditGetSelectedText ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+EditPaste String, ControlID, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+EnvGet EnvVar
+EnvSet EnvVar, [Value]
+Exit [ExitCode]
+ExitApp [ExitCode]
+Exp N
+File
+FileAppend Text, [Filename], [Options]
+FileCopy SourcePattern, DestPattern, [Overwrite]
+FileCreateShortcut Target, LinkFile, [WorkingDir], [Args], [Description], [IconFile], [ShortcutKey], [IconNumber], [RunState]
+FileDelete FilePattern
+FileEncoding Encoding
+FileExist FilePattern
+FileGetAttrib [Filename]
+FileGetShortcut LinkFile, [&OutTarget], [&OutDir], [&OutArgs], [&OutDescription], [&OutIcon], [&OutIconNum], [&OutRunState]
+FileGetSize [Filename], [Units]
+FileGetTime [Filename], [WhichTime]
+FileGetVersion [Filename]
+FileInstall Source, Dest, [Overwrite]
+FileMove SourcePattern, DestPattern, [Overwrite]
+FileOpen Filename, Flags, [Encoding]
+FileRead Filename, [Options]
+FileRecycle FilePattern
+FileRecycleEmpty [DriveLetter]
+FileSelect [Options], [RootDir\Filename], [Title], [Filter]
+FileSetAttrib Attributes, [FilePattern], [Mode]
+FileSetTime [YYYYMMDDHH24MISS], [FilePattern], [WhichTime], [Mode]
+Float Value
+Floor Number
+Format FormatStr, [Values...]
+FormatTime [YYYYMMDDHH24MISS], [Format]
+GetKeyName KeyName
+GetKeySC KeyName
+GetKeyState KeyName, [Mode]
+GetKeyVK KeyName
+GetMethod [Name], [ParamCount]
+GetMethod Value, [Name], [ParamCount]
+GroupActivate GroupName, [Mode]
+GroupAdd GroupName, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+GroupClose GroupName, [Mode]
+GroupDeactivate GroupName, [Mode]
+Gui
+GuiCtrlFromHwnd Hwnd
+GuiFromHwnd Hwnd, [RecurseParent]
+HasBase BaseObj
+HasBase Value, BaseObj
+HasMethod [Name], [ParamCount]
+HasMethod Value, [Name], [ParamCount]
+HasProp Name
+HasProp Value, Name
+HotIf ["Expression"]
+HotIf [Callback]
+HotIfWinActive [WinTitle], [WinText]
+HotIfWinExist [WinTitle], [WinText]
+HotIfWinNotActive [WinTitle], [WinText]
+HotIfWinNotExist [WinTitle], [WinText]
+Hotkey KeyName, [Action], [Options]
+Hotstring String, [Replacement], [OnOffToggle]
+Hotstring NewOptions
+Hotstring SubFunction, [Value1]
+Hotstring "EndChars", [NewValue]
+Hotstring "MouseReset", [NewValue]
+Hotstring "Reset"
+IL_Add ImageListID, IconFileName, [IconNumber]
+IL_Add ImageListID, PicFileName, MaskColor, Resize
+IL_Create [InitialCount], [GrowCount], [LargeIcons]
+IL_Destroy ImageListID
+ImageSearch &OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ImageFile
+IniDelete Filename, Section, [Key]
+IniRead Filename, Section, Key, [Default]
+IniRead Filename, Section, [Default]
+IniRead Filename, [Default]
+IniWrite Value, Filename, Section, Key
+IniWrite Pairs, Filename, Section
+InputBox [Prompt], [Title], [Options], [Default]
+InputHook [Options], [EndKeys], [MatchList]
+InstallKeybdHook [Install], [Force]
+InstallMouseHook [Install], [Force]
+InStr Haystack, Needle, [CaseSense], [StartingPos], [Occurrence]
+Integer Value
+IsLabel LabelName
+IsObject Value
+IsSet Var
+IsSetRef &Ref
+KeyHistory [MaxEvents]
+KeyWait KeyName, [Options]
+ListHotkeys
+ListLines [Setting]
+ListVars
+ListViewGetContent [Options], [ControlID], [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+Ln Number
+LoadPicture Filename, [Options], [&OutImageType]
+Log Number
+LTrim String, [OmitChars]
+Max Number1, [Number2], [...]
+MenuBar
+MenuFromHandle Handle
+MenuSelect [WinTitle], [WinText], [Menu], [SubMenu1], [SubMenu2], [SubMenu3], [SubMenu4], [SubMenu5], [SubMenu6], [ExcludeTitle], [ExcludeText]
+Min Number1, [Number2], [...]
+Mod Dividend, Divisor
+MonitorGet [N], [&Left], [&Top], [&Right], [&Bottom]
+MonitorGetCount
+MonitorGetName [N]
+MonitorGetPrimary
+MonitorGetWorkArea [N], [&Left], [&Top], [&Right], [&Bottom]
+MouseClick [WhichButton], [X], [Y], [ClickCount], [Speed], [DownOrUp], [Relative]
+MouseClickDrag WhichButton, X1, Y1, X2, Y2, [Speed], [Relative]
+MouseGetPos [&OutputVarX], [&OutputVarY], [&OutputVarWin], [&OutputVarControl], [Flag]
+MouseMove X, Y, [Speed], [Relative]
+MsgBox [Text], [Title], [Options]
+Number Value
+NumGet Source, Offset, Type
+NumGet Source, Type
+NumPut Type, Number, [Type2], [Number2], [...], Target, [Offset]
+ObjAddRef Ptr
+ObjBindMethod Obj, [Method], [Params]
+ObjGetBase Value
+ObjGetCapacity Obj
+ObjOwnPropCount Obj
+ObjRelease Ptr
+ObjSetBase Obj, BaseObj
+ObjSetCapacity Obj, MaxProps
+OnClipboardChange Callback, [AddRemove]
+OnError Callback, [AddRemove]
+OnExit Callback, [AddRemove]
+OnMessage MsgNumber, Callback, [MaxThreads]
+Ord String
+OutputDebug Text
+Pause [UnderlyingThreadState]
+Persistent [Setting]
+PixelGetColor X, Y, [Mode]
+PixelSearch &OutputVarX, &OutputVarY, X1, Y1, X2, Y2, ColorID, [Variation]
+PostMessage MsgNumber, [wParam], [lParam], [ControlID], [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+ProcessClose [PIDOrName]
+ProcessExist [PIDOrName]
+ProcessGetName [PIDOrName]
+ProcessGetParent [PIDOrName]
+ProcessGetPath [PIDOrName]
+ProcessSetPriority Level, [PIDOrName]
+ProcessWait PIDOrName, [Timeout]
+ProcessWaitClose PIDOrName, [Timeout]
+Random [A], [B]
+RegCreateKey [KeyName]
+RegDelete [KeyName], [ValueName]
+RegDeleteKey [KeyName]
+RegExMatch Haystack, NeedleRegEx, [&OutputVar], [StartingPos]
+RegExReplace Haystack, NeedleRegEx, [Replacement], [&OutputVarCount], [Limit], [StartingPos]
+RegRead [KeyName], [ValueName], [Default]
+RegWrite Value, ValueType, KeyName, [ValueName]
+RegWrite Value, [ValueType], [ValueName]
+Reload
+Round Number, [N]
+RTrim String, [OmitChars]
+Run Target, [WorkingDir], [Options], [&OutputVarPID]
+RunAs [User], [Password], [Domain]
+RunWait Target, [WorkingDir], [Options], [&OutputVarPID]
+Send Keys
+SendEvent Keys
+SendInput Keys
+SendLevel Level
+SendMessage MsgNumber, [wParam], [lParam], [ControlID], [WinTitle], [WinText], [ExcludeTitle], [ExcludeText], [Timeout]
+SendMode Mode
+SendPlay Keys
+SendText Keys
+SetCapslockState [State]
+SetControlDelay Delay
+SetDefaultMouseSpeed Speed
+SetKeyDelay [Delay], [PressDuration], ["Play"]
+SetMouseDelay Delay, ["Play"]
+SetNumLockState [State]
+SetRegView RegView
+SetScrollLockState [State]
+SetStoreCapsLockMode Setting
+SetTimer [Function], [Period], [Priority]
+SetTitleMatchMode MatchMode
+SetTitleMatchMode Speed
+SetWinDelay Delay
+SetWorkingDir DirName
+Shutdown Flags
+Sin Number
+Sleep Delay
+Sort String, [Options], [Callback]
+SoundBeep [Frequency], [Duration]
+SoundGetInterface IID, [Component], [Device]
+SoundGetMute [Component], [Device]
+SoundGetName [Component], [Device]
+SoundGetVolume [Component], [Device]
+SoundPlay Filename, [Wait]
+SoundSetMute NewSetting, [Component], [Device]
+SoundSetVolume NewSetting, [Component], [Device]
+SplitPath Path, [&OutFileName], [&OutDir], [&OutExtension], [&OutNameNoExt], [&OutDrive]
+Sqrt Number
+StatusBarGetText [Part#], [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+StatusBarWait [BarText], [Timeout], [Part#], [WinTitle], [WinText], [Interval], [ExcludeTitle], [ExcludeText]
+StrCompare String1, String2, [CaseSense]
+StrGet Source, [Length], [Encoding]
+StrGet Source, [Encoding]
+String Value
+StrLen String
+StrLower String
+StrPtr Value
+StrPut String, Target, [Length], [Encoding]
+StrPut String, Target, [Encoding]
+StrPut String, [Encoding]
+StrReplace Haystack, Needle, [ReplaceText], [CaseSense], [&OutputVarCount], [Limit]
+StrSplit String, [Delimiters], [OmitChars], [MaxParts]
+StrTitle String
+StrUpper String
+SubStr String, StartingPos, [Length]
+Suspend [NewState]
+SysGet Property
+SysGetIPAddresses
+Tan Number
+Thread SubFunction, [Value1], [Value2]
+Thread "NoTimers", [False]
+Thread "Priority", Level
+Thread "Interrupt", [Duration], [LineCount]
+ToolTip [Text], [X], [Y], [WhichToolTip]
+TraySetIcon [FileName], [IconNumber], [Freeze]
+TrayTip [Text], [Title], [Options]
+Trim String, [OmitChars]
+Type
+Type Value
+VarSetStrCapacity &TargetVar, [RequestedCapacity]
+VerCompare VersionA, VersionB
+WinActivate [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinActivateBottom [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinActive [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinClose [WinTitle], [WinText], [SecondsToWait], [ExcludeTitle], [ExcludeText]
+WinExist [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinGetClass [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinGetClientPos [&OutX], [&OutY], [&OutWidth], [&OutHeight], [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinGetControls [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinGetControlsHwnd [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinGetCount [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinGetExStyle [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinGetId [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinGetIdLast [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinGetList [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinGetMinMax [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinGetPid [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinGetPos [&OutX], [&OutY], [&OutWidth], [&OutHeight], [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinGetProcessName [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinGetProcessPath [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinGetStyle [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinGetText [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinGetTitle [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinGetTransColor [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinGetTransparent [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinHide [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinKill [WinTitle], [WinText], [SecondsToWait], [ExcludeTitle], [ExcludeText]
+WinMaximize [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinMinimize [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinMinimizeAll
+WinMinimizeAllUndo
+WinMove [X], [Y], [Width], [Height], [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinMoveBottom [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinMoveTop [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinRedraw [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinRestore [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinSetAlwaysOnTop [NewSetting], [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinSetEnabled NewSetting, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinSetExStyle Value, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinSetRegion [Options], [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinSetStyle Value, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinSetTitle NewTitle, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinSetTransColor Color, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinSetTransparent N, [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinShow [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinWait [WinTitle], [WinText], [Timeout], [ExcludeTitle], [ExcludeText]
+WinWaitActive [WinTitle], [WinText], [Timeout], [ExcludeTitle], [ExcludeText]
+WinWaitClose [WinTitle], [WinText], [Timeout], [ExcludeTitle], [ExcludeText]
+WinWaitNotActive [WinTitle], [WinText], [Timeout], [ExcludeTitle], [ExcludeText]

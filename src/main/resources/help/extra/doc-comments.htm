@@ -1,0 +1,72 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>Doc Comments | AutoHotkey v2 Plugin</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../styles/theme.css" rel="stylesheet" />
+</head>
+<body>
+
+<h1>Doc comments</h1>
+
+<p>A <em>doc comment</em> describes your own function, method or class, like JavaDoc or JSDoc in other languages. It is a block comment that starts with <code>/**</code> and stands directly before the definition. The plugin shows it as quick documentation (<kbd>Ctrl</kbd>+<kbd>Q</kbd> or hovering with the mouse) wherever the name is used. For AutoHotkey it is an ordinary comment.</p>
+
+<pre>/**
+ * Opens the box and counts the openings.
+ *
+ * The count is kept per box. Use **force** only in tests.
+ * @param {String} name  name of the box
+ * @param force  open even if the box is locked
+ * @returns {Integer} the new number of openings
+ * @throws Error if the box does not exist
+ * @example
+ *   count := OpenBox("tools")
+ * @see CloseBox
+ */
+OpenBox(name, force := false) {
+    ...
+}</pre>
+
+<h2 id="Rules">Where a doc comment counts</h2>
+<ul>
+  <li>Only <code>/** ... */</code>. A plain block comment <code>/* ... */</code> and line comments are not doc comments.</li>
+  <li>Between <code>*/</code> and the definition there may be spaces and one line break, but no empty line.</li>
+  <li>Functions, methods (also fat-arrow definitions like <code>Twice(x) =&gt; x * 2</code>) and classes have doc comments. Properties, fields, hotkeys and labels do not.</li>
+  <li>The leading <code>*</code> of each line is removed. The text before the first tag is the description, written in <a href="https://commonmark.org/help/">Markdown</a>: <code>`code`</code>, <code>**bold**</code>, lists, code blocks.</li>
+</ul>
+
+<h2 id="Tags">Tags</h2>
+<p>A tag starts a line and continues on the following lines up to the next tag.</p>
+<table class="info">
+  <tr><th>Tag</th><th>Meaning</th></tr>
+  <tr><td nowrap="nowrap"><code>@param [{Type}] name text</code></td><td>A parameter. The name is written without <code>&amp;</code>, <code>*</code> or <code>?</code>. A type in braces (<code>{Gui}</code>, several with <code>|</code>: <code>{Gui|Menu}</code>) works like <a href="declare-type.htm">;@declare-type</a> for this parameter, but only inside the function: completion after <code>name.</code>, parameter info, help and color.</td></tr>
+  <tr><td nowrap="nowrap"><code>@returns [{Type}] text</code></td><td>The return value (also <code>@return</code>). The type is only shown.</td></tr>
+  <tr><td nowrap="nowrap"><code>@throws text</code></td><td>An error the function throws.</td></tr>
+  <tr><td nowrap="nowrap"><code>@example</code></td><td>Example code; the following lines are shown as written.</td></tr>
+  <tr><td nowrap="nowrap"><code>@see name|url [text]</code></td><td>A link: to an own function, method or class (<code>CloseBox</code>, <code>Box.Open</code>), to the AutoHotkey help (<code>MsgBox</code>, <code>Gui.Add</code>) or to a web page.</td></tr>
+  <tr><td nowrap="nowrap"><code>@deprecated [text]</code></td><td>The definition should no longer be used. Every use of the name is struck out, with the text as a hint.</td></tr>
+</table>
+<p>Other words with <code>@</code> are normal text.</p>
+
+<h2 id="Popup">The popup</h2>
+<p>The quick documentation shows the signature (as in the parameter info, with the class: <code>Box.Open(name, [force := false])</code>), the description, a section per tag and the file. It works on the definition itself and on every use: <code>OpenBox()</code>, <code>obj.Open()</code>, <code>Box()</code>, <code>extends Box</code>. Like <a href="navigation.htm">Go to declaration</a>, it matches by name in the file and its directly included files. An own definition takes precedence over the built-in help of the same name. If several definitions match (for example a method <code>Open</code> in two classes), the popup lists them; click one to see its documentation. <kbd>Ctrl</kbd>+hover shows the signature.</p>
+<p>The doc comment also appears</p>
+<ul>
+  <li>in the completion list: <kbd>Ctrl</kbd>+<kbd>Q</kbd> on a suggestion of an own function, method or class;</li>
+  <li>in the <a href="completion.htm">parameter info</a>: the <code>@param</code> text of the current parameter in a second line.</li>
+</ul>
+
+<h2 id="Writing">Writing doc comments</h2>
+<ul>
+  <li>Type <code>/**</code> in the line above a definition and press <kbd>Enter</kbd>: the plugin closes the comment and adds one <code>@param</code> line per parameter and <code>@returns</code> if the function returns a value (<code>return x</code> or <code>=&gt;</code>).</li>
+  <li><kbd>Enter</kbd> inside a doc comment starts the new line with <code> * </code>.</li>
+  <li><a href="formatting.htm">Reformat Code</a> indents the comment like the definition below it and aligns the lines starting with <code>*</code> under the first line. With the tab <a href="formatting.htm#DocComments">Doc Comments</a> of the code style page it also aligns the <code>@param</code> lines, sets blank lines, wraps the text at the right margin and can sort, add or remove <code>@param</code> tags.</li>
+  <li>A <code>@param</code> without a parameter of that name and an unknown class in <code>{...}</code> are marked as warnings.</li>
+</ul>
+
+<h2 id="Related">Related</h2>
+<p><a href="help.htm">Help</a>, <a href="types.htm">Type declarations</a>, <a href="completion.htm">Completion</a>, <a href="index.htm">AutoHotkey v2 Plugin</a></p>
+
+</body>
+</html>

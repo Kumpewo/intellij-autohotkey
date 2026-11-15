@@ -1,0 +1,111 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>Compiling | AutoHotkey v2 Plugin</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../styles/theme.css" rel="stylesheet" />
+</head>
+<body>
+
+<h1>Compiling with Ahk2Exe</h1>
+
+<p>Ahk2Exe, the compiler of AutoHotkey, turns a script into an executable (<code>.exe</code>) that runs without an AutoHotkey installation. The plugin calls Ahk2Exe in the background and shows its output in the IDE.</p>
+
+<h2 id="Requirements">Requirements</h2>
+<ul>
+  <li><strong>Ahk2Exe</strong> installed, normally as <code>Compiler\Ahk2Exe.exe</code> in the AutoHotkey folder (the AutoHotkey dash offers to install it). The plugin finds it by itself; otherwise set the path under <a href="settings.htm#Ahk2Exe">Settings</a>.</li>
+  <li>The script names its <strong>base file</strong> with a line <code>;@Ahk2Exe-Base</code>. The base file is the AutoHotkey interpreter that becomes part of the executable; it decides the AutoHotkey version and 32 or 64 bit.</li>
+</ul>
+
+<h2 id="Prepare">Prepare a script</h2>
+<p>Ahk2Exe reads its settings from special comments in the script, the <code>;@Ahk2Exe-</code> directives (see "Script Compiler Directives" in the AutoHotkey help). A typical head:</p>
+<pre>#Requires AutoHotkey v2.0
+;@Ahk2Exe-Base ..\v2\AutoHotkey64.exe
+;@Ahk2Exe-SetMainIcon app.ico
+;@Ahk2Exe-SetProductName Clipboard Tool
+;@Ahk2Exe-SetProductVersion 1.2.0
+;@Ahk2Exe-SetCopyright (c) Example Ltd.</pre>
+<ul>
+  <li>A relative path in <code>;@Ahk2Exe-Base</code> is relative to the folder of <code>Ahk2Exe.exe</code>: <code>..\v2\AutoHotkey64.exe</code> is the 64-bit interpreter of a standard installation. The older form <code>;@Ahk2Exe-Bin</code> is accepted as well.</li>
+  <li>The line must start at the beginning of a line, in the main script.</li>
+  <li>Without it the plugin compiles nothing; a notification offers <em>Add Ahk2Exe directives</em> (see <a href="#Head">below</a>). Reason: Ahk2Exe would otherwise use the base file last chosen in its own window, which may be one of AutoHotkey v1, and every v2 script would fail.</li>
+  <li>Everything else (name and folder of the executable, icon, version information) comes from the directives. By default the executable is created next to the script with the same name.</li>
+</ul>
+
+<h3 id="Head">Insert a head of directives</h3>
+<p>In a script without <code>;@Ahk2Exe-Base</code>, <kbd>Alt</kbd>+<kbd>Enter</kbd> anywhere in the file offers <em>Add Ahk2Exe compiler directives</em>. The same is offered by the notification that appears when <em>Compile with Ahk2Exe</em> finds no base directive. It inserts this head below the <code>#Requires</code> line (without one, at the start of the file):</p>
+<pre>#Requires AutoHotkey v2.0
+;@Ahk2Exe-Base ..\v2\AutoHotkey64.exe
+; ---------------------------------------------------------------------------
+Ahk2Exe_ProductName :=          "tool"
+;@Ahk2Exe-SetProductName        %A_PriorLine~U)(.+")(.*)".*$~$2%
+Ahk2Exe_ProductVersion :=       "1.0"
+;@Ahk2Exe-SetProductVersion     %A_PriorLine~U)(.+")(.*)".*$~$2%
+Ahk2Exe_Description :=          "tool"
+;@Ahk2Exe-SetDescription        %A_PriorLine~U)(.+")(.*)".*$~$2%
+;@Ahk2Exe-SetLanguage           0x0409
+;@Ahk2Exe-SetCopyright          &copy; 2026 Your Name
+;;@Ahk2Exe-SetMainIcon          tool.ico
+;;@Ahk2Exe-ConsoleApp
+; ---------------------------------------------------------------------------
+;GetProductInfo() =&gt; Ahk2Exe_ProductName " v" Ahk2Exe_ProductVersion
+; ---------------------------------------------------------------------------</pre>
+<ul>
+  <li>The placeholders (product name, version, description, copyright) are selected one after another; type the value and press <kbd>Tab</kbd> for the next one, <kbd>Enter</kbd> or <kbd>Esc</kbd> to keep the rest. Name and description default to the file name.</li>
+  <li>The base file is <code>AutoHotkey64.exe</code>, or <code>AutoHotkey32.exe</code> if <code>#Requires</code> asks for <code>32-bit</code>.</li>
+  <li>Product name, version and description are ordinary variables of the script. The directive below each one reads the value from the line above (<code>A_PriorLine</code> with a regular expression), so the executable and the script use the same values. Remove the <code>;</code> in front of <code>GetProductInfo</code> to use them, e.g. in an about box.</li>
+  <li>Lines starting with <code>;;@</code> are disabled directives. Remove one <code>;</code> to set an icon or to build a console application.</li>
+  <li><code>0x0409</code> is the language code for English (United States), e.g. <code>0x0407</code> for German.</li>
+</ul>
+
+<h2 id="Compile">Compile</h2>
+<p><em>Code &gt; Compile with Ahk2Exe</em>, or the context menu of the editor or of the project view.</p>
+<ol>
+  <li id="Target">The script is chosen like for the <a href="validate.htm#Target">validation</a>: the script of the AutoHotkey run configuration selected in the toolbar if the current file is that script or included by it, otherwise the current file.</li>
+  <li>All modified AutoHotkey files are saved.</li>
+  <li>The plugin runs <code>Ahk2Exe.exe /in <i>script</i> /compress <i>n</i> /silent verbose</code> in the folder of the script, as a background task that can be cancelled.</li>
+  <li>The console in the Run tool window shows "Compiling <i>name</i>.ahk...", the output of Ahk2Exe and a summary: green "Ahk2Exe created <i>path</i>", or red with the exit code. Errors in the script have a link to the file and line.</li>
+</ol>
+
+<h2 id="CompileAndRun">Compile and run</h2>
+<p>A <a href="settings.htm#RunConfiguration">run configuration</a> can compile the script first and run the executable instead of the script. Turn on <em>Compile with Ahk2Exe and run the executable</em> in the configuration. This is meant for console applications (<code>;@Ahk2Exe-ConsoleApp</code>): a compiled console application gets a real console, a script run by AutoHotkey does not.</p>
+<p><em>Run the executable in</em> chooses where:</p>
+<table class="info">
+  <tr><th>Choice</th><th>Behavior</th></tr>
+  <tr><td nowrap="nowrap">Terminal in the Run tool window</td><td>Default. A pseudo console inside the IDE: ANSI escape sequences (colors, cursor movement), keyboard input and the console functions work. The output of Ahk2Exe is shown above the output of the program.</td></tr>
+  <tr><td nowrap="nowrap">Separate console window</td><td>A normal Windows console window, as when the executable is started from Explorer. The Run tool window shows the output of Ahk2Exe and, when the program ends, its exit code.</td></tr>
+</table>
+<p>The executable gets the script parameters and the working directory of the configuration. If compiling fails, the console shows the errors of Ahk2Exe (with links) and the executable is not started. While Ahk2Exe runs, a progress dialog is shown that can be cancelled.</p>
+
+<div class="ex" id="ExConsoleApp">
+<p><a class="ex_number" href="#ExConsoleApp"></a> A small console application. Run it with the option on and the terminal chosen.</p>
+<pre>#Requires AutoHotkey v2.0
+;@Ahk2Exe-Base ..\v2\AutoHotkey64.exe
+;@Ahk2Exe-ConsoleApp
+
+stdout := FileOpen("*", "w")
+stdin := FileOpen("*", "r")
+stdout.Write("`e[32mYour name:`e[0m ")    <em>; green prompt</em>
+stdout.Read(0)                           <em>; flush</em>
+name := RTrim(stdin.ReadLine(), "`r`n")
+stdout.WriteLine("Hello, " name "!")
+ExitApp 0</pre>
+</div>
+
+<h2 id="SideEffects">Side effects and limits</h2>
+<ul>
+  <li>An existing executable of the same name is overwritten. If it is still running, Ahk2Exe cannot write it and reports an error.</li>
+  <li>The plugin passes no <code>/base</code> and no output file; change those with the directives in the script.</li>
+  <li>The <a href="debugger.htm">debugger</a> always debugs the script, also with <em>Compile with Ahk2Exe</em> on; the console says so.</li>
+  <li>AutoHotkey v2 sets <code>A_WorkingDir</code> to the folder of the executable at startup; the working directory of the configuration is available as <code>A_InitialWorkingDir</code>.</li>
+  <li>Compiler errors are shown in the console only, not marked in the editor.</li>
+  <li>A compilation of the same script that is still running is not started a second time. After 120 seconds Ahk2Exe is stopped.</li>
+  <li>With the compression <em>UPX</em>, <code>upx.exe</code> must be in the folder of Ahk2Exe.</li>
+</ul>
+
+<h2 id="Related">Related</h2>
+<p><a href="index.htm">Plugin manual</a>, <a href="settings.htm#Ahk2Exe">Settings</a>, <a href="running.htm">Running scripts</a></p>
+
+</body>
+</html>

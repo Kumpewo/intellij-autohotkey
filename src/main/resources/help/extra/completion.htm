@@ -1,0 +1,83 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>Completion | AutoHotkey v2 Plugin</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../styles/theme.css" rel="stylesheet" />
+</head>
+<body>
+
+<h1>Code completion and parameter info</h1>
+
+<h2 id="Completion">Code completion</h2>
+<p>The completion list opens automatically while you type letters, after <code>.</code> and after <code>#</code>, or on request with <kbd>Ctrl</kbd>+<kbd>Space</kbd>. <kbd>Enter</kbd> or <kbd>Tab</kbd> inserts the selected entry. Case does not matter while typing: <code>msgb</code> finds <code>MsgBox</code>, and the spelling of the list is inserted. Functions and methods are inserted with <code>()</code>, the caret between the parentheses, and the parameter info opens.</p>
+<p>What is offered depends on the position of the caret:</p>
+<table class="info">
+  <tr><th>Position</th><th>Offered</th></tr>
+  <tr><td nowrap="nowrap">After <code>#</code></td><td>All known directives.</td></tr>
+  <tr><td nowrap="nowrap">Free-standing name</td><td>Built-in variables, classes and functions; the own functions and classes of the file and of the files it includes directly with <code>#Include</code> (the type text shows where they come from: "Function (this file)", "Function (lib.ahk)"). At the start of a statement also the flow control keywords (bold). Directly after <code>Loop</code> also <code>Files</code>, <code>Parse</code>, <code>Read</code>, <code>Reg</code>.</td></tr>
+  <tr><td nowrap="nowrap">After the dot</td><td>Methods and properties of the built-in classes, and methods, properties and fields (<code>count := 0</code>, <code>static count := 0</code> in a class body) of the own classes. After the name of a built-in class with nested classes (<code>Gui.</code>) its nested classes come first (<code>Gui.Button</code> ...). For a variable with a <a href="types.htm">declared type</a> only the members of that class and its base classes, the class's own members first. Meta members starting with <code>__</code> (<code>__New</code>, <code>__Item</code> ...) are never offered.</td></tr>
+  <tr><td nowrap="nowrap">After <code>goto</code>, <code>break</code>, <code>continue</code></td><td>The labels of the same function or hotkey.</td></tr>
+  <tr><td nowrap="nowrap">In an argument</td><td>Known parameter values, see <a href="#Values">below</a>.</td></tr>
+  <tr><td nowrap="nowrap">In a <code>Send</code> string after <code>{</code></td><td>Key names; the closing <code>}</code> is added. Applies to <code>Send</code>, <code>SendText</code>, <code>SendInput</code>, <code>ControlSend</code> ... as call and as command.</td></tr>
+  <tr><td nowrap="nowrap">In a hotkey before <code>::</code></td><td>Key names. Type <code>::</code> first, move the caret before it, then start typing the key name.</td></tr>
+  <tr><td nowrap="nowrap">After <code>#Include &lt;</code></td><td>The <code>.ahk</code> files (without extension; the closing <code>&gt;</code> is added) and subdirectories of the library folders: <code>Lib</code> next to the script, the user library, the standard library.</td></tr>
+  <tr><td nowrap="nowrap">After <code>#Include</code></td><td>The <code>.ahk</code> files and subdirectories of the directory that relative paths refer to: the directory of the file, or the directory of the last earlier <code>#Include Directory</code> line. Quotes, <code>*i </code> and a typed directory part (<code>sub\</code>, <code>..\</code>, <code>%A_ScriptDir%\</code>, absolute paths) are understood. A directory is inserted with <code>\</code> and the list opens again for its content. The list also opens after <code>&lt;</code>, a quote, <code>\</code> or <code>/</code>.</td></tr>
+</table>
+<p>There is no completion in comments, in other strings and at definitions (function, class and parameter names, object keys).</p>
+<p>The spelling of inserted keywords follows the case settings (tab <em>Case</em> of the code style, see <a href="formatting.htm#Case">Case adjustment</a>): by default <code>If</code>, <code>Loop</code>, <code>Return</code>; with the group set to <em>lowercase</em> <code>if</code>, <code>loop</code>, <code>return</code>.</p>
+
+<div class="ex" id="ExMembers">
+<p><a class="ex_number" href="#ExMembers"></a> Completion after the dot with a declared type.</p>
+<pre>;@declare-type win as Gui
+win := Gui()
+win.Add|      <em>; offers Add, AddButton, AddEdit ... of Gui, but not Push of Array</em></pre>
+</div>
+
+<h2 id="Values">Parameter values</h2>
+<p>For many built-in functions and directives the plugin knows the allowed values of an argument:</p>
+<ul>
+  <li>Inside a string that forms the whole argument, only the value is inserted: <code>CoordMode "Mo|"</code> offers <code>Mouse</code>.</li>
+  <li>At an empty argument position the value is inserted with quotes and listed first: <code>CoordMode Mo|</code> inserts <code>"Mouse"</code>.</li>
+  <li>In directives without quotes: <code>#SingleInstance Fo|</code> inserts <code>Force</code>, <code>#Warn All, Of|</code> inserts <code>Off</code>.</li>
+  <li>For the first argument of <code>Gui.Add</code> (<code>win.Add("|</code>) the control types <code>Button</code>, <code>Edit</code>, <code>ListView</code> ... are offered.</li>
+  <li>For <code>OnEvent</code> the event names: <code>Close</code>, <code>Escape</code>, <code>Size</code> ... for a Gui window, and for a control the events of its type (<code>Click</code> for a button, <code>ItemCheck</code> for a ListView), if the type is known from a <a href="types.htm">type declaration</a>; otherwise all of them.</li>
+</ul>
+<p>Values are offered for <code>CoordMode</code>, <code>SendMode</code>, <code>SetTitleMatchMode</code>, <code>SetCapsLockState</code> and the other lock states, <code>BlockInput</code>, <code>FileEncoding</code>, <code>GetKeyState</code>, <code>MouseClick</code>, <code>ProcessSetPriority</code>, <code>#SingleInstance</code>, <code>#Warn</code> and <code>Gui.Add</code>. Not inside expressions like <code>CoordMode "a" . "|"</code>.</p>
+
+<h2 id="Options">Option strings</h2>
+<p>In an option string, the word at the caret is completed; the options before it stay. A <code>+</code> or <code>-</code> before the word stays as well. For an option with a value (<code>w200</code>, <code>vName</code>, <code>T5</code>), shown as <code>w&hellip;</code> in the list, only its letters are inserted, and you type the value.</p>
+<table class="info">
+  <tr><th>Where</th><th>Options</th></tr>
+  <tr><td nowrap="nowrap"><code>MsgBox</code>, 3rd argument</td><td>Buttons (<code>YesNo</code>, <code>OKCancel</code> ...), icons (<code>Iconx</code>, <code>Icon?</code>, <code>Icon!</code>, <code>Iconi</code>), <code>Default2</code> ..., <code>T</code>, <code>Owner</code></td></tr>
+  <tr><td nowrap="nowrap"><code>Gui()</code>, <code>Gui.Opt</code></td><td>Window options: <code>AlwaysOnTop</code>, <code>Caption</code>, <code>Resize</code>, <code>ToolWindow</code>, <code>Owner</code> ...</td></tr>
+  <tr><td nowrap="nowrap"><code>Gui.Show</code></td><td><code>w</code>, <code>h</code>, <code>x</code>, <code>y</code>, <code>Center</code>, <code>xCenter</code>, <code>AutoSize</code>, <code>Maximize</code>, <code>NoActivate</code> ...</td></tr>
+  <tr><td nowrap="nowrap"><code>Gui.Add</code>, <code>Gui.AddXxx</code></td><td>Options of every control (position and size, <code>v</code>, <code>Section</code>, <code>Disabled</code>, <code>Hidden</code> ...) and those of the control type: <code>MyGui.Add("Edit", "w200 Read|")</code> or <code>MyGui.AddEdit("Read|")</code> offers <code>ReadOnly</code>. With an unknown type (<code>MyGui.Add(type, "|")</code>) only the common options.</td></tr>
+  <tr><td nowrap="nowrap"><code>Opt</code> of a control</td><td>The same options for the type of the control, if it is known from a type declaration (<code>;@declare-type nameEdit as Gui.Edit</code>).</td></tr>
+</table>
+<p>The lists are kept in <code>names/options.txt</code> inside the plugin.</p>
+
+<h2 id="ParameterInfo">Parameter info</h2>
+<p><kbd>Ctrl</kbd>+<kbd>P</kbd> shows the parameters of the call at the caret, with the current argument in bold. It opens automatically after typing <code>(</code> and after a completed function. Optional parameters are shown in brackets (<code>[Title]</code>); a variadic last parameter (<code>Values*</code>) applies to all further arguments. If a function has several forms, all of them are listed.</p>
+<p>The parameter info works for</p>
+<ul>
+  <li>calls <code>f(a, b)</code>, commands without parentheses <code>f a, b</code> and directives <code>#Warn All, Off</code>;</li>
+  <li>built-in functions and directives;</li>
+  <li>own functions of the file and of directly included files, shown as written in the definition (<code>&amp;ref</code>, <code>args*</code>, <code>[opt := "x"]</code>). An own function takes precedence over a built-in function of the same name;</li>
+  <li>method calls <code>obj.Method(...)</code>: the methods of the own classes plus the built-in forms. If the class of <code>obj</code> is known (a built-in class like <code>Gui.</code> or a <a href="types.htm">declared type</a>), only the forms of that class and its base classes are shown; otherwise all forms with their class, e.g. <code>Gui.Add(...)</code> and <code>Menu.Add(...)</code>.</li>
+</ul>
+<p>The command form of a method call (<code>obj.Method "x", 1</code>) has no parameter info.</p>
+
+<div class="ex" id="ExParamInfo">
+<p><a class="ex_number" href="#ExParamInfo"></a> Parameter info for an own function.</p>
+<pre>Resize(width, height := 100, &amp;changed, keep?) {
+}
+Resize(200, |    <em>; Ctrl+P shows: width, <strong>[height := 100]</strong>, &amp;changed, [keep]</em></pre>
+</div>
+
+<h2 id="Related">Related</h2>
+<p><a href="index.htm">Plugin manual</a>, <a href="types.htm">Type declarations</a>, <a href="navigation.htm">Navigation</a></p>
+
+</body>
+</html>

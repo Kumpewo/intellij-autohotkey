@@ -1,0 +1,118 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>AutoHotkey v2 Plugin - Manual</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../styles/theme.css" rel="stylesheet" />
+</head>
+<body>
+
+<h1>AutoHotkey v2 Plugin</h1>
+
+<p>This plugin adds support for <a href="https://www.autohotkey.com/">AutoHotkey</a> v2 scripts (<code>.ahk</code> files) to IntelliJ IDEA and the other IDEs based on the IntelliJ platform. It understands the language, helps while writing, and runs, validates, compiles and debugs scripts with the AutoHotkey installation on your computer.</p>
+
+<p>Only AutoHotkey v2 is supported. Files that require another version (<code>#Requires AutoHotkey v1.1</code>) are opened as text without errors and without formatting.</p>
+
+<p>Keyboard shortcuts in this manual are those of the default Windows keymap of IntelliJ IDEA. Open this manual from the IDE with <em>Help &gt; AutoHotkey Plugin Manual</em> or with the link at the bottom of <em>Settings &gt; Languages &amp; Frameworks &gt; AutoHotkey</em>.</p>
+
+<h2 id="Features">Features at a glance</h2>
+<table class="info">
+  <tr>
+    <th>Area</th>
+    <th>What the plugin does</th>
+  </tr>
+  <tr>
+    <td nowrap="nowrap"><a href="editor.htm">Editor</a></td>
+    <td>Parser for AutoHotkey v2 with error highlighting; colors by role (flow control, directives, built-in variables, functions, classes, methods and properties, hotkeys, labels ...); structure view, breadcrumbs, sticky lines, code folding (also <code>;region</code>), highlighting of the occurrences of a name, spell checking of comments and strings, brace matching (also <code>%...%</code>), quotes and percent signs in pairs, comment/uncomment with <kbd>Ctrl</kbd>+<kbd>/</kbd>.</td>
+  </tr>
+  <tr>
+    <td nowrap="nowrap"><a href="completion.htm">Completion</a></td>
+    <td>Completion of directives, keywords, built-in and own names, members, labels, key names and parameter values; parameter info for built-in and own functions and for methods.</td>
+  </tr>
+  <tr>
+    <td nowrap="nowrap"><a href="navigation.htm">Navigation</a></td>
+    <td>Go to declaration for functions, classes, members, labels and <code>#Include</code> files, including the AutoHotkey library folders; Find Usages and Rename with preview; Go to Symbol and Go to Class over the whole project.</td>
+  </tr>
+  <tr>
+    <td nowrap="nowrap"><a href="help.htm">Help</a></td>
+    <td>Quick documentation from the AutoHotkey help as a popup, external help in the help viewer of Windows, help for the plugin's pragmas and the compiler directives, the AutoHotkey help and this manual in the Help menu.</td>
+  </tr>
+  <tr>
+    <td nowrap="nowrap"><a href="doc-comments.htm">Doc comments</a></td>
+    <td>Documentation of own functions, methods and classes in <code>/** ... */</code> comments, shown as quick documentation, in the completion list and in the parameter info; parameter types, deprecated definitions.</td>
+  </tr>
+  <tr>
+    <td nowrap="nowrap"><a href="types.htm">Type declarations</a></td>
+    <td>Comment pragmas that tell the plugin the class of variables, for better completion, parameter info and help, and that mark private members; once per project in <code>pragmas.ahk</code>.</td>
+  </tr>
+  <tr>
+    <td nowrap="nowrap"><a href="formatting.htm">Formatting</a></td>
+    <td>Code formatter with code style settings; optional adjustment of the case of keywords and built-in names.</td>
+  </tr>
+  <tr>
+    <td nowrap="nowrap"><a href="templates.htm">Templates</a></td>
+    <td>Live templates for common constructs, <em>Surround With</em>, and a file template for new scripts.</td>
+  </tr>
+  <tr>
+    <td nowrap="nowrap"><a href="running.htm">Running</a></td>
+    <td>Run configurations for scripts, clickable load errors in the console.</td>
+  </tr>
+  <tr>
+    <td nowrap="nowrap"><a href="validate.htm">Validation</a></td>
+    <td>Checks a script with <code>AutoHotkey /validate</code>, manually or automatically after reformatting or saving.</td>
+  </tr>
+  <tr>
+    <td nowrap="nowrap"><a href="compile.htm">Compiling</a></td>
+    <td>Compiles a script into an executable with Ahk2Exe, inserts a head of compiler directives; run configurations can compile first and run the executable in a real console.</td>
+  </tr>
+  <tr>
+    <td nowrap="nowrap"><a href="debugger.htm">Debugger</a></td>
+    <td>Breakpoints, stepping, call stack, variables, watches, inline values, exception breakpoints, attaching to running scripts.</td>
+  </tr>
+</table>
+
+<h2 id="Contents">Contents</h2>
+<ul>
+  <li><a href="getting-started.htm">Getting started</a></li>
+  <li><a href="editor.htm">Editor: syntax, errors and colors</a></li>
+  <li><a href="completion.htm">Code completion and parameter info</a></li>
+  <li><a href="navigation.htm">Navigation</a></li>
+  <li><a href="help.htm">Help</a></li>
+  <li><a href="doc-comments.htm">Doc comments</a></li>
+  <li><a href="types.htm">Type declarations</a></li>
+  <li><a href="formatting.htm">Formatting and case adjustment</a></li>
+  <li><a href="templates.htm">Live templates and file template</a></li>
+  <li><a href="settings.htm">Settings</a></li>
+  <li><a href="running.htm">Running scripts</a></li>
+  <li><a href="validate.htm">Validating with AutoHotkey</a></li>
+  <li><a href="compile.htm">Compiling with Ahk2Exe</a></li>
+  <li><a href="debugger.htm">Debugger</a></li>
+  <li><a href="pragmas.htm">Pragmas</a>
+    <ul>
+      <li><a href="declare-type.htm">;@declare-type</a></li>
+      <li><a href="declare-auto-type.htm">;@declare-auto-type</a></li>
+      <li><a href="ignore-next-line.htm">;@ignore-next-line</a></li>
+    </ul>
+  </li>
+  <li><a href="limitations.htm">Known limitations</a></li>
+</ul>
+
+<h2 id="Versions">Versions of the AutoHotkey help</h2>
+<p>The plugin uses two copies of the AutoHotkey help:</p>
+<ul>
+  <li>The <strong>popups</strong> (<kbd>Ctrl</kbd>+<kbd>Q</kbd>, mouse hover) show pages that are part of the plugin. They are currently those of AutoHotkey <strong>v2.0.31</strong>, independent of the AutoHotkey version installed on your computer.</li>
+  <li>The <strong>external help</strong> (<kbd>Shift</kbd>+<kbd>F1</kbd>) opens <code>AutoHotkey.chm</code> of your AutoHotkey installation and therefore matches the installed version.</li>
+</ul>
+<p>If the two differ (for example a function that is new in a later version), the external help is the one that is right for your installation.</p>
+
+<h2 id="Requirements">Requirements</h2>
+<ul>
+  <li>An IDE based on the IntelliJ platform 2025.3 or later.</li>
+  <li>For running, validating, debugging and the external help: AutoHotkey v2 installed on Windows. The plugin finds a standard installation by itself (see <a href="settings.htm#AutoHotkey">Settings</a>).</li>
+  <li>For compiling: Ahk2Exe, which is part of the AutoHotkey installation (or installed from its dash).</li>
+</ul>
+<p>Editing (colors, completion, formatting, navigation, popup help) works without an AutoHotkey installation.</p>
+
+</body>
+</html>

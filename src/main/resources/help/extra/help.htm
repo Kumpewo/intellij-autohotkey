@@ -1,0 +1,45 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>Help | AutoHotkey v2 Plugin</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../styles/theme.css" rel="stylesheet" />
+</head>
+<body>
+
+<h1>Help</h1>
+
+<h2 id="Popup">Quick documentation (popup)</h2>
+<p><kbd>Ctrl</kbd>+<kbd>Q</kbd>, or resting the mouse on a name, shows the help page of a built-in variable, function, class, method, property, directive or keyword as a popup. Links in the page open further pages in the same popup; the arrows at the top go back and forward.</p>
+<ul>
+  <li>The page is chosen by the role of the word, like the colors: <code>Gui.Button</code> shows the page of the nested class, <code>btn.Text</code> the page of the property.</li>
+  <li>If a name has several pages (<code>Add</code> of <code>Gui</code>, <code>Menu</code>, <code>Gui.ListView</code> ...), the popup lists them; a click opens one. If the class of the object is known (a built-in class left of the dot, or a <a href="types.htm">declared type</a> including its base classes), only the matching page is shown.</li>
+  <li>Anywhere in a pragma comment (<code>;@declare-type ...</code>) the popup shows the page of that <a href="pragmas.htm">pragma</a>.</li>
+  <li><kbd>Ctrl</kbd>+<kbd>B</kbd> on a built-in name without own definition opens the same popup.</li>
+  <li>For your own functions, methods and classes the popup shows their signature and <a href="doc-comments.htm">doc comment</a>; an own definition takes precedence over a built-in page of the same name.</li>
+</ul>
+<p class="note"><strong>Note:</strong> The pages of the popup are part of the plugin. They are currently those of AutoHotkey <strong>v2.0.31</strong>, no matter which version is installed.</p>
+
+<h2 id="External">External help</h2>
+<p><kbd>Shift</kbd>+<kbd>F1</kbd> (<em>View &gt; External Documentation</em>) opens the topic under the caret in a separate help viewer. If there are several topics, choose one from a list first.</p>
+<ul>
+  <li><strong>AutoHotkey topics</strong> open by default in <code>hh.exe</code> (the help viewer of Windows) with the <code>AutoHotkey.chm</code> of your AutoHotkey installation, so they match the installed version. The file is searched next to the AutoHotkey program from the settings; for the launcher <code>UX\AutoHotkeyUX.exe</code> in <code>v2\</code> and in the main folder of the installation.</li>
+  <li>Another program can be set under <em>Settings &gt; Languages &amp; Frameworks &gt; AutoHotkey &gt; External help</em>, see <a href="settings.htm#ExternalHelp">Settings</a>.</li>
+  <li><strong>Pages of the plugin</strong> (the pragmas and this manual) always open in <code>hh.exe</code> with the plugin's own help file. <code>hh.exe</code> cannot read files inside the plugin, so the file is copied to the temporary folder first (<code>%TEMP%\intellij-autohotkey\extra-<i>checksum</i>.chm</code>, reused until the plugin changes). The command line from the settings does not apply to them.</li>
+</ul>
+
+<h2 id="Ahk2Exe">Help on compiler directives</h2>
+<p><kbd>Ctrl</kbd>+<kbd>Q</kbd> anywhere in a compiler directive <code>;@Ahk2Exe-...</code> shows the page "Script Compiler Directives" of the AutoHotkey help, <kbd>Shift</kbd>+<kbd>F1</kbd> opens it in the external help. All directives share this one page. A disabled directive (<code>;;@Ahk2Exe-...</code>) is an ordinary comment.</p>
+
+<h2 id="Menu">Opening the AutoHotkey help</h2>
+<p><em>Help &gt; AutoHotkey Help</em> opens the help of your AutoHotkey installation at its start page: <code>hh.exe</code> with <code>AutoHotkey.chm</code>, or the program of the <a href="settings.htm#ExternalHelp">external help setting</a> with the key <code>/docs/index.htm</code>.</p>
+
+<h2 id="Manual">This manual</h2>
+<p><em>Help &gt; AutoHotkey Plugin Manual</em> and the link at the bottom of the AutoHotkey settings page open this manual in <code>hh.exe</code>. If the plugin was built without its help file, the pages are copied to <code>%TEMP%\intellij-autohotkey\manual\</code> and opened in the default web browser.</p>
+
+<h2 id="Related">Related</h2>
+<p><a href="index.htm">Plugin manual</a>, <a href="index.htm#Versions">Versions of the AutoHotkey help</a>, <a href="settings.htm#ExternalHelp">External help settings</a>, <a href="doc-comments.htm">Doc comments</a></p>
+
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>Type Declarations | AutoHotkey v2 Plugin</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../styles/theme.css" rel="stylesheet" />
+</head>
+<body>
+
+<h1>Type declarations</h1>
+
+<p>AutoHotkey decides the class of a value only when the script runs. In the editor the plugin therefore cannot know that <code>win</code> holds a <code>Gui</code>: after <code>win.</code> it would have to offer the members of every class. Two <a href="pragmas.htm">pragmas</a> tell the plugin the class:</p>
+<ul>
+  <li><a href="declare-type.htm">;@declare-type</a> names variables (or name patterns) and their class, built-in or own.</li>
+  <li><a href="declare-auto-type.htm">;@declare-auto-type</a> declares, for a group of built-in classes at once, every variable whose name ends with the class name.</li>
+</ul>
+<p>Both are comments for AutoHotkey; the script runs unchanged. A declaration applies to the whole file in which it stands, wherever it is placed, and never to other files.</p>
+
+<h2 id="Effect">What a declaration changes</h2>
+<table class="info">
+  <tr><th>Feature</th><th>Without declaration</th><th>With <code>;@declare-type win as Gui</code></th></tr>
+  <tr><td>Color of <code>win</code></td><td>normal variable</td><td><em>Variable with declared type</em></td></tr>
+  <tr><td>Completion after <code>win.</code></td><td>members of all classes</td><td>members of <code>Gui</code>, <code>Object</code>, <code>Any</code>; those of <code>Gui</code> first</td></tr>
+  <tr><td>Parameter info of <code>win.Add(</code></td><td><code>Gui.Add</code>, <code>Menu.Add</code>, <code>Gui.ListView.Add</code> ...</td><td>only <code>Gui.Add</code></td></tr>
+  <tr><td>Values for <code>win.Add("</code></td><td>values of all <code>Add</code> methods</td><td>control types of <code>Gui.Add</code></td></tr>
+  <tr><td>Help on <code>Add</code> in <code>win.Add</code></td><td>list of all <code>Add</code> pages</td><td>page of <code>Gui.Add</code></td></tr>
+</table>
+
+<h2 id="Examples">Examples</h2>
+<div class="ex" id="ExGui">
+<p><a class="ex_number" href="#ExGui"></a> A window with controls, declared by name and by suffix.</p>
+<pre>;@declare-type win as Gui, *Edit as Gui.Edit, *Btn as Gui.Button
+win := Gui(, "Login")
+userEdit := win.AddEdit("w200")
+okBtn := win.AddButton("Default", "OK")
+okBtn.OnEvent("Click", (*) =&gt; win.Hide())   <em>; OnEvent from Gui.Control</em>
+userEdit.Focus()</pre>
+</div>
+
+<div class="ex" id="ExAuto">
+<p><a class="ex_number" href="#ExAuto"></a> The same with automatic declarations for all Gui classes: every name ending with a class name gets that class.</p>
+<pre>;@declare-auto-type Gui*
+mainGui := Gui()
+nameEdit := mainGui.AddEdit()      <em>; *Edit as Gui.Edit</em>
+okButton := mainGui.AddButton()    <em>; *Button as Gui.Button</em></pre>
+</div>
+
+<div class="ex" id="ExOwn">
+<p><a class="ex_number" href="#ExOwn"></a> An own class, also from an included file. The members of its base class are offered after its own members.</p>
+<pre>#Include queue.ahk          <em>; defines: class Queue extends Array { Enqueue(item) ... }</em>
+;@declare-type jobs as Queue
+jobs := Queue()
+jobs.|                      <em>; Enqueue first, then Push, Pop, Length ... of Array</em></pre>
+</div>
+
+<div class="ex" id="ExCollections">
+<p><a class="ex_number" href="#ExCollections"></a> Prefix patterns for collections.</p>
+<pre>;@declare-type map* as Map, list* as Array
+mapNames := Map()
+listItems := []
+mapNames.Has("x")
+listItems.Push(1)</pre>
+</div>
+
+<h2 id="Tips">Tips</h2>
+<ul>
+  <li>Put the declarations at the top of the file, next to <code>#Requires</code>, so they are easy to find.</li>
+  <li>Patterns follow naming conventions: if your controls are called <code>...Edit</code>, <code>...Btn</code>, one pattern covers all of them.</li>
+  <li>A wildcard declaration never changes the color of a built-in name (a variable called <code>Edit</code> stays a built-in class name); declare the exact name for that.</li>
+  <li>The live template <code>dt</code> inserts <code>;@declare-type name as Class</code>.</li>
+  <li>Mistakes are marked in the comment; <kbd>Ctrl</kbd>+<kbd>Q</kbd> in the comment shows the syntax.</li>
+</ul>
+
+<h2 id="Related">Related</h2>
+<p><a href="declare-type.htm">;@declare-type</a>, <a href="declare-auto-type.htm">;@declare-auto-type</a>, <a href="pragmas.htm">Pragmas</a>, <a href="completion.htm">Completion</a></p>
+
+</body>
+</html>

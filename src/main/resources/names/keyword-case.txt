@@ -1,0 +1,33 @@
+; Case of the keywords when "Reformat Code" adjusts the case, and in
+; completion.
+; Format:
+;   [Group] default
+;                  starts a group; every group gets its own switch in the code style settings (tab
+;                  "Case"): "as in list" / "lowercase" / "keep".
+;                  Default: one of these three, "as in list" if omitted.
+;   Words          in their capitalized spelling (= "as in list"), separated by line breaks, spaces or commas.
+;                  Compared case-insensitively.
+; Comments start with ";". Each word only in one group.
+; Special spellings: Until, Class, Files Parse Read Reg.
+; Groups and words can be adjusted without changing code.
+
+[Flow control]
+If Else While Loop For Until Return Break Continue Try Catch Finally Throw Switch Case Goto Default
+
+[Loops]
+Files Parse Read Reg
+
+[Classes]
+Class Struct Extends
+
+[Scope] lowercase
+Global Local Static
+
+[Objects] lowercase
+True False Unset Super This
+
+[Operators] lowercase
+And Or Not Is In Contains As
+
+; 'IsSet' is deliberately not in any group: like comparable built-in functions (IsSetRef) it is always
+; written exactly as in functions.txt.

@@ -1,0 +1,47 @@
+; HTML Help Workshop project for the plugin's own help pages (help/extra/): the user manual and the pragmas.
+; The [FILES] section is also the list of files AhkManual copies to the temporary folder when there is no CHM.
+; Compile in this directory: hhc.exe extra.hhp  ->  extra.chm
+; The project lives in help/ (not in help/extra/), so that the topics inside the CHM have the same paths as in
+; help/lookup/extra.txt (/extra/declare-type.htm) and the relative stylesheet link ../styles/theme.css works.
+[OPTIONS]
+Compatibility=1.1 or later
+Compiled file=extra.chm
+Contents file=extra.hhc
+Index file=extra.hhk
+Default topic=extra\index.htm
+Display compile progress=No
+Full-text search=Yes
+Language=0x409 English (United States)
+Title=AutoHotkey v2 Plugin
+
+[FILES]
+extra\index.htm
+extra\getting-started.htm
+extra\editor.htm
+extra\completion.htm
+extra\navigation.htm
+extra\help.htm
+extra\doc-comments.htm
+extra\types.htm
+extra\formatting.htm
+extra\templates.htm
+extra\settings.htm
+extra\running.htm
+extra\validate.htm
+extra\compile.htm
+extra\debugger.htm
+extra\pragmas.htm
+extra\limitations.htm
+extra\declare-type.htm
+extra\declare-auto-type.htm
+extra\declare-private.htm
+extra\ignore-next-line.htm
+extra\images\settings-autohotkey.png
+extra\images\debugger-overview.png
+extra\images\debugger-exception-breakpoint.png
+extra\images\debugger-attach.png
+styles\theme.css
+styles\content.css
+styles\icons.ttf
+styles\highlighter\light.css
+styles\highlighter\highlighter.css

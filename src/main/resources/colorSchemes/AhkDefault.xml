@@ -1,0 +1,71 @@
+<option name="EDITOR_COLOR_SCHEME">
+    <attributes>
+        <option name="AHK_CLASS">
+            <value>
+                <option name="FOREGROUND" value="2060d0" />
+                <option name="FONT_TYPE" value="1" />
+            </value>
+        </option>
+        <option name="AHK_FUNC">
+            <value>
+                <option name="FOREGROUND" value="2060d0" />
+            </value>
+        </option>
+        <option name="AHK_BUILTIN_CLASS">
+            <value>
+                <option name="FOREGROUND" value="107080" />
+            </value>
+        </option>
+        <option name="AHK_BUILTIN_FUNCTION">
+            <value>
+                <option name="FOREGROUND" value="4080" />
+            </value>
+        </option>
+        <option name="AHK_BUILTIN_METHOD">
+            <value>
+                <option name="FOREGROUND" value="2060d0" />
+            </value>
+        </option>
+        <option name="AHK_DECLARED_TYPE">
+            <value>
+                <option name="FOREGROUND" value="a05a00" />
+            </value>
+        </option>
+        <option name="AHK_DIRECTIVE">
+            <value>
+                <option name="FOREGROUND" value="6f008a" />
+                <option name="FONT_TYPE" value="1" />
+            </value>
+        </option>
+        <option name="AHK_HOTKEY">
+            <value>
+                <option name="FOREGROUND" value="6f008a" />
+                <option name="BACKGROUND" value="f4f4f4" />
+                <option name="FONT_TYPE" value="1" />
+            </value>
+        </option>
+        <option name="AHK_HOTSTRING">
+            <value>
+                <option name="FOREGROUND" value="6f008a" />
+                <option name="BACKGROUND" value="f4f4f4" />
+            </value>
+        </option>
+        <option name="AHK_LABEL">
+            <value>
+                <option name="EFFECT_COLOR" value="808080" />
+                <option name="EFFECT_TYPE" value="1" />
+            </value>
+        </option>
+        <option name="AHK_PRIVATE_MEMBER">
+            <value>
+                <option name="FOREGROUND" value="808080" />
+                <option name="FONT_TYPE" value="2" />
+            </value>
+        </option>
+        <option name="AHK_IGNORED_LINE">
+            <value>
+                <option name="BACKGROUND" value="fff3d6" />
+            </value>
+        </option>
+    </attributes>
+</option>

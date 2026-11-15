@@ -1,0 +1,112 @@
+# AutoHotkey v2 Plugin for IntelliJ-based IDEs
+
+Language support for [AutoHotkey](https://www.autohotkey.com/) **v2** scripts (`.ahk`) in IntelliJ-based IDEs.
+
+| Completion inside option strings | Doc comments of your own code | Debugger with inline values |
+|---|---|---|
+| ![Completion of the options of an Edit control](docs/images/completion-option-string.png) | ![Quick documentation of an own function](docs/images/doc-comment-popup.png) | ![Debugger stopped at a breakpoint](docs/images/debugger-inline-values.png) |
+
+More screenshots: [library completion](docs/images/include-completion.png),
+[declared types](docs/images/declared-type-completion.png), [AutoHotkey help](docs/images/help-popup.png),
+[validation](docs/images/validate-console.png), [doc comment formatting](docs/images/doc-comments-settings.png).
+
+## Features
+
+- **Parser with error highlighting** for AutoHotkey v2 syntax: expressions, commands without parentheses,
+  hotkeys, hotstrings, remappings, classes, properties, `switch`, labels, continuation lines and sections.
+- **Semantic highlighting** of keywords, directives, built-in variables, functions, classes, methods and
+  properties, depending on the role of a name (e.g. `Length` is only colored after a dot).
+- **Code formatter** with its own code style page, and optional **case adjustment** of keywords and
+  built-in names when reformatting.
+- **Code completion** for built-in and own names, members after the dot, directives, key names (in `Send`
+  strings and hotkeys), parameter values (`CoordMode "Mouse"`), option strings (`MsgBox "YesNo Icon!"`,
+  `Gui.Add("Edit", "w200 ReadOnly")`), labels after `goto`.
+- **Parameter info** (Ctrl+P) for built-in functions, directives, methods and own functions.
+- **Go to declaration** (Ctrl+B) for functions, classes, members, base classes, labels and `#Include` files,
+  also into directly included files and the AutoHotkey library folders.
+- **Quick documentation** (Ctrl+Q, hover) from the AutoHotkey help and an **external help viewer** (Shift+F1).
+- **Doc comments** (`/** ... */` with `@param`, `@returns`, `@see` ...) for own functions, methods and classes,
+  shown as quick documentation, in the completion list and in the parameter info.
+- **User manual** inside the IDE (*Help > AutoHotkey Plugin Manual*).
+- **Type hints** with `;@declare-type` comments for better completion and parameter info.
+- **Structure view, breadcrumbs, sticky lines, brace matching**, quotes and `%` typed in pairs.
+- **Code folding** of blocks, comments, continuation sections, `#Include` lines and `;region` ... `;endregion`.
+- **Highlighting of occurrences**: the name under the caret is highlighted throughout the file.
+- **Find Usages** (Alt+F7) and **Rename** (Shift+F6, always with preview) for functions, methods, classes,
+  properties, fields and labels.
+- **Go to Symbol** (Ctrl+Alt+Shift+N) and **Go to Class** (Ctrl+N) over all AutoHotkey files of the project,
+  including members, labels, hotkeys and hotstrings.
+- **Spell checking** of comments, strings and hotstrings, with a dictionary of the built-in names.
+- **Live templates** (functions, classes, loops, hotkeys, Gui ...), *Surround With* and a *New > AutoHotkey
+  Script* file template.
+- **Run configuration** with clickable load errors in the console.
+- **Debugger** (work in progress) using the built-in DBGp engine of AutoHotkey v2: breakpoints, stepping, call
+  stack, variables (set values, watches and hover for variables and members), inline values, exception
+  breakpoint, detach and attach to a running script, `OutputDebug` in the console.
+- **Validation with AutoHotkey** (`/validate`, Alt+Shift+V, optionally after *Reformat Code* or on save; validates
+  the main script of the selected run configuration): the error AutoHotkey reports is marked in the code and
+  shown in the console.
+- **Compilation with Ahk2Exe** (*Code > Compile with Ahk2Exe*) for scripts that choose their base file with
+  `;@Ahk2Exe-Base`; errors are clickable in the console. A run configuration can compile first and run the
+  executable in a real console (terminal in the Run tool window or a separate console window).
+
+Only AutoHotkey v2 is supported. Files that require another version (`#Requires AutoHotkey v1.1`) are left
+unparsed and only get a warning.
+
+## Documentation
+
+- [User guide](docs/user-guide.md): all features, settings and the comment pragmas.
+- [Architecture](docs/architecture.md): how the classes work together, for developers.
+
+## Requirements
+
+- An IDE based on the IntelliJ platform 2025.3 or later (IntelliJ IDEA, PyCharm, WebStorm ...); the plugin uses
+  only platform modules (checked with the Plugin Verifier against IntelliJ IDEA, PyCharm and WebStorm).
+- AutoHotkey v2 on Windows for running scripts and for the external help. Editing works without it.
+
+## Building from source
+
+The build uses Gradle with the IntelliJ Platform Gradle Plugin and Grammar-Kit. A JDK 21 is required.
+
+```
+./gradlew buildPlugin      # plugin ZIP in build/distributions/
+./gradlew test             # parser and plugin tests
+./gradlew runIde           # starts a sandbox IDE with the plugin
+./gradlew verifyPlugin     # IntelliJ Plugin Verifier against the target IDE
+./gradlew verifyPlugin -PverifyRecommendedIdes=true   # ... against all recommended IDE versions
+```
+
+The GitHub workflow `.github/workflows/build.yml` runs the tests, builds the plugin and verifies it against the
+recommended IDE versions on every push and pull request (on Windows; tests that need an installed AutoHotkey are
+skipped there).
+
+Install the ZIP via *Settings > Plugins > ⚙ > Install Plugin from Disk...*.
+
+The parser (`src/main/grammar/Ahk.bnf`) and the lexer (`src/main/grammar/Ahk.flex`) are generated into
+`src/main/gen/` on every build; the generated sources are not checked in.
+
+## Project layout
+
+```
+src/main/grammar/            Grammar (Grammar-Kit) and lexer (JFlex)
+src/main/java/.../autohotkey Plugin sources, one package per feature (see docs/architecture.md)
+src/main/resources/
+    META-INF/plugin.xml      Plugin descriptor with all extensions
+    META-INF/pluginIcon.svg  Plugin logo (shown in the plugin list and on the Marketplace)
+    messages/                All texts the user sees (AhkBundle.properties)
+    names/                   Name lists for highlighting, completion and parameter info
+    help/                    AutoHotkey help (docs/, v2.0.31), own pages and manual (extra/), lookup files,
+                             styles and the HTML Help project of extra.chm
+    liveTemplates/           Bundled live templates
+src/test/                    Tests (AhkParsingTest, AhkPluginTest)
+docs/                        User guide and architecture overview
+```
+
+## License
+
+This plugin is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+License as published by the Free Software Foundation, either version 2 of the License, or (at your option) any later
+version (SPDX: `GPL-2.0-or-later`). See [LICENSE](LICENSE).
+
+The bundled AutoHotkey help pages (`src/main/resources/help/docs/`) are part of the AutoHotkey documentation and are
+distributed under the GNU General Public License version 2, like AutoHotkey itself (see `help/docs/license.htm`).

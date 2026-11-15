@@ -1,0 +1,85 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>Known Limitations | AutoHotkey v2 Plugin</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../styles/theme.css" rel="stylesheet" />
+</head>
+<body>
+
+<h1>Known limitations</h1>
+
+<h2 id="Parser">Parser</h2>
+<ul>
+  <li>Calls without parentheses whose first argument starts with <code>(</code> (<code>SetTimer () =&gt; stmt, 100</code>) are not supported. Use <a href="ignore-next-line.htm">;@ignore-next-line</a> or write the call with parentheses: <code>SetTimer(() =&gt; stmt, 100)</code>.</li>
+  <li>Inside parentheses, a next line that starts with a fat arrow function (<code>x := (a</code> / <code>() =&gt; 1)</code>) is not recognized as a concatenation. (A next line starting with <code>!</code>, <code>not</code>, <code>~</code>, <code>++</code> or <code>{...}</code> is an error in AutoHotkey as well.)</li>
+  <li>The command form of a method call (<code>obj.Method "x", 1</code>) is read as a concatenation; it works in AutoHotkey but has no parameter info. Prefer <code>obj.Method("x", 1)</code>.</li>
+  <li>A command with an omitted <em>first</em> argument (<code>Foo , x</code>) is not supported.</li>
+  <li>Line breaks inside <code>[ ]</code> and <code>{ }</code> never continue an implicit concatenation; this is deliberate, so that a forgotten comma stays an error.</li>
+</ul>
+<p>If <a href="validate.htm">validation</a> shows that AutoHotkey accepts such code, the errors are marked as "Syntax error (AutoHotkey accepts this code)".</p>
+
+<h2 id="Names">Names and types</h2>
+<ul>
+  <li>Variables are not resolved; navigation, completion and parameter info work with names only. <a href="types.htm">Type declarations</a> narrow member lists, but the plugin does not infer types from assignments.</li>
+  <li>Only the file itself and its directly included files are searched; <a href="navigation.htm#Usages">Find Usages</a> searches the reverse direction (the files that include the file of the definition); there is no project-wide search. <a href="navigation.htm#Rename">Rename</a> works on names, not types: check its preview (see <a href="#Refactoring">below</a>).</li>
+  <li>Files outside the project and outside the AutoHotkey library folders only get basic colors (see <a href="navigation.htm#Library">Navigation</a>).</li>
+</ul>
+
+<h2 id="Refactoring">Rename: check the preview</h2>
+<p>Renaming a method safely requires knowing which class every call refers to. In AutoHotkey this is only decided when the script runs: the same call can reach methods of unrelated classes that merely share a name. The plugin therefore renames by name and always shows a preview first (<a href="navigation.htm#Rename">Rename</a>), in which you exclude the occurrences that belong to something else.</p>
+<div class="ex" id="ExRename">
+<p><a class="ex_number" href="#ExRename"></a> Which <code>f</code> does <code>obj.f()</code> call?</p>
+<pre>class X {
+    f() {
+        MsgBox "X.f"
+    }
+}
+
+class Y {
+    f() {
+        MsgBox "Y.f"
+    }
+}
+
+CallF(obj) {
+    obj.f()          <em>; X.f or Y.f, depending on the argument</em>
+}
+
+xobj := X(), yobj := Y()
+CallF(xobj)
+CallF(yobj)</pre>
+</div>
+<p>Renaming <code>X.f</code> lists <code>obj.f()</code> in <code>CallF</code> in the preview, because the name matches. Whether it may be renamed depends on the objects passed to <code>CallF</code>: with a <code>Y</code> the call would break, so <code>Y.f</code> would have to be renamed as well, or the call stays. <em>Go to declaration</em> on <code>f</code> lists all candidates instead of guessing.</p>
+<p>What no search can see:</p>
+<ul>
+  <li>dynamic names such as <code>obj.%name%()</code>, and names in strings that are used as names: <code>HasMethod(obj, "f")</code>, <code>ObjBindMethod(obj, "f")</code>, <code>HasProp(obj, "count")</code> (with <em>Search in comments and strings</em> they appear in the preview as text occurrences);</li>
+  <li>scripts outside the project, and scripts that are not connected to the definition's file by <code>#Include</code>.</li>
+</ul>
+<p>After renaming, <a href="validate.htm">validate</a> the main script: a call of a function that no longer exists is a load error in AutoHotkey v2 and shows up at once. Calls of methods are only checked when they run.</p>
+
+<h3 id="UniqueNames">Tip: unique names make renaming easy</h3>
+<p>If you consistently give methods, properties, functions and classes names that are unique in your project, every occurrence in the preview belongs to the renamed definition, and the preview is quick to check. The same holds for the IDE's <em>Replace in Files</em> (<em>Edit &gt; Find &gt; Replace in Files</em>, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>), for example to rename a variable:</p>
+<ul>
+  <li>turn on <em>Words</em>, so that <code>Count</code> does not match <code>CountItems</code>;</li>
+  <li>leave <em>Match case</em> off, because AutoHotkey ignores case (<code>obj.Count</code> and <code>obj.count</code> are the same);</li>
+  <li>check the preview before replacing: occurrences in strings and comments are found as well.</li>
+</ul>
+<div class="ex" id="ExUniqueNames">
+<p><a class="ex_number" href="#ExUniqueNames"></a> In the example above, distinct names such as <code>X.ShowGreeting</code> and <code>Y.ShowFarewell</code> make every call unambiguous. When both classes have to share an interface on purpose, the shared name stays and is renamed in all classes together.</p>
+</div>
+
+<h2 id="Tools">Running, validation, debugger</h2>
+<ul>
+  <li>Running, validating, compiling and debugging need Windows and an installed AutoHotkey v2.</li>
+  <li>Runtime errors are shown by AutoHotkey in its own dialog, not in the console.</li>
+  <li>The debugger evaluates only variable and member paths, no expressions (see <a href="debugger.htm#Limits">Debugger</a>).</li>
+  <li>The popup help shows the pages of AutoHotkey v2.0.31, the external help those of the installed version (see <a href="index.htm#Versions">Versions</a>).</li>
+</ul>
+
+<h2 id="Related">Related</h2>
+<p><a href="index.htm">Plugin manual</a></p>
+
+</body>
+</html>

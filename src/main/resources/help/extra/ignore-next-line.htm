@@ -1,0 +1,48 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>;@ignore-next-line - Pragma | AutoHotkey v2 Plugin</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../styles/theme.css" rel="stylesheet" />
+</head>
+<body>
+
+<h1>;@ignore-next-line</h1>
+
+<p>Hides the parser errors of the next line. This is a <a href="pragmas.htm">pragma</a>: AutoHotkey treats it as an ordinary comment.</p>
+
+<pre class="Syntax">;@<span class="func">ignore-next-line</span> <span class="optional">Reason</span></pre>
+
+<h2 id="Parameters">Parameters</h2>
+<dl>
+
+  <dt>Reason</dt>
+  <dd>
+    <p>Optional text explaining why the line is ignored. It has no effect.</p>
+  </dd>
+
+</dl>
+
+<h2 id="Remarks">Remarks</h2>
+<p>The parser of the plugin does not understand every construct AutoHotkey accepts, for example a call without parentheses whose first argument is a function (<code>SetTimer () =&gt; ..., 100</code>). Such a line is marked with "Syntax error". If the code is correct, the pragma hides these errors.</p>
+<p>The next line is still parsed. Its parser errors are hidden, and the line is shown with a marked background (color <em>Special: Unchecked code line</em> in Settings &gt; Editor &gt; Color Scheme &gt; AutoHotkey). Built-in names in this line are not colored, and reformatting does not change their case.</p>
+<p>The pragma applies to exactly one line. Errors which follow from the ignored line in later lines remain visible, for example the closing brace of a block whose opening line was ignored. They are meant as a hint to rewrite the code in a form the parser understands.</p>
+<p>The pragma itself gets a warning "Parser errors suppressed.", so that ignored lines are not forgotten. If the next line has no parser error at all, it gets a hint that the pragma is unnecessary instead.</p>
+<p>Only errors of the plugin's parser are hidden. Errors reported by <em>Validate with AutoHotkey</em> stay visible.</p>
+<p>Lines with comments only are not skipped: the pragma always refers to the line directly below it.</p>
+
+<h2 id="Related">Related</h2>
+<p><a href="pragmas.htm">Pragmas</a></p>
+
+<h2 id="Examples">Examples</h2>
+<div class="ex" id="ExTimer">
+<p><a class="ex_number" href="#ExTimer"></a> A call without parentheses whose first argument is a fat arrow function.</p>
+<pre>;@ignore-next-line the parser does not support this call form
+SetTimer () =&gt; MsgBox("Time is up"), -1000</pre>
+<p>Without the pragma, the line can be rewritten with parentheses, which the parser understands:</p>
+<pre>SetTimer(() =&gt; MsgBox("Time is up"), -1000)</pre>
+</div>
+
+</body>
+</html>

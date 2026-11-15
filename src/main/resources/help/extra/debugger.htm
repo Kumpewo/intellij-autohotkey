@@ -1,0 +1,226 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>Debugger | AutoHotkey v2 Plugin</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../styles/theme.css" rel="stylesheet" />
+</head>
+<body>
+
+<h1>Debugger</h1>
+
+<p>The debugger runs a script under control of the IDE: it stops at breakpoints, executes the script line by line, and shows the call stack and the values of variables, which can also be changed. It uses the debugger engine built into AutoHotkey v2 (the DBGp protocol), so no additional software is needed.</p>
+
+<h2 id="Contents">Contents</h2>
+<ul>
+  <li><a href="#Requirements">Requirements</a> &middot; <a href="#Start">Starting a session</a> &middot; <a href="#HowItWorks">How it works</a></li>
+  <li><a href="#Breakpoints">Breakpoints</a> &middot; <a href="#Conditions">Conditions and log messages</a> &middot; <a href="#Exceptions">Exception breakpoint</a></li>
+  <li><a href="#Stepping">Stepping</a> &middot; <a href="#Frames">Frames</a> &middot; <a href="#Variables">Variables</a> &middot; <a href="#SetValue">Changing values</a></li>
+  <li><a href="#Evaluate">Watches, Evaluate and hover</a> &middot; <a href="#Inline">Inline values</a> &middot; <a href="#MarkObject">Mark Object</a></li>
+  <li><a href="#Output">Output</a> &middot; <a href="#Attach">Attaching to a running script</a> &middot; <a href="#Detach">Detaching</a></li>
+  <li><a href="#Walkthrough">Walkthrough</a> &middot; <a href="#SideEffects">Side effects</a> &middot; <a href="#Limits">Limits</a></li>
+</ul>
+
+<h2 id="Requirements">Requirements</h2>
+<ul>
+  <li>AutoHotkey v2 installed on Windows. The debugger always uses the v2 interpreter (<code>v2\AutoHotkey.exe</code>, or <code>AutoHotkey32.exe</code>/<code>AutoHotkey64.exe</code> with <code>32-bit</code>/<code>64-bit</code> in <code>#Requires</code>), also when the settings name the launcher.</li>
+  <li>The script must load without errors. With a syntax error AutoHotkey does not start its debugger: the console shows the error (with a link) and the session ends.</li>
+</ul>
+
+<h2 id="Start">Starting a session</h2>
+<ul>
+  <li><em>Debug</em> (<kbd>Shift</kbd>+<kbd>F9</kbd> or the bug icon in the toolbar) starts the selected AutoHotkey run configuration under the debugger. The same <a href="settings.htm#RunConfiguration">run configurations</a> as for <em>Run</em> are used, with their script parameters and working directory.</li>
+  <li><em>Debug 'name.ahk'</em> in the context menu of the editor or of the project view debugs the current file.</li>
+  <li>With the option <em>Compile with Ahk2Exe</em> in the run configuration, the script is debugged, not the executable; the console says so.</li>
+</ul>
+<p>The <em>Debug</em> tool window opens with the tabs <em>Threads &amp; Variables</em> (frames, variables, watches) and <em>Console</em>.</p>
+<p><img src="images/debugger-overview.png" alt="Debug tool window with frames and variables" style="max-width:100%; border:1px solid #ccc"><br><em>The <a href="#Walkthrough">walkthrough example</a> after one step over the breakpoint in line 17: the frames on the left, the variables in the group <em>Global</em> (with <em>Built-in</em> below), inline values at the end of the lines in the editor.</em></p>
+
+<h2 id="HowItWorks">How it works</h2>
+<p>The plugin opens a port on <code>127.0.0.1</code> and starts</p>
+<pre><i>interpreter</i> /ErrorStdOut /Debug=127.0.0.1:<i>port</i> <i>script</i> <i>parameters</i></pre>
+<p>AutoHotkey connects to the IDE before the first line of the script runs. The plugin then sends the breakpoints and lets the script run. If AutoHotkey does not connect within 10 seconds, the plugin ends the process. Only connections from the local computer are used.</p>
+
+<h2 id="Breakpoints">Breakpoints</h2>
+<ul>
+  <li>Click the gutter left of a line, or press <kbd>Ctrl</kbd>+<kbd>F8</kbd>, to set or remove a line breakpoint. Only lines with code can have one, not empty lines or comment lines.</li>
+  <li>Breakpoints can be added, removed, disabled and enabled while the script runs.</li>
+  <li>AutoHotkey may move a breakpoint to the next line that has code it can stop at, for example from a line with only <code>}</code> or from the head of a function. The script then stops at that line; the breakpoint still counts as verified.</li>
+  <li><em>Run &gt; View Breakpoints</em> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F8</kbd>) lists all breakpoints with their options. A right-click on a breakpoint opens the most important ones.</li>
+  <li><em>Suspend</em> unchecked turns a breakpoint into a pure log point: it writes its log message and lets the script continue.</li>
+</ul>
+
+<h2 id="Conditions">Conditions and log messages</h2>
+<p>The engine of AutoHotkey cannot evaluate expressions. The plugin therefore accepts a <strong>variable or member path</strong> as condition and as log expression: <code>debug</code>, <code>obj.flag</code>, <code>arr[1]</code>, <code>m["key"]</code>, <code>this.count</code>. Other expressions (<code>i &gt; 5</code>, <code>IsSet(x)</code>) are ignored, and the console says so.</p>
+<ul>
+  <li><strong>Condition:</strong> the script stops if the value is true in the sense of AutoHotkey: not unset, not empty, not 0. If the value cannot be read, the script stops as well.</li>
+  <li><strong>Log expression</strong> (<em>Evaluate and log</em>): the console shows <code><i>path</i> = <i>value</i></code> each time the breakpoint is hit.</li>
+</ul>
+<div class="ex" id="ExCondition">
+<p><a class="ex_number" href="#ExCondition"></a> Stop only for a particular item: compute the condition in the script and use the variable as condition.</p>
+<pre>for index, item in items {
+    isLast := (index = items.Length)
+    Process(item)              <em>; breakpoint with condition: isLast</em>
+}</pre>
+</div>
+<div class="ex" id="ExLog">
+<p><a class="ex_number" href="#ExLog"></a> Watch a value without stopping: breakpoint with <em>Suspend</em> off and log expression <code>job.state</code>. The console shows <code>job.state = "running"</code> each time the line is reached.</p>
+</div>
+
+<h2 id="Exceptions">Exception breakpoint</h2>
+<p><em>Run &gt; View Breakpoints</em> has one entry <em>AutoHotkey Exceptions</em>, disabled by default. Enable it to stop where an error is thrown. AutoHotkey reports no error classes, so it applies to all errors; two check boxes choose which:</p>
+<table class="info">
+  <tr><th>Check box</th><th>Default</th><th>Stops at</th></tr>
+  <tr><td>Caught (inside try)</td><td>off</td><td>errors that a <code>try</code> handles</td></tr>
+  <tr><td>Uncaught (before AutoHotkey shows its error dialog)</td><td>on</td><td>errors that would end the thread with the error dialog of AutoHotkey</td></tr>
+</table>
+<p>The script stops at the line of the error; the console says which kind of error it was. The error message itself is not available at this point: it appears when you continue (for an uncaught error in the error dialog of AutoHotkey). Inspect the variables to find the cause.</p>
+<div class="ex" id="ExException">
+<p><a class="ex_number" href="#ExException"></a> With the default (uncaught only) the debugger stops in line 3, not in line 6.</p>
+<pre>Divide(a, b) =&gt; a / b
+values := [10, 0]
+result := Divide(100, values[2])   <em>; stops here: division by zero, not caught</em>
+try {
+    x := Divide(1, 0)              <em>; caught: no stop (unless "Caught" is checked)</em>
+} catch ZeroDivisionError {
+}</pre>
+</div>
+<p><img src="images/debugger-exception-breakpoint.png" alt="Breakpoints dialog with the exception breakpoint" style="max-width:100%; border:1px solid #ccc"><br><em><em>Run &gt; View Breakpoints</em> with the exception breakpoint enabled and both check boxes on; the title changes with the selection ("Any error (caught and uncaught)").</em></p>
+
+<h2 id="Stepping">Stepping</h2>
+<table class="info">
+  <tr><th>Action</th><th>Key</th><th>Effect</th></tr>
+  <tr><td>Resume Program</td><td><kbd>F9</kbd></td><td>run to the next breakpoint</td></tr>
+  <tr><td>Pause Program</td><td></td><td>stop where the script is</td></tr>
+  <tr><td>Step Over</td><td><kbd>F8</kbd></td><td>execute the current line, without stopping inside called functions</td></tr>
+  <tr><td>Step Into</td><td><kbd>F7</kbd></td><td>go into the function called in the current line</td></tr>
+  <tr><td>Step Out</td><td><kbd>Shift</kbd>+<kbd>F8</kbd></td><td>run until the current function returns</td></tr>
+  <tr><td>Run to Cursor</td><td><kbd>Alt</kbd>+<kbd>F9</kbd></td><td>run to the line of the caret (a temporary breakpoint)</td></tr>
+  <tr><td>Stop</td><td><kbd>Ctrl</kbd>+<kbd>F2</kbd></td><td>end the script</td></tr>
+</table>
+<p><em>Pause</em> on a script that waits for hotkeys, timers or GUI events (no line is running) stops without a call stack; the console says "Paused while the script is idle". Set a breakpoint in the hotkey or timer and resume instead.</p>
+
+<h2 id="Frames">Frames</h2>
+<p>The frames list shows the call stack, the innermost call first, each with the function or thread and file and line: <code>Add()</code>, <code>Auto-execute thread</code>, the hotkey or timer that started the thread. Calls of built-in functions such as <code>Sleep()</code> or <code>MsgBox()</code> appear as frames of their own. Click a frame to open its line and to see its variables.</p>
+
+<h2 id="Variables">Variables</h2>
+<ul>
+  <li>The <strong>local variables</strong> of the selected frame (including parameters) are listed directly.</li>
+  <li>The <strong>global variables</strong> are in the group <em>Global</em>; it is expanded automatically if the frame has no local variables (the top level of the script).</li>
+  <li><strong>Built-in</strong> variables, classes and functions (<code>A_Index</code>, <code>A_Args</code>, <code>Gui</code>, <code>MsgBox</code> ...) are in the sub-group <em>Built-in</em> of <em>Global</em>, so that your own globals are easy to find.</li>
+  <li><strong>Objects</strong>, arrays and maps can be expanded. Array elements appear as <code>[1]</code>, <code>[2]</code> ..., map entries with their key, properties with their name; <code>&lt;base&gt;</code> is the prototype the object is based on. Large objects show 100 children at a time; a link at the end loads the next ones.</li>
+  <li>Next to the value the debugger shows its type as reported by AutoHotkey (<code>integer</code>, <code>string</code>, <code>float</code> ...), for an object its class (<code>Array</code>, <code>Map</code>, <code>Cart</code> ...).</li>
+</ul>
+
+<h2 id="SetValue">Changing values</h2>
+<p><em>Set Value</em> (<kbd>F2</kbd> on a variable, a member or an element) changes the value in the running script. Enter</p>
+<table class="info">
+  <tr><th>Input</th><th>Result</th></tr>
+  <tr><td><code>42</code>, <code>-3</code>, <code>0x1F</code></td><td>Integer (hexadecimal is converted)</td></tr>
+  <tr><td><code>1.5</code>, <code>-0.25</code></td><td>Float</td></tr>
+  <tr><td><code>true</code>, <code>false</code></td><td>1, 0</td></tr>
+  <tr><td><code>"text"</code> or <code>'text'</code></td><td>String; escapes as in AutoHotkey: <code>`n</code>, <code>`t</code>, <code>`"</code>, <code>``</code></td></tr>
+</table>
+<p>Text without quotes is rejected, because in AutoHotkey it would be a variable name. A variable that holds an object can be overwritten with a number or a string; <code>&lt;base&gt;</code> cannot be changed.</p>
+
+<h2 id="Evaluate">Watches, Evaluate and hover</h2>
+<p>As for conditions, only <strong>variables and member paths</strong> can be evaluated, because AutoHotkey cannot evaluate expressions or calls:</p>
+<table class="info">
+  <tr><th>Allowed</th><th>Not possible</th></tr>
+  <tr><td><code>name</code>, <code>obj.key</code>, <code>obj.a.b</code>, <code>arr[1]</code>, <code>arr[-1]</code>, <code>m["key"]</code>, <code>m['key']</code>, <code>this.items[2].name</code>, <code>A_Index</code></td><td><code>a + b</code>, <code>StrLen(s)</code>, <code>obj.Method()</code>, <code>m[key]</code> with a variable as key, <code>%name%</code></td></tr>
+</table>
+<ul>
+  <li><strong>Watches</strong> (<em>+</em> in the variables view): evaluated at every stop. A name is looked up among the local variables of the frame, otherwise globally.</li>
+  <li><strong>Evaluate Expression</strong> (<kbd>Alt</kbd>+<kbd>F8</kbd>): the same for a single path.</li>
+  <li><strong>Hover:</strong> rest the mouse on a variable in the editor while the script is suspended. For a member path the value up to the name under the mouse is shown: on <code>nested</code> in <code>obj.nested.value</code> the value of <code>obj.nested</code>. Built-in functions and classes, calls and definitions show no value.</li>
+</ul>
+
+<h2 id="Inline">Inline values</h2>
+<p>While the script is suspended, the editor shows <code>name = value</code> at the end of the lines in which a variable of the current function (or of the top-level code) is used, up to the current line. Built-in variables and members are not shown. Switch this off with the setting <em>Show values inline</em> (<em>Settings &gt; Build, Execution, Deployment &gt; Debugger &gt; Data Views</em>).</p>
+<div class="ex" id="ExInline">
+<p><a class="ex_number" href="#ExInline"></a> Inline values at a breakpoint in the last line.</p>
+<pre>Total(prices) {
+    sum := 0                     <em>sum = 7.5</em>
+    for price in prices {        <em>price = 2.5</em>
+        sum += price
+    }
+    return sum                   <em>&#8592; suspended</em>
+}</pre>
+</div>
+
+<h2 id="MarkObject">Mark Object</h2>
+<p><em>Mark Object</em> (<kbd>F11</kbd> on an object in the variables view) gives the object a label of your choice. Every variable or element that refers to the same object shows the label too; this answers "is this the same object?".</p>
+
+<h2 id="Output">Output</h2>
+<p>The <em>Console</em> tab shows the output of the script (<code>FileAppend ..., "*"</code>), errors on loading, the messages of the debugger (ignored conditions, exception stops, log messages) and the text of <code>OutputDebug</code>:</p>
+<pre>OutputDebug "Loaded " items.Length " items"</pre>
+<p><code>OutputDebug</code> is the easiest way to trace a script without stopping it.</p>
+
+<h2 id="Attach">Attaching to a running script</h2>
+<p><em>Run &gt; Attach to AutoHotkey Script...</em> lists the AutoHotkey v2 scripts running on this computer (name, path and process id) and attaches the debugger to the chosen one. This is useful for scripts that run permanently, for example started with Windows.</p>
+<ul>
+  <li>The plugin sends the script the message that AutoHotkey provides for this purpose (see "Interactive Debugging" in the AutoHotkey help); the script connects and <strong>pauses</strong>. Set breakpoints and resume.</li>
+  <li>Breakpoints need the source file: open the script from the listed path.</li>
+  <li><em>Stop</em> detaches and leaves the script running.</li>
+  <li>Only AutoHotkey v2 scripts are listed (recognized by the title of their hidden main window).</li>
+</ul>
+<p><img src="images/debugger-attach.png" alt="List of running AutoHotkey scripts" style="max-width:100%; border:1px solid #ccc"><br><em><em>Run &gt; Attach to AutoHotkey Script...</em> with two running scripts, each with path and process id.</em></p>
+
+<h2 id="Detach">Detaching</h2>
+<p>The toolbar button <em>Detach</em> ends the debug session and leaves the script running without debugger, also for a script the IDE started. Breakpoints have no effect any more.</p>
+
+<h2 id="Walkthrough">Walkthrough</h2>
+<div class="ex" id="ExWalkthrough">
+<p><a class="ex_number" href="#ExWalkthrough"></a> A small script with a class to try the debugger.</p>
+<pre>#Requires AutoHotkey v2.0
+
+class Cart {
+    items := []
+    Add(name, price) {
+        this.items.Push({name: name, price: price})   <em>; (2) breakpoint here</em>
+    }
+    Total() {
+        sum := 0
+        for item in this.items
+            sum += item.price
+        return sum
+    }
+}
+
+myCart := Cart()
+myCart.Add("Apple", 0.5)                             <em>; (1) breakpoint here</em>
+myCart.Add("Bread", "2,30")                          <em>; bug: text instead of number</em>
+MsgBox("Total: " myCart.Total())</pre>
+</div>
+<ol>
+  <li>Set breakpoints at (1) and (2) and start <em>Debug</em>. The script stops at (1); the group <em>Global</em> is open and shows <code>myCart</code>. Expand it: <code>items</code> is an empty array.</li>
+  <li>Press <kbd>F7</kbd> (Step Into): the debugger goes into the method <code>Add</code>. Its frame is shown above <code>Auto-execute thread</code>; the variables show <code>name</code>, <code>price</code> and <code>this</code>.</li>
+  <li>Press <kbd>F9</kbd>: the script stops at (2) again, now for "Bread". Hover <code>price</code>: <code>"2,30"</code>, a string. Press <kbd>F2</kbd> on <code>price</code> and enter <code>2.3</code> to fix the value for this run.</li>
+  <li>Add the watch <code>myCart.items[2].price</code>, remove the breakpoints and press <kbd>F9</kbd>: the message box shows the total.</li>
+  <li>Without the fix, enable the <a href="#Exceptions">exception breakpoint</a>: the debugger stops in <code>Total</code> at <code>sum += item.price</code>, where the text cannot be added, and <code>item</code> shows the culprit.</li>
+</ol>
+
+<h2 id="SideEffects">Side effects</h2>
+<ul>
+  <li>The script really runs: files it writes, windows it opens and keys it sends are real.</li>
+  <li>While the script is suspended, none of its threads run: its hotkeys, hotstrings, timers and GUI events do not respond, and keys of its hotkeys may reach other programs instead.</li>
+  <li><em>Set Value</em> changes the running script; the change is not written to the source.</li>
+  <li><em>Stop</em> ends the process; <code>OnExit</code> handlers may not run. <em>Detach</em> lets the script continue normally.</li>
+  <li>Attaching pauses the script until you resume.</li>
+  <li><code>#SingleInstance</code> applies as when running: debugging a script that already runs replaces or keeps the other instance according to its mode.</li>
+</ul>
+
+<h2 id="Limits">Limits</h2>
+<ul>
+  <li>No expressions in conditions, watches and Evaluate, only variable and member paths (a limit of the AutoHotkey engine).</li>
+  <li>The exception breakpoint does not filter by error class, and the error message is only available after continuing.</li>
+  <li>Compiled scripts (executables) are not debugged.</li>
+  <li>Attaching works only on Windows and only for AutoHotkey v2 scripts.</li>
+</ul>
+
+<h2 id="Related">Related</h2>
+<p><a href="index.htm">Plugin manual</a>, <a href="running.htm">Running scripts</a>, <a href="settings.htm#RunConfiguration">Run configuration</a></p>
+
+</body>
+</html>

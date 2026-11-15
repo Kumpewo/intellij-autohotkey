@@ -1,0 +1,65 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>Validating | AutoHotkey v2 Plugin</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../styles/theme.css" rel="stylesheet" />
+</head>
+<body>
+
+<h1>Validating with AutoHotkey</h1>
+
+<p>The plugin's parser does not know every construct, and some errors can only be found by AutoHotkey itself, for example a missing <code>#Include</code> file, a duplicate function or a call with the wrong number of parameters. <em>Validate with AutoHotkey</em> lets AutoHotkey load the script without running it (<code>/validate</code>) and shows the result in the IDE.</p>
+
+<h2 id="Start">Start</h2>
+<ul>
+  <li><em>Code &gt; Validate with AutoHotkey</em>, <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>, or the context menu of the editor and of the project view.</li>
+  <li>Automatically after <em>Reformat Code</em> or after saving, depending on the <a href="settings.htm#Validate">setting</a>.</li>
+</ul>
+<p>Requirement: AutoHotkey v2 installed (the same program as for <a href="running.htm#Program">running</a>).</p>
+
+<h2 id="Target">Which script is validated</h2>
+<p>If an AutoHotkey run configuration is selected in the toolbar and the current file is its script or is included by it with <code>#Include</code> (also indirectly), <strong>that script</strong> (the main script) is validated. An included file alone usually fails, because it lacks the definitions of the main script. In all other cases the current file is validated: without such a run configuration, and for a file that does not belong to it, for example in a project that collects many small scripts. Without a current file (e.g. a folder selected in the project view) the script of the run configuration is used.</p>
+
+<h2 id="Process">What happens</h2>
+<ol>
+  <li>All modified AutoHotkey files are saved.</li>
+  <li>The plugin writes a copy of the script next to it, <code><i>name</i>.~validate.ahk</code>, with the line <code>#Warn All, StdOut</code> appended. Being the last <code>#Warn</code>, it overrides the warning mode of the script, so a warning can never open a message box and block the validation. The line numbers stay the same.</li>
+  <li>AutoHotkey runs in the background: <code><i>program</i> /ErrorStdOut /validate <i>copy</i></code>, in the folder of the script (so <code>A_ScriptDir</code>, <code>Lib</code> folders and relative <code>#Include</code> paths are right).</li>
+  <li>The copy is deleted. In the output, its name is replaced by the name of the original.</li>
+</ol>
+
+<h2 id="Result">Result</h2>
+<ul>
+  <li>The <strong>console</strong> in the Run tool window shows "Validating <i>name</i>.ahk...", the output of AutoHotkey and a summary: green if AutoHotkey found no errors, red for an error or if AutoHotkey could not finish. File names with line numbers are links. Manual validations always show the console, automatic ones only if there is an error. <em>Reformat Code</em> on an AutoHotkey file empties the console, so that no outdated output stays until the next validation.</li>
+  <li>The <strong>line of the error</strong> is marked in the editor ("AutoHotkey: <i>message</i>"), also in an included file. The mark disappears as soon as the file is changed.</li>
+  <li><strong>Warnings</strong> (<code>#Warn</code>, e.g. a variable that is never assigned) are listed in the console and counted in the summary, but are not errors and are not marked in the editor.</li>
+  <li>AutoHotkey stops at the <strong>first error</strong>; fix it and validate again.</li>
+</ul>
+
+<div class="ex" id="ExOutput">
+<p><a class="ex_number" href="#ExOutput"></a> Form of the console output for a script with an error; <code>C:\Scripts\main.ahk (12)</code> is a link.</p>
+<pre>Validating main.ahk...
+C:\Scripts\main.ahk (12) : ==> <i>error message of AutoHotkey</i>
+     Specifically: <i>the code concerned</i>
+
+AutoHotkey reports an error (exit code 2).</pre>
+</div>
+
+<h2 id="Accepted">AutoHotkey accepts what the plugin rejects</h2>
+<p>If AutoHotkey accepts the file but the plugin's parser reports syntax errors in it, the plugin does not understand these lines. Their errors are then shown as "Syntax error (AutoHotkey accepts this code)", and the console says how many there are. Reformatting such lines may change their meaning; consider <a href="ignore-next-line.htm">;@ignore-next-line</a> or a different way of writing them. The plugin's own messages (<code>Unexpected '}'</code> ...) stay unchanged.</p>
+
+<h2 id="SideEffects">Side effects and limits</h2>
+<ul>
+  <li>The temporary copy <code><i>name</i>.~validate.ahk</code> exists for a moment in the folder of the script. Tools that watch the folder (version control, file synchronization) may see it.</li>
+  <li>With the setting <em>Also when a file is saved</em>, the automatic saving of the IDE (when it loses focus, before a run ...) also starts a validation. Saves by the validation itself do not. A validation of the same script that is still running is not started a second time.</li>
+  <li>Only load errors are found, no runtime errors.</li>
+  <li>If AutoHotkey does not finish within 15 seconds (for example because the script shows a dialog while loading), the plugin ends it and says so in the console.</li>
+</ul>
+
+<h2 id="Related">Related</h2>
+<p><a href="index.htm">Plugin manual</a>, <a href="settings.htm#Validate">Settings</a>, <a href="editor.htm#Syntax">Syntax errors</a></p>
+
+</body>
+</html>

@@ -1,0 +1,106 @@
+; Options in option strings (completion, Z.19 C11): MsgBox "YesNo Icon!", Gui("+Resize"), MyGui.Add("Edit", "w200 ReadOnly").
+; Maintained by hand, options from the help (help/docs/lib/MsgBox.htm, gui.htm, guicontrols.htm, listview.htm,
+; treeview.htm).
+; Format: Name Position: Option Option ...   (Position = number of the argument from 1; ";" = comment)
+;   - Name as in values.txt: function/command, or Class.Method (built-in class; also applies to derived classes and
+;     declared names, without a known type to every obj.Method).
+;   - Option ending with "*" takes a value written directly after it (w200, vName, T5): only the part before "*" is
+;     inserted, shown as "w..." in the list.
+;   - "@Group: Option ..." defines a group, "@Group" in a list inserts it (groups may use other groups).
+;   - A "+" or "-" typed before an option stays (+Resize, -Caption).
+;   - Class.Method with a first argument that is a string: an entry "Class.Method<FirstArgument>" with the position
+;     one lower is used instead, if it exists (MyGui.Add("Edit", "|") uses Gui.AddEdit 1).
+; Value lists of single values (event names, control types) are in values.txt.
+
+; --- Groups -----------------------------------------------------------------------------------------------------------
+; gui.htm#Opt: window options (Gui() and Gui.Opt)
+@Window: AlwaysOnTop Border Caption Disabled DPIScale LastFound MaximizeBox MinimizeBox MinSize* MaxSize* OwnDialogs Owner* Parent* Resize SysMenu Theme ToolWindow
+; gui.htm#PosSize: positioning and sizing of controls
+@Position: r* w* h* wp* hp* x* y* xp* yp* xm* ym* xs* ys* Section
+; gui.htm#Add_Options: options of every control
+@Control: @Position v* AltSubmit c* Disabled Hidden Left Right Center Tabstop Wrap VScroll HScroll BackgroundTrans Background* Border Redraw Theme
+; guicontrols.htm (and listview.htm, treeview.htm): options of a control type
+@Button: Default
+@CheckBox: Check3 Checked*
+@ComboBox: Choose* Uppercase Lowercase Sort Limit* Simple
+@Custom: Class*
+@DateTime: Choose* Range* Right
+@DropDownList: Choose* Uppercase Lowercase Sort
+@Edit: Limit* Uppercase Lowercase Multi Number Password* ReadOnly t* WantCtrlA WantReturn WantTab Wrap
+@GroupBox: Wrap
+@Hotkey: Limit*
+@ListBox: Choose* Multi ReadOnly Sort t*
+@ListView: Background* c* Checked Count* Grid Hdr Icon Tile IconSmall List Report LV* Multi NoSortHdr NoSort ReadOnly Sort SortDesc WantF2
+@MonthCal: Multi Range*
+@Picture: AltSubmit Icon*
+@Progress: c* Background* Range* Smooth Vertical
+@Radio: Checked* Group
+@Slider: Buddy1* Buddy2* Center Invert Left Line* NoTicks Page* Range* Thick* TickInterval* ToolTip* Vertical
+@StatusBar: Background*
+@Tab: Choose* Background* Theme Buttons Left Right Bottom Wrap
+@TreeView: Background* Buttons c* Checked HScroll ImageList* Lines ReadOnly WantF2
+@UpDown: Horz Left Range* Wrap
+
+; --- MsgBox -----------------------------------------------------------------------------------------------------------
+; MsgBox.htm#Options (only the word forms; the short forms O/C, Y/N ... and the numbers work as well)
+MsgBox 3: OK OKCancel AbortRetryIgnore YesNoCancel YesNo RetryCancel CancelTryAgainContinue Iconx Icon? Icon! Iconi Default2 Default3 Default4 T* Owner*
+
+; --- Gui window ---------------------------------------------------------------------------------------------------------
+Gui 1: @Window
+Gui.Opt 1: @Window
+; gui.htm#Show
+Gui.Show 1: w* h* x* y* Center xCenter yCenter AutoSize Minimize Maximize Restore NoActivate NA Hide
+
+; --- Gui.Add and Gui.AddXxx ---------------------------------------------------------------------------------------------
+; Gui.Add with an unknown control type: the common options
+Gui.Add 2: @Control
+Gui.AddActiveX 1: @Control
+Gui.AddButton 1: @Control @Button
+Gui.AddCheckBox 1: @Control @CheckBox
+Gui.AddComboBox 1: @Control @ComboBox
+Gui.AddCustom 1: @Control @Custom
+Gui.AddDateTime 1: @Control @DateTime
+Gui.AddDropDownList 1: @Control @DropDownList
+Gui.AddDDL 1: @Control @DropDownList
+Gui.AddEdit 1: @Control @Edit
+Gui.AddGroupBox 1: @Control @GroupBox
+Gui.AddHotkey 1: @Control @Hotkey
+Gui.AddLink 1: @Control
+Gui.AddListBox 1: @Control @ListBox
+Gui.AddListView 1: @Control @ListView
+Gui.AddMonthCal 1: @Control @MonthCal
+Gui.AddPicture 1: @Control @Picture
+Gui.AddPic 1: @Control @Picture
+Gui.AddProgress 1: @Control @Progress
+Gui.AddRadio 1: @Control @Radio
+Gui.AddSlider 1: @Control @Slider
+Gui.AddStatusBar 1: @Control @StatusBar
+Gui.AddTab 1: @Control @Tab
+Gui.AddTab2 1: @Control @Tab
+Gui.AddTab3 1: @Control @Tab
+Gui.AddText 1: @Control
+Gui.AddTreeView 1: @Control @TreeView
+Gui.AddUpDown 1: @Control @UpDown
+
+; --- Gui.Control.Opt (per control class) ------------------------------------------------------------------------------
+Gui.Control.Opt 1: @Control
+Gui.Button.Opt 1: @Control @Button
+Gui.CheckBox.Opt 1: @Control @CheckBox
+Gui.ComboBox.Opt 1: @Control @ComboBox
+Gui.Custom.Opt 1: @Control @Custom
+Gui.DateTime.Opt 1: @Control @DateTime
+Gui.DDL.Opt 1: @Control @DropDownList
+Gui.Edit.Opt 1: @Control @Edit
+Gui.GroupBox.Opt 1: @Control @GroupBox
+Gui.Hotkey.Opt 1: @Control @Hotkey
+Gui.ListBox.Opt 1: @Control @ListBox
+Gui.ListView.Opt 1: @Control @ListView
+Gui.MonthCal.Opt 1: @Control @MonthCal
+Gui.Pic.Opt 1: @Control @Picture
+Gui.Progress.Opt 1: @Control @Progress
+Gui.Radio.Opt 1: @Control @Radio
+Gui.Slider.Opt 1: @Control @Slider
+Gui.StatusBar.Opt 1: @Control @StatusBar
+Gui.Tab.Opt 1: @Control @Tab
+Gui.TreeView.Opt 1: @Control @TreeView
+Gui.UpDown.Opt 1: @Control @UpDown

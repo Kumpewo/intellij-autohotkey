@@ -1,0 +1,122 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>Formatting | AutoHotkey v2 Plugin</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../styles/theme.css" rel="stylesheet" />
+</head>
+<body>
+
+<h1>Formatting and case adjustment</h1>
+
+<h2 id="Reformat">Reformat Code</h2>
+<p><em>Code &gt; Reformat Code</em> (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>L</kbd>) formats the selection or, without a selection, the whole file. <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd> only fixes the indent of the current lines. The options are under <em>Settings &gt; Editor &gt; Code Style &gt; AutoHotkey</em>; every tab has a preview.</p>
+<p>The formatter</p>
+<ul>
+  <li>indents blocks, the bodies of control structures and the lines of a <code>switch</code> (<code>case</code> at the level of <code>switch</code>, its statements one level deeper);</li>
+  <li>gives continuation lines of an expression the continuation indent; content between brackets that starts on a new line gets the normal indent:
+<pre>result := Calculate(first,
+        second)               <em>; continuation indent</em>
+values := [
+    1, 2, 3                   <em>; normal indent</em>
+]</pre>
+  All continuation lines of a statement get the same indent, also when the expressions are nested:
+<pre>total := (shipping
+        + price               <em>; price * quantity is nested in the addition,</em>
+        * quantity)           <em>; but both lines get one continuation indent</em></pre></li>
+  <li>sets the spaces around operators, after commas and inside brackets according to the settings;</li>
+  <li>limits the number of consecutive blank lines;</li>
+  <li>indents block comments like the code around them; in a <a href="doc-comments.htm">doc comment</a> the lines starting with <code>*</code> follow the first line.</li>
+</ul>
+<p>It never adds or removes line breaks, because the end of a line ends a statement in AutoHotkey. It never changes the space before <code>(</code> or <code>[</code> of a call either: <code>f (x)</code> is a concatenation of <code>f</code> and <code>(x)</code>, not a call. Files with a syntax error are formatted as far as possible; files for another AutoHotkey version are not formatted at all.</p>
+<p class="warning"><strong>Note:</strong> Lines the plugin's parser does not understand (see <a href="validate.htm#Accepted">accepted syntax errors</a>) may be changed in a way that changes their meaning. Check them after formatting, or exclude them with a selection.</p>
+
+<h2 id="Options">Code style options</h2>
+<h3>Tab "Tabs and Indents"</h3>
+<table class="info">
+  <tr><th>Option</th><th>Default</th><th>Meaning</th></tr>
+  <tr><td>Use tab character</td><td>off</td><td>Indent with tabs instead of spaces.</td></tr>
+  <tr><td>Tab size</td><td>4</td><td>Width of a tab.</td></tr>
+  <tr><td>Indent</td><td>4</td><td>One indent level.</td></tr>
+  <tr><td>Continuation indent</td><td>8</td><td>Indent of the continuation lines of an expression.</td></tr>
+</table>
+<h3>Tab "Spaces"</h3>
+<table class="info">
+  <tr><th>Option</th><th>Example with the option on</th></tr>
+  <tr><td>Around assignment operators (<code>:=</code>, <code>+=</code> ...)</td><td><code>x := 1</code></td></tr>
+  <tr><td>Around fat arrow</td><td><code>F(x) =&gt; x * 2</code></td></tr>
+  <tr><td>Around logical, equality, relational, bitwise, additive, multiplicative, shift operators</td><td><code>a &amp;&amp; b</code>, <code>a = b</code>, <code>a &lt; b</code>, <code>a | b</code>, <code>a + b</code>, <code>a * b</code>, <code>a &lt;&lt; 1</code></td></tr>
+  <tr><td>Around unary operator</td><td><code>- x</code> instead of <code>-x</code> (off by default)</td></tr>
+  <tr><td>Within parentheses / function call / function declaration parentheses</td><td><code>( a )</code>, <code>F( a )</code>, <code>F( a ) {</code></td></tr>
+  <tr><td>Within array literal brackets</td><td><code>[ 1, 2 ]</code> (on by default)</td></tr>
+  <tr><td>Within index access brackets</td><td><code>arr[ 1 ]</code> (off by default)</td></tr>
+  <tr><td>Within braces</td><td><code>{ x: 1 }</code></td></tr>
+  <tr><td>Before function / class left brace</td><td><code>F() {</code>, <code>class A {</code></td></tr>
+  <tr><td>Before / after comma</td><td><code>F(a, b)</code>; omitted arguments stay together: <code>F(a,, b)</code></td></tr>
+  <tr><td>Before / after <code>?</code> and <code>:</code> of the ternary operator</td><td><code>a ? b : c</code></td></tr>
+</table>
+<h3>Tab "Blank Lines"</h3>
+<p><em>Keep maximum blank lines in code</em> (default 2): longer runs of blank lines are reduced.</p>
+
+<h2 id="Case">Case adjustment</h2>
+<p>AutoHotkey ignores the case of keywords and built-in names; <code>msgbox</code>, <code>MsgBox</code> and <code>MSGBOX</code> are the same. The tab <em>Case</em> of the code style page lets <em>Reformat Code</em> write them in a uniform way.</p>
+<table class="info">
+  <tr><th>Option</th><th>Default</th><th>Meaning</th></tr>
+  <tr><td nowrap="nowrap">Adjust case when reformatting</td><td>off</td><td>Main switch; without it nothing below is changed by the formatter.</td></tr>
+  <tr><td nowrap="nowrap">Built-in names</td><td>as in list</td><td>Variables, functions, classes, nested classes, methods, properties and directives in the spelling of the AutoHotkey help (<code>msgbox</code> becomes <code>MsgBox</code>, <code>a_index</code> becomes <code>A_Index</code>), or <em>keep</em>.</td></tr>
+  <tr><td nowrap="nowrap">Keywords, one switch per group</td><td>see below</td><td><em>as in list</em>, <em>lowercase</em> or <em>keep</em>.</td></tr>
+</table>
+<table class="info">
+  <tr><th>Group</th><th>Words (spelling "as in list")</th><th>Default</th></tr>
+  <tr><td>Flow control</td><td><code>If Else While Loop For Until Return Break Continue Try Catch Finally Throw Switch Case Goto Default</code></td><td>as in list</td></tr>
+  <tr><td>Loops</td><td><code>Files Parse Read Reg</code> (after <code>Loop</code>)</td><td>as in list</td></tr>
+  <tr><td>Classes</td><td><code>Class Struct Extends</code></td><td>as in list</td></tr>
+  <tr><td>Scope</td><td><code>Global Local Static</code></td><td>lowercase</td></tr>
+  <tr><td>Objects</td><td><code>True False Unset Super This</code></td><td>lowercase</td></tr>
+  <tr><td>Operators</td><td><code>And Or Not Is In Contains As</code></td><td>lowercase</td></tr>
+</table>
+<p>Only words in their recognized role are changed: a property called <code>length</code> in <code>length := 1</code> stays as it is, <code>obj.IF</code> too. Never changed are strings, comments, hotstrings, own names and names with a declared type, definitions, object keys, the line after <code>;@ignore-next-line</code> and files for another AutoHotkey version. A word is only replaced if it differs in case alone. <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes the adjustment together with the formatting.</p>
+<p>The keyword settings also apply to the <a href="completion.htm">completion</a>: with <em>lowercase</em> it inserts <code>if</code>, otherwise <code>If</code> &mdash; even if the main switch is off.</p>
+
+<div class="ex" id="ExCase">
+<p><a class="ex_number" href="#ExCase"></a> Before and after <em>Reformat Code</em> with the main switch on and the defaults.</p>
+<pre>if WINEXIST("ahk_class Notepad") AND a_index > 1
+    winactivate
+<em>; becomes</em>
+If WinExist("ahk_class Notepad") and A_Index > 1
+    WinActivate</pre>
+</div>
+
+<h2 id="DocComments">Doc comments</h2>
+<p>The tab <em>Doc Comments</em> of the code style page lets <em>Reformat Code</em> rewrite <a href="doc-comments.htm">doc comments</a> <code>/** ... */</code>, like the JavaDoc settings in IntelliJ. It has a main switch <em>Format doc comments when reformatting</em> (default <strong>off</strong>); without it only the lines starting with <code>*</code> are aligned below the first line. Plain block comments are never changed. The preview on the right shows the effect of every switch.</p>
+<table class="info">
+  <tr><th>Option</th><th>Default</th><th>Meaning</th></tr>
+  <tr><td colspan="3"><strong>Alignment</strong></td></tr>
+  <tr><td>Align parameter descriptions</td><td>on</td><td>The texts of all <code>@param</code> tags start in one column (two spaces after the longest name).</td></tr>
+  <tr><td>Align types and names of parameters</td><td>on</td><td><code>{Type}</code> and name of the <code>@param</code> lines each in a column.</td></tr>
+  <tr><td>Indent continuation lines</td><td>off</td><td>Further lines of a tag are indented by 4 instead of starting below its text.</td></tr>
+  <tr><td>Parameter descriptions on new line</td><td>off</td><td>The text of a <code>@param</code> starts in the line below <code>@param name</code>, indented by 4.</td></tr>
+  <tr><td colspan="3"><strong>Blank lines</strong> (on = exactly one, off = none)</td></tr>
+  <tr><td>After description</td><td>on</td><td>Between the description and the first tag.</td></tr>
+  <tr><td>After parameter descriptions</td><td>off</td><td>After the last <code>@param</code>.</td></tr>
+  <tr><td>After @returns</td><td>off</td><td>After <code>@returns</code>.</td></tr>
+  <tr><td>Before @example</td><td>off</td><td>Before every <code>@example</code>.</td></tr>
+  <tr><td colspan="3"><strong>Other</strong></td></tr>
+  <tr><td>Wrap at right margin</td><td>on</td><td>Paragraphs of the description and tag texts are joined and wrapped at <em>Hard wrap at</em> (<em>Settings &gt; Editor &gt; Code Style &gt; General</em>, default 120).</td></tr>
+  <tr><td>Do not wrap one line comments</td><td>off</td><td><code>/** Text. */</code> stays in one line if it fits; off = three lines.</td></tr>
+  <tr><td>Preserve line feeds</td><td>off</td><td>The lines of a paragraph are not joined; only lines that are too long are wrapped.</td></tr>
+  <tr><td>Enable leading asterisks</td><td>on</td><td>Every line starts with <code> * </code>; off = a comment written without stars stays without.</td></tr>
+  <tr><td colspan="3"><strong>Tags</strong></td></tr>
+  <tr><td>Keep @param tags without a parameter</td><td>on</td><td>Off = a <code>@param</code> whose name is no parameter of the function is removed.</td></tr>
+  <tr><td>Keep empty @param, @returns and @throws</td><td>on</td><td>Off = tags without text (and without type) are removed.</td></tr>
+  <tr><td>Sort @param in the order of the parameters</td><td>off</td><td>Unknown names go to the end.</td></tr>
+  <tr><td>Add missing @param tags</td><td>off</td><td>Adds <code>@param name</code> for every parameter without one (after the last <code>@param</code>); such empty tags are then kept.</td></tr>
+</table>
+<p>Never changed: the code of <code>@example</code>, Markdown code blocks (<code>```</code> or indented by 4), headings, tables and the end of a line with a hard break (two spaces or a backslash). A list item is wrapped with its further lines below its text. Words are never split, so a long URL may go past the margin, and a word that would change the meaning at the start of a line (<code>@tag</code>, <code>-</code>, <code>#</code>, <code>1.</code>) stays at the end of the line before. Blank lines between paragraphs are kept (several become one); blank lines between tags follow the switches above.</p>
+
+<h2 id="Related">Related</h2>
+<p><a href="index.htm">Plugin manual</a>, <a href="settings.htm">Settings</a>, <a href="templates.htm">Live templates</a>, <a href="doc-comments.htm">Doc comments</a></p>
+
+</body>
+</html>

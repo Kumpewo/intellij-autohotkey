@@ -1,0 +1,426 @@
+// Grammar of AutoHotkey v2 for Grammar-Kit (generates AhkParser and the PSI classes).
+// Works together with Ahk.flex (tokens, line end strategy see below).
+//
+// Basic ideas:
+//  * CRLF stays a real token = end of statement. It is only allowed explicitly
+//    (CRLF*) where AHK allows line breaks: in brackets, after a comma,
+//    between head and body of if/while/for/..., before { of a function/class.
+//  * Expressions as a Pratt hierarchy (expr). Every operator rule is its own PSI element.
+//  * The body of if/else/while/loop/for/try/catch/finally is its own element "body".
+//    The formatter uses it for the indent of bodies without a block.
+//  * recoverWhile: an error destroys at most the rest of the line.
+{
+    parserClass="de.kumpewo.autohotkey.parser.AhkParser"
+    parserUtilClass="de.kumpewo.autohotkey.parser.AhkParserUtil"
+
+    extends="com.intellij.extapi.psi.ASTWrapperPsiElement"
+
+    psiClassPrefix="Ahk"
+    psiImplClassSuffix="Impl"
+    psiPackage="de.kumpewo.autohotkey.psi"
+    psiImplPackage="de.kumpewo.autohotkey.psi.impl"
+
+    elementTypeHolderClass="de.kumpewo.autohotkey.psi.AhkTypes"
+    elementTypeClass="de.kumpewo.autohotkey.psi.AhkElementType"
+    tokenTypeClass="de.kumpewo.autohotkey.psi.AhkTokenType"
+
+    // common interface AhkExpr for all expressions
+    extends(".*_expr")=expr
+
+    // The .flex file is authoritative; the names only have to be declared here.
+    tokens=[
+        LINE_COMMENT    = "regexp:;[^\r\n]*"
+        BLOCK_COMMENT   = "regexp:/\*[\s\S]*?\*/"
+
+        CRLF            = "regexp:\r\n|\r|\n"
+        WHITE_SPACE     = "regexp:[ \t\f]+"
+
+        COMMA           = ","
+        L_BRACE         = "{"
+        R_BRACE         = "}"
+        L_BRACKET       = "["
+        R_BRACKET       = "]"
+        L_PAREN         = "("
+        R_PAREN         = ")"
+
+        // Operators (one token per symbol, the grammar groups them)
+        ASSIGN_OP       = "regexp::=|\+=|-=|\*=|//=|/=|\.=|\|=|&=|\^=|<<=|>>>=|>>=|\?\?="
+        INCREMENT_OP    = "regexp:\+\+|--"
+        FAT_ARROW       = "=>"
+        PLUS            = "+"
+        MINUS           = "-"
+        STAR            = "*"
+        SLASH           = "/"
+        FLOOR_DIV       = "//"
+        POW             = "**"
+        EQ              = "="
+        EQ_EQ           = "=="
+        NOT_EQ          = "regexp:!==?"
+        LT              = "<"
+        GT              = ">"
+        LE              = "<="
+        GE              = ">="
+        REGEX_MATCH     = "~="
+        SHIFT_OP        = "regexp:<<|>>>|>>"
+        AND_AND         = "&&"
+        OR_OR           = "||"
+        COALESCE        = "??"
+        QUESTION        = "?"
+        COLON           = ":"
+        DOT             = "."
+        CONCAT_DOT          // " . " with whitespace on both sides (concatenation); DOT = member access
+        BANG            = "!"
+        TILDE           = "~"
+        AMP             = "&"
+        BAR             = "|"
+        CARET           = "^"
+        PERCENT         = "%"
+
+        // Keywords (flex matches them case-insensitively)
+        KEYWORD_IF
+        KEYWORD_ELSE
+        KEYWORD_WHILE
+        KEYWORD_LOOP
+        KEYWORD_FOR
+        KEYWORD_UNTIL
+        KEYWORD_RETURN
+        KEYWORD_BREAK
+        KEYWORD_CONTINUE
+        KEYWORD_TRY
+        KEYWORD_CATCH
+        KEYWORD_FINALLY
+        KEYWORD_THROW
+        KEYWORD_AS
+        KEYWORD_AND
+        KEYWORD_OR
+        KEYWORD_NOT
+        KEYWORD_IS
+        KEYWORD_IN
+        KEYWORD_CONTAINS
+        KEYWORD_DECL        // local | global | static
+        KEYWORD_LITERAL     // true | false | unset | super | this (IsSet is a normal name, a built-in function)
+        KEYWORD_SWITCH
+        KEYWORD_CASE
+        KEYWORD_GOTO
+        KEYWORD_CLASS
+        KEYWORD_EXTENDS
+
+        NUMBER
+        IDENTIFIER
+        STRING
+        UNCLOSED_STRING
+        HOTSTRING
+        HOTSTRING_TEXT
+        HOTKEY
+        REMAP_KEY           // a::;  (remapping to the key ";", only this case)
+        DIRECTIVE_NAME
+        DIRECTIVE_ARGS
+
+        // Block comment that is not at the start of a line (AHK does not recognize it there).
+        // Skipped like a comment (AhkTokenSets.COMMENTS); AhkBadCommentAnnotator reports the error.
+        // The value is only needed so that Grammar-Kit generates the constant (the token appears in no rule).
+        // It must differ from BLOCK_COMMENT: for equal values Grammar-Kit generates only one constant.
+        BAD_COMMENT     = "regexp:[ \t]/\*[\s\S]*?\*/"
+    ]
+}
+
+// ---------------------------------------------------------------- File / items
+
+// A surplus "}" at file level (e.g. the end of a class whose head could not be parsed) is
+// exactly ONE error; parsing continues normally afterwards (otherwise the whole rest of the file stays unparsed).
+// If "#Requires AutoHotkey ..." does not require at least version 2, the whole file is swallowed unparsed
+// (AhkParserUtil.otherVersion, warning in AhkVersionAnnotator).
+ahk_file ::= other_version_code | (item_ | stray_brace_)*
+other_version_code ::= <<otherVersion>>
+private stray_brace_ ::= <<strayBrace R_BRACE>>
+
+private item_ ::= CRLF | code_item_
+
+// recoverWhile is evaluated after EVERY match, not only after a failure.
+// Therefore it is NOT attached to CRLF: otherwise the token after every line break would be eaten as an error.
+private code_item_ ::= directive | persistent | func | class | class_property | label | statement_ {
+    recoverWhile=item_recover_
+}
+// An error eats at most the rest of the line (or up to the closing bracket).
+// NOTE: strict - two statements on one line without a separator are an error (as in AHK).
+private item_recover_ ::= !(CRLF | R_BRACE)
+
+// Target of goto/break/continue: "Name:" alone on the line (followed by at most a comment).
+// No conflict with hotkeys (they end with "::" and are one token) and with case/default in a switch
+// (case_clause is tried first there, case_line_ excludes "default:").
+label ::= IDENTIFIER COLON &(CRLF | <<eof>>) {
+    mixin="de.kumpewo.autohotkey.psi.AhkLabelMixin"
+    implements="de.kumpewo.autohotkey.psi.AhkNamedElement"
+    name="IDENTIFIER"
+}
+
+// DIRECTIVE_NAME instead of DIRECTIVE: otherwise the rule "directive" creates an element type DIRECTIVE
+// that collides with the token.
+// Mixin: reference from #Include to the file
+directive  ::= DIRECTIVE_NAME DIRECTIVE_ARGS? { mixin="de.kumpewo.autohotkey.psi.AhkReferenceHostMixin" }
+// Hotstring: ::btw::by the way  (HOTSTRING_TEXT = replacement text)  or  :X:btw::Send "x"  (code)
+// Hotkey:    F1::MsgBox "x"  or  F1::{ ...  or  F1::<line break>{ ...  or  a::;  (remapping, REMAP_KEY)
+// Note: rule names must not be hotkey/hotstring (collision with the tokens HOTKEY/HOTSTRING).
+persistent ::= HOTSTRING (HOTSTRING_TEXT | body | CRLF* block)?
+             | HOTKEY (REMAP_KEY | body | CRLF* block)?
+
+block ::= L_BRACE item_* R_BRACE { pin=1 }
+
+// Body of a control structure (if, else, while, loop, for, try, catch, finally):
+//   * "{" on the same line (OTB) or on the next line, or
+//   * ONE statement on a FOLLOWING LINE.
+// Everything else on the same line still belongs to the head expression.
+// The head is ALWAYS an expression, read up to the end of the line or "{". "if (a) b := 0" is one as well
+// (concatenation of (a) and (b := 0)) - AHK reports no error there, the body is then on the following line.
+// Leading line breaks are deliberately BEFORE body (the block range must not start with whitespace).
+body ::= statement_
+private body_ ::= (CRLF* &L_BRACE | CRLF+) body
+// else may additionally be followed directly by "if" (else if)
+private try_body_ ::= body_ | body
+// AHK accepts else with anything: "else if", "{", a following line - and also a statement on the same line
+// (bad style, therefore only a warning in the annotator, no parser error).
+private else_body_ ::= body_ | body
+// else as its own element, so that it can be used with if/for/loop/while/try
+// The element starts with the CRLF before it; AhkElseBranchMixin puts getTextOffset on "else" (sticky lines).
+else_branch ::= (CRLF* KEYWORD_ELSE else_body_) { mixin="de.kumpewo.autohotkey.psi.AhkElseBranchMixin" }
+
+// ---------------------------------------------------------------- Statements
+
+private statement_ ::=
+      block
+    | if_stmt
+    | while_stmt
+    | loop_stmt
+    | for_stmt
+    | try_stmt
+    | return_stmt
+    | throw_stmt
+    | jump_stmt
+    | goto_stmt
+    | switch_stmt
+    | decl_stmt
+    | command_stmt
+    | expr_stmt
+
+if_stmt ::= KEYWORD_IF expr body_ else_branch? { pin=1 }
+
+while_stmt ::= KEYWORD_WHILE expr body_ else_branch? { pin=1 }
+
+// Loop can be followed by Until or by Else, but not by both.
+private until_branch ::= (CRLF* KEYWORD_UNTIL expr)
+// Loop 5 / Loop Parse x, "," / Loop { ...
+// loop_arg_ takes several expressions in a row, but never a { (that is the body).
+loop_stmt ::= KEYWORD_LOOP loop_args? body_ (until_branch | else_branch )? { pin=1 }
+// "!L_BRACE": in "Loop {" the { is the body and not an object literal.
+private loop_args ::= !L_BRACE expr (COMMA expr)*
+
+for_stmt ::= KEYWORD_FOR for_vars KEYWORD_IN expr body_ else_branch? { pin=1 }
+for_vars ::= for_var_ (COMMA for_var_?)* | COMMA for_var_
+private for_var_ ::= AMP? IDENTIFIER
+
+// Only for try is a single statement on the same line allowed as well: try FileDelete("x")
+// Order as in AHK: try, any number of catch, else (only executed without an exception), finally.
+try_stmt ::= KEYWORD_TRY try_body_ (CRLF* catch_clause)* else_branch? (CRLF* finally_clause)? { pin=1 }
+catch_clause   ::= KEYWORD_CATCH (!L_BRACE expr)? (KEYWORD_AS IDENTIFIER)? body_ { pin=1 }
+finally_clause ::= KEYWORD_FINALLY body_ { pin=1 }
+
+return_stmt ::= KEYWORD_RETURN expr_list_? { pin=1 }
+throw_stmt  ::= KEYWORD_THROW expr? { pin=1 }
+jump_stmt   ::= (KEYWORD_BREAK | KEYWORD_CONTINUE) expr?
+// The target is any expression: goto Target / goto "Target" / goto(target); a name or string refers to a label
+goto_stmt   ::= KEYWORD_GOTO expr { pin=1 }
+
+// switch [Wert [, CaseSense]] { case a, b: ... default: ... }
+// After "case x:" a statement may be on the same line; the body extends to the next case/default/}.
+// "default" is not a keyword, only a name with a special meaning (like get/set).
+switch_stmt  ::= KEYWORD_SWITCH switch_head_? CRLF* switch_block { pin=1 }
+private switch_head_ ::= !L_BRACE expr (COMMA expr)?
+switch_block ::= L_BRACE (CRLF | switch_item_)* R_BRACE { pin=1 }
+// Statement before the first case: parsed normally, but marked as an error (AhkParserUtil.strayInSwitch).
+// So there is exactly one error and the rest of the switch stays intact (recoverWhile would end the loop here).
+private switch_item_ ::= case_clause | !R_BRACE <<strayInSwitch code_item_>>
+case_clause  ::= (KEYWORD_CASE expr_list_ | <<defaultName>> IDENTIFIER) COLON case_items_ { pin=1 }
+// Statement on the same line and/or on following lines, up to the next case/default/}.
+// NEVER ends with CRLF, so that switch_block sees the line breaks between the branches.
+private case_items_ ::= code_item_? case_line_*
+private case_line_  ::= CRLF+ !(case_start_ | R_BRACE) code_item_
+private case_start_ ::= KEYWORD_CASE | <<defaultName>> IDENTIFIER COLON
+
+// Without a name: "global" alone as the first statement of a function (all variables global, "assume-global").
+// Where this is not allowed (other place, local/static), AhkDeclAnnotator reports the error.
+decl_stmt ::= KEYWORD_DECL (decl_item (COMMA decl_item)*)? { pin=1 }
+decl_item ::= IDENTIFIER (ASSIGN_OP expr)?
+
+// Function call without parentheses: MsgBox "x" / Sleep 100 / Foo a, b
+// Only if the name is directly followed by a token that cannot be an operator.
+// (Open: "MsgBox -1", "Foo %x%", implicit concatenation)
+// Omitted arguments after the first one: MouseClick "Left",,, 1 (like foo(a,,b) in expr_items_).
+// "(CRLF* expr)?" as a group: a comma at the end never swallows the line break (end of statement).
+// Mixin: reference from the command name to the function
+command_stmt ::= IDENTIFIER &command_arg_start_ command_args_ { mixin="de.kumpewo.autohotkey.psi.AhkReferenceHostMixin" }
+private command_arg_start_ ::= STRING | UNCLOSED_STRING | NUMBER | IDENTIFIER | KEYWORD_LITERAL
+private command_args_ ::= expr (COMMA (CRLF* expr)?)*
+
+expr_stmt ::= expr_list_
+private expr_list_ ::= expr (COMMA CRLF* expr)*
+
+// ---------------------------------------------------------------- Functions / classes
+
+func ::= KEYWORD_DECL? IDENTIFIER parameter_list (CRLF* block | FAT_ARROW expr) {
+    mixin="de.kumpewo.autohotkey.psi.AhkFuncMixin"
+    implements="de.kumpewo.autohotkey.psi.AhkNamedElement"
+    name="IDENTIFIER"
+}
+
+// The brackets belong to the list (important for the formatter).
+// Property of a class:  Name => expression | Name { get ... set ... } | static | Name[Index] { ... }  (e.g. __Item[key])
+// Allowed everywhere, not only in classes: an identifier directly followed by { or => is nothing else anyway.
+class_property ::= KEYWORD_DECL? IDENTIFIER index_parameter_list? property_body_ {
+    mixin="de.kumpewo.autohotkey.psi.AhkClassPropertyMixin"
+    implements="de.kumpewo.autohotkey.psi.AhkNamedElement"
+}
+private property_body_ ::= FAT_ARROW expr | CRLF* property_block
+property_block ::= L_BRACE (CRLF | accessor)* R_BRACE { pin=1 }
+// get / set are not keywords in AHK, only names with a special meaning at this place.
+accessor ::= <<accessorName>> IDENTIFIER (FAT_ARROW expr | CRLF* block)
+index_parameter_list ::= L_BRACKET CRLF* (parameter (COMMA CRLF* parameter)*)? CRLF* R_BRACKET
+
+// Inside ( ) like paren_expr: default values may continue across line breaks (f(a := "x"<line break>"y") { }).
+parameter_list ::= L_PAREN CRLF* <<inParens parameter_items_>>? CRLF* R_PAREN
+private parameter_items_ ::= parameter (COMMA CRLF* parameter)*
+// "*" alone: any number of parameters, ignored: f(*) { } and (*) => 1
+parameter ::= STAR | AMP? IDENTIFIER (STAR | QUESTION | ASSIGN_OP expr)?
+
+// pin=2 (only after the name): "Class.prototype..." is an expression and may backtrack after "Class".
+// Base class also nested: "extends Gui.Edit", "extends Outer.Inner.Deep" (DOT without whitespace).
+class ::= KEYWORD_CLASS IDENTIFIER (KEYWORD_EXTENDS IDENTIFIER (DOT IDENTIFIER)*)? CRLF* block {
+    pin=2
+    mixin="de.kumpewo.autohotkey.psi.AhkClassMixin"
+    implements="de.kumpewo.autohotkey.psi.AhkNamedElement"
+    name="IDENTIFIER"
+}
+
+// ---------------------------------------------------------------- Expressions
+// Order = priority, from low to high.
+// Simplifications: comparison operators in one level.
+
+expr ::= lambda_expr
+       | assign_expr
+       | ternary_expr
+       | coalesce_expr
+       | or_expr
+       | and_expr
+       | not_expr
+       | compare_expr
+       | concat_expr
+       | bit_or_expr
+       | bit_xor_expr
+       | bit_and_expr
+       | shift_expr
+       | add_expr
+       | mul_expr
+       | unary_expr
+       | power_expr
+       | call_expr
+       | index_expr
+       | member_expr
+       | postfix_expr
+       | spread_expr
+       | optional_expr
+       | literal_expr
+       | dyn_ref_expr
+       | ref_expr
+       | paren_expr
+       | array_expr
+       | object_expr
+       | deref_expr
+
+lambda_expr   ::= (IDENTIFIER | parameter_list) FAT_ARROW expr
+assign_expr   ::= expr nl_op_? ASSIGN_OP expr { rightAssociative=true }
+ternary_expr  ::= expr QUESTION !(COMMA | R_PAREN | R_BRACKET | R_BRACE) expr COLON expr { rightAssociative=true }
+coalesce_expr ::= expr COALESCE expr
+or_expr       ::= expr (OR_OR | KEYWORD_OR) expr
+and_expr      ::= expr (AND_AND | KEYWORD_AND) expr
+not_expr      ::= KEYWORD_NOT expr
+compare_expr  ::= expr nl_op_? (EQ | EQ_EQ | NOT_EQ | LT | GT | LE | GE | REGEX_MATCH
+                       | KEYWORD_IS | KEYWORD_IN | KEYWORD_CONTAINS) expr
+// Concatenation: explicit " . " or implicit (only spaces/tabs in between, never across a line boundary).
+// There is no symbol table, so an identifier is always assumed to be a variable: "f (x)" is a concatenation.
+concat_expr   ::= expr concat_op_ expr
+private concat_op_ ::= CONCAT_DOT | implicit_concat_ | paren_newline_concat_
+// Inside ( ) a line break may also be between the operands (consumes CRLF, not an empty operator).
+private paren_newline_concat_ ::= <<inParensNow>> CRLF+ &operand_
+private implicit_concat_ ::= <<spacedWithoutLineBreak>> &operand_
+// Inside ( ) a binary operator (and the dot of a member access) may also start the next line: (a
++ b),
+// foo(a
+.b()). The line break belongs to the operator; if no operator follows, the rule fails without consuming
+// anything (the sequence is rolled back). Operators the lexer already joins at the start of a line (and or && || ??
+// ? : ". " ,; CONT_START) never see a CRLF here. Not for ++/-- (AutoHotkey excludes them too).
+private nl_op_ ::= <<inParensNow>> CRLF+ &(ASSIGN_OP | EQ | EQ_EQ | NOT_EQ | LT | GT | LE | GE | REGEX_MATCH
+                   | KEYWORD_IS | KEYWORD_IN | KEYWORD_CONTAINS | BAR | CARET | AMP | SHIFT_OP | PLUS | MINUS
+                   | STAR | SLASH | FLOOR_DIV | POW | DOT)
+
+// CAUTION, endless loop: the implicit "operator" consumes no token. If the operand then fails without
+// progress, the Pratt loop of expr spins forever ("a := (" froze the IDE). Therefore the
+// operand is checked COMPLETELY by lookahead here, not just its first token: only if it is sure to succeed
+// does the concatenation make progress. Rule for every rule with an "empty" operator: the operand must succeed.
+// No "{" (body of a control structure) and no unary operator (+ - & ! are binary or ambiguous).
+private operand_ ::= IDENTIFIER | KEYWORD_CLASS | NUMBER | STRING | UNCLOSED_STRING | KEYWORD_LITERAL
+                   | paren_expr | array_expr | deref_operand_
+// "%" is only allowed as an operand outside of a deref: inside %...% a "%" can only be the end
+// ("% b %", "% "a" b %"). AhkParserUtil.inDeref keeps track of this.
+private deref_operand_ ::= <<percentOperand>> deref_expr
+
+bit_or_expr   ::= expr nl_op_? BAR expr
+bit_xor_expr  ::= expr nl_op_? CARET expr
+bit_and_expr  ::= expr nl_op_? AMP expr
+shift_expr    ::= expr nl_op_? SHIFT_OP expr
+add_expr      ::= expr nl_op_? (PLUS | MINUS) expr
+mul_expr      ::= expr nl_op_? mul_op_ expr
+private mul_op_ ::= STAR !(COMMA | R_PAREN | R_BRACKET | R_BRACE) | SLASH | FLOOR_DIV
+unary_expr    ::= (PLUS | MINUS | BANG | TILDE | AMP | INCREMENT_OP) expr
+power_expr    ::= expr nl_op_? POW expr { rightAssociative=true }
+
+call_expr     ::= expr <<adjacent>> arg_list
+index_expr    ::= expr <<adjacent>> index_list
+// Mixin: reference from the name after the dot to methods/properties/nested classes
+member_expr   ::= expr nl_op_? DOT member_name_ { mixin="de.kumpewo.autohotkey.psi.AhkReferenceHostMixin" }
+postfix_expr  ::= expr INCREMENT_OP
+// f(args*) and f(Title?): "*" or "?" directly before , ) ] } is not an operator.
+// The counterparts mul_op_ and ternary_expr exclude exactly these cases, otherwise a binary
+// rule would be committed after the operator and end with an error.
+spread_expr   ::= expr STAR &(COMMA | R_PAREN | R_BRACKET | R_BRACE)
+optional_expr ::= expr QUESTION &(COMMA | R_PAREN | R_BRACKET | R_BRACE)
+// Name after the dot: any word (also keywords), %expression% and mixed forms: obj.%name%  obj.prefix%part%
+private member_name_ ::= (name_ | deref_expr) (<<adjacent>> name_piece_)*
+private name_ ::= IDENTIFIER | keyword_name_
+private keyword_name_ ::= KEYWORD_CLASS | KEYWORD_IF | KEYWORD_ELSE | KEYWORD_WHILE | KEYWORD_LOOP
+                    | KEYWORD_FOR | KEYWORD_UNTIL | KEYWORD_RETURN | KEYWORD_BREAK | KEYWORD_CONTINUE
+                    | KEYWORD_TRY | KEYWORD_CATCH | KEYWORD_FINALLY | KEYWORD_THROW | KEYWORD_AS
+                    | KEYWORD_AND | KEYWORD_OR | KEYWORD_NOT | KEYWORD_IS | KEYWORD_IN
+                    | KEYWORD_CONTAINS | KEYWORD_DECL | KEYWORD_LITERAL | KEYWORD_SWITCH | KEYWORD_CASE | KEYWORD_GOTO
+                    | KEYWORD_EXTENDS
+
+// Mixin: references from psi.referenceContributor (jump target "goto 'Done'", AhkLabelReferenceContributor)
+literal_expr  ::= NUMBER | STRING | UNCLOSED_STRING | KEYWORD_LITERAL { mixin="de.kumpewo.autohotkey.psi.AhkReferenceHostMixin" }
+// "Class" is also a normal identifier: Class.prototype.defineProp(...)
+ref_expr      ::= IDENTIFIER | KEYWORD_CLASS { mixin="de.kumpewo.autohotkey.psi.AhkReferenceHostMixin" }
+// Dynamic variable name from directly adjacent parts: a%b%  %a%b  x%i%y
+// (old notation, semantically equal to % "a" b %). WITH whitespace before it ("a %b%") it is a concatenation.
+dyn_ref_expr  ::= (IDENTIFIER | deref_expr) (<<adjacent>> name_piece_)+
+private name_piece_ ::= IDENTIFIER | NUMBER | deref_expr
+// v2 notation: %expression% - the expression may contain a concatenation
+deref_expr    ::= PERCENT <<inDeref expr>> PERCENT      // %name%  (v2 has no modulo operator %)
+paren_expr    ::= L_PAREN CRLF* <<inParens expr_list_>> CRLF* R_PAREN
+array_expr    ::= L_BRACKET CRLF* expr_items_ CRLF* R_BRACKET
+object_expr   ::= L_BRACE CRLF* (property (COMMA CRLF* property?)*)? CRLF* R_BRACE
+
+// The brackets belong to the lists, not to the call/index (important for the formatter).
+arg_list      ::= L_PAREN CRLF* <<inParens expr_items_>> CRLF* R_PAREN
+index_list    ::= L_BRACKET CRLF* expr_items_ CRLF* R_BRACKET
+// Key: name, string or number (number e.g. for sparse arrays: {1: "a", 5: "b"})
+property      ::= (name_ | STRING | NUMBER) COLON expr
+
+// also empty, also with omitted arguments: foo(a,,b)
+private expr_items_ ::= expr? (COMMA CRLF* expr?)*

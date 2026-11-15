@@ -1,0 +1,93 @@
+; Key names for completion in Send strings ("{Enter}") and hotkeys. Source: help/docs/keylist.htm
+; (sections Mouse and Keyboard, first column, as of 2026-11-08). Format as in the other lists.
+
+; Mouse
+; General Buttons
+LButton
+RButton
+MButton
+; Advanced Buttons
+XButton1
+XButton2
+; Wheel
+WheelDown
+WheelUp
+WheelLeft WheelRight
+; Keyboard
+; General Keys
+CapsLock
+Space
+Tab
+Enter
+Escape Esc
+Backspace BS
+; Cursor Control Keys
+ScrollLock
+Delete Del
+Insert Ins
+Home
+End
+PgUp
+PgDn
+Up
+Down
+Left
+Right
+; Numpad Keys
+Numpad0 NumpadIns
+Numpad1 NumpadEnd
+Numpad2 NumpadDown
+Numpad3 NumpadPgDn
+Numpad4 NumpadLeft
+Numpad5 NumpadClear
+Numpad6 NumpadRight
+Numpad7 NumpadHome
+Numpad8 NumpadUp
+Numpad9 NumpadPgUp
+NumpadDot NumpadDel
+NumLock
+NumpadDiv
+NumpadMult
+NumpadAdd
+NumpadSub
+NumpadEnter
+; Function Keys
+F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 F13 F14 F15 F16 F17 F18 F19 F20 F21 F22 F23 F24
+; Modifier Keys
+LWin
+RWin
+Control Ctrl
+Alt
+Shift
+LControl LCtrl
+RControl RCtrl
+LShift
+RShift
+LAlt
+RAlt
+; Multimedia Keys
+Browser_Back
+Browser_Forward
+Browser_Refresh
+Browser_Stop
+Browser_Search
+Browser_Favorites
+Browser_Home
+Volume_Mute
+Volume_Down
+Volume_Up
+Media_Next
+Media_Prev
+Media_Stop
+Media_Play_Pause
+Launch_Mail
+Launch_Media
+Launch_App1
+Launch_App2
+; Other Keys
+AppsKey
+PrintScreen
+CtrlBreak
+Pause
+Help
+Sleep

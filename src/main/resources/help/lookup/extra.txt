@@ -1,0 +1,5 @@
+; Own help pages (pragmas). Word = pragma marker without the leading ";" (a line starting with ";" is a comment).
+@declare-type	/extra/declare-type.htm	<null>
+@declare-auto-type	/extra/declare-auto-type.htm	<null>
+@ignore-next-line	/extra/ignore-next-line.htm	<null>
+@declare-private	/extra/declare-private.htm	<null>

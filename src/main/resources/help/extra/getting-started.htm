@@ -1,0 +1,56 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>Getting Started | AutoHotkey v2 Plugin</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../styles/theme.css" rel="stylesheet" />
+</head>
+<body>
+
+<h1>Getting started</h1>
+
+<h2 id="Project">Open or create scripts</h2>
+<ol>
+  <li>Open a folder with <code>.ahk</code> files as a project (<em>File &gt; Open</em>). Every <code>.ahk</code> file in it is an AutoHotkey script for the plugin.</li>
+  <li>To create a new script, right-click a folder in the project view and choose <em>New &gt; AutoHotkey Script</em>. The new file starts with
+<pre>#Requires AutoHotkey v2.0</pre>
+  The same happens for an empty file created with <em>New &gt; File</em> and a name ending in <code>.ahk</code> (see <a href="templates.htm#File">File template</a>).</li>
+  <li>Optionally check <em>Settings &gt; Languages &amp; Frameworks &gt; AutoHotkey</em>. With a standard installation of AutoHotkey all fields can stay empty; the page shows the programs the plugin found (see <a href="settings.htm#AutoHotkey">Settings</a>).</li>
+</ol>
+
+<h2 id="Requires">#Requires</h2>
+<p>Every script should start with <code>#Requires AutoHotkey v2.0</code>. The plugin uses this line to</p>
+<ul>
+  <li>recognize the language version: a file with <code>#Requires AutoHotkey v1.1</code> (or any other version below 2) is not parsed; there is only a warning at the <code>#Requires</code> line;</li>
+  <li>choose the interpreter when running a script through the AutoHotkey launcher (see <a href="running.htm#Program">Running scripts</a>).</li>
+</ul>
+<p>Without the line the plugin shows a weak warning "#Requires AutoHotkey v2 is missing" on the first line. Press <kbd>Alt</kbd>+<kbd>Enter</kbd> there and choose <em>Insert '#Requires AutoHotkey v2.0'</em>.</p>
+<p>If AutoHotkey is installed, the plugin also lets the syntax detection of the AutoHotkey launcher look at such a file, in the background, about a second after the last change. If it finds AutoHotkey v1 code (for example <code>MsgBox, Hello</code> or <code>x = abc</code>), the hint becomes a warning "#Requires is missing; this looks like AutoHotkey v1 code (v1-cmd v1-ass)", and <kbd>Alt</kbd>+<kbd>Enter</kbd> offers <em>Insert '#Requires AutoHotkey v1.1'</em> first. The detection only recognizes typical constructs; ordinary v2 code usually gives no clear result and keeps the v2 hint.</p>
+
+<h2 id="FirstSteps">First steps</h2>
+<div class="ex" id="ExFirst">
+<p><a class="ex_number" href="#ExFirst"></a> Try the main features with a small script.</p>
+<pre>#Requires AutoHotkey v2.0
+#SingleInstance Force
+
+Greet(name) {
+    MsgBox "Hello, " name "!"
+}
+
+F1:: Greet("World")</pre>
+</div>
+<ul>
+  <li>Type <code>Ms</code> inside the function: the completion offers <code>MsgBox</code>. Type <code>(</code> after it: the parameter info shows the parameters.</li>
+  <li>Put the caret on <code>MsgBox</code> and press <kbd>Ctrl</kbd>+<kbd>Q</kbd>: the help page of <code>MsgBox</code> appears as a popup.</li>
+  <li><kbd>Ctrl</kbd>+click on <code>Greet</code> in the last line: the caret jumps to the function.</li>
+  <li>Press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>L</kbd> to format the file.</li>
+  <li>Right-click in the editor and choose <em>Run 'name.ahk'</em> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F10</kbd>). The script starts; press <kbd>F1</kbd> to see the message box.</li>
+  <li>Click the gutter next to the <code>MsgBox</code> line to set a breakpoint, then choose <em>Debug</em> (<kbd>Shift</kbd>+<kbd>F9</kbd>) and press <kbd>F1</kbd>: the debugger stops and shows <code>name</code>.</li>
+</ul>
+
+<h2 id="Related">Related</h2>
+<p><a href="index.htm">Plugin manual</a>, <a href="settings.htm">Settings</a>, <a href="running.htm">Running scripts</a></p>
+
+</body>
+</html>

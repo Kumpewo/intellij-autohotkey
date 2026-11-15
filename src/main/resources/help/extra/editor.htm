@@ -1,0 +1,120 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>Editor | AutoHotkey v2 Plugin</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../styles/theme.css" rel="stylesheet" />
+</head>
+<body>
+
+<h1>Editor: syntax, errors and colors</h1>
+
+<h2 id="Syntax">Syntax errors</h2>
+<p>The plugin parses AutoHotkey v2 while you type and marks syntax errors in the editor. Errors found by the grammar are shown as "Syntax error"; some rules have their own messages. AutoHotkey itself only checks a script when it loads it, so <a href="validate.htm">validating with AutoHotkey</a> complements the plugin's checks.</p>
+<p>Rules worth knowing:</p>
+<ul>
+  <li><strong>The end of a line ends a statement.</strong> A statement continues on the next line only
+    <ul>
+      <li>after an operator at the end of the line (<code>x := a +</code>);</li>
+      <li>before a line that starts with <code>and</code>, <code>or</code>, <code>is</code>, <code>in</code>, <code>contains</code>, <code>&amp;&amp;</code>, <code>||</code>, <code>??</code>, <code>?</code>, <code>:</code>, <code>.</code> (with a space after it) or <code>,</code>;</li>
+      <li>inside parentheses <code>( )</code>, also before a line that starts with any binary operator (<code>+</code>, <code>*</code>, <code>=</code>, <code>&lt;</code>, <code>|</code>, <code>:=</code> ...) or with the dot of a method call:
+<pre>total := (price
+        * quantity
+        + shipping)
+okButton := (win
+        .AddButton("Default", "OK"))</pre></li>
+      <li>in continuation sections (a string open at the end of a line, then <code>(</code> ... <code>)"</code>).</li>
+    </ul>
+    Empty lines and comment lines between continued lines are allowed.</li>
+  <li>After the opening <code>{</code> of a block nothing may follow on the same line except a comment ("A line break must follow '{'"). One-line object literals like <code>{x: 1}</code> are fine.</li>
+  <li><strong>Block comments</strong> <code>/* ... */</code> are only recognized at the start of a line (also indented). Elsewhere they are an error, because AutoHotkey does not recognize them there.</li>
+  <li><code>else</code> followed by a statement on the same line is accepted, but gets a warning, because it is hard to read.</li>
+  <li><code>global</code> without a variable name is only allowed as the first statement of a function, method, hotkey or hotstring block; <code>local</code> and <code>static</code> always need a name.</li>
+  <li>A label <code>Name:</code> must stand alone on its line.</li>
+  <li>Before the first <code>case</code> of a <code>switch</code> only <code>case</code> or <code>default</code> may follow.</li>
+  <li>A keyword used as a name after the dot (<code>obj.if</code>) is an error.</li>
+  <li>An unknown directive (<code>#Foo</code>) gets a warning.</li>
+</ul>
+
+<div class="ex" id="ExErrors">
+<p><a class="ex_number" href="#ExErrors"></a> Lines the plugin marks.</p>
+<pre>if (x > 1) { y := 2        <em>; error: a line break must follow '{'</em>
+x := 1 /* note */          <em>; error: block comment not at the start of a line</em>
+else MsgBox "x"            <em>; warning: hard to read</em>
+DoWork() {
+    x := 1
+    global                 <em>; error: 'global' alone must be the first statement</em>
+}</pre>
+</div>
+
+<h2 id="Ignore">Suppressing parser errors for one line</h2>
+<p>The parser does not know every construct. A known example is a call without parentheses whose first argument starts with <code>(</code>, such as <code>SetTimer () =&gt; ..., 100</code>. Put the pragma <a href="ignore-next-line.htm">;@ignore-next-line</a> before such a line:</p>
+<pre>;@ignore-next-line the parser does not support this call form
+SetTimer () => MsgBox("x"), 100</pre>
+<p>The parser errors of the next line are hidden and the line gets a marked background. Follow-up errors in later lines stay visible.</p>
+<p>If <a href="validate.htm">validation</a> shows that AutoHotkey accepts a file in which the plugin reports syntax errors, these errors are shown as "Syntax error (AutoHotkey accepts this code)".</p>
+
+<h2 id="Colors">Colors</h2>
+<p>The plugin colors words by their role, not only by their spelling: <code>Length</code> is a built-in property after a dot (<code>arr.Length</code>), but an ordinary variable when it stands alone. The colors are set under <em>Settings &gt; Editor &gt; Color Scheme &gt; AutoHotkey</em> (see <a href="settings.htm#Colors">Settings</a>).</p>
+<table class="info">
+  <tr><th>Color</th><th>Examples</th></tr>
+  <tr><td nowrap="nowrap">Core: Flow control</td><td><code>if</code>, <code>loop</code>, <code>return</code>, <code>switch</code>, <code>case</code>, <code>default</code> in a switch, <code>Files</code>/<code>Parse</code>/<code>Read</code>/<code>Reg</code> directly after <code>Loop</code></td></tr>
+  <tr><td nowrap="nowrap">Core: Reserved word</td><td><code>and</code>, <code>or</code>, <code>not</code>, <code>is</code>, <code>in</code>, <code>local</code>, <code>global</code>, <code>static</code>, <code>true</code>, <code>this</code>, <code>super</code>, <code>class</code>, <code>extends</code></td></tr>
+  <tr><td nowrap="nowrap">Core: Directive</td><td><code>#Include</code>, <code>#SingleInstance</code></td></tr>
+  <tr><td nowrap="nowrap">Core: Number, String, Label, Comment</td><td><code>42</code>, <code>"text"</code>, <code>Retry:</code>, <code>; note</code></td></tr>
+  <tr><td nowrap="nowrap">Declaration: Function, Class</td><td>the name in <code>Next() {</code> and <code>class Counter</code></td></tr>
+  <tr><td nowrap="nowrap">Declaration: Hotkey, Hotstring</td><td><code>^!r::</code>, <code>::btw::</code></td></tr>
+  <tr><td nowrap="nowrap">Built-in elements: Function, Variable, Class</td><td><code>A_Index</code>, <code>MsgBox</code>, <code>Gui</code> wherever the name stands alone: as a variable, call, command, parameter, in declarations and after <code>extends</code></td></tr>
+  <tr><td nowrap="nowrap">Built-in elements: Method, Property</td><td><code>Push</code>, <code>Length</code>, only as a whole name after a dot</td></tr>
+  <tr><td nowrap="nowrap">Nested built-in class</td><td><code>Gui.Button</code>, <code>extends Gui.Edit</code> (colored as Built-in elements: Class only directly after <code>Gui.</code>)</td></tr>
+  <tr><td nowrap="nowrap">Special: Escape sequence in string</td><td><code>`n</code>, <code>`t</code>, <code>`"</code> (not in comments and hotstrings)</td></tr>
+  <tr><td nowrap="nowrap">Special: Variable with declared type</td><td>names covered by <a href="declare-type.htm">;@declare-type</a></td></tr>
+  <tr><td nowrap="nowrap">Special: Declared private member</td><td>methods, properties and fields covered by <a href="declare-private.htm">;@declare-private</a> (gray, italic)</td></tr>
+  <tr><td nowrap="nowrap">Special: Unchecked code line</td><td>the line after <a href="ignore-next-line.htm">;@ignore-next-line</a>: marked background, normal text color</td></tr>
+</table>
+<p>If a name is a built-in variable as well as a class or function, the variable color wins; a name that is both a class and a function gets the class color.</p>
+
+<h2 id="Structure">Structure, breadcrumbs, sticky lines</h2>
+<ul>
+  <li>The <strong>structure view</strong> (<kbd>Alt</kbd>+<kbd>7</kbd>, or <kbd>Ctrl</kbd>+<kbd>F12</kbd> as a popup) lists hotkeys and hotstrings, classes with their methods and properties, functions and labels.</li>
+  <li><strong>Breadcrumbs</strong> at the bottom of the editor and <strong>sticky lines</strong> at its top show the enclosing class, function, hotkey and control structures (<code>if</code>, <code>loop</code>, <code>switch</code>, <code>case</code> ...).</li>
+</ul>
+
+<h2 id="Occurrences">Highlighting occurrences</h2>
+<p>When the caret rests on a name, all occurrences of that name in the file are highlighted; <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F7</kbd> does the same on demand, <kbd>F3</kbd>/<kbd>Shift</kbd>+<kbd>F3</kbd> move between them. As for <a href="navigation.htm">navigation</a> there is no type analysis: every name with the same spelling counts, ignoring case - variables, functions, classes, members after the dot and labels alike. Definitions and assignment targets (<code>x := 1</code>, <code>obj.x += 1</code>, parameters, declarations, <code>for</code> and <code>catch ... as</code> variables, function, class and property names, labels) are shown as write access, all other occurrences as read access. Names in strings and comments don't count.</p>
+
+<h2 id="Spelling">Spell checking</h2>
+<p>The spell checker of the IDE (<em>Settings &gt; Editor &gt; Inspections &gt; Proofreading</em>) checks comments, strings and the replacement text of hotstrings. Escape sequences (<code>`n</code>) are skipped; pragma and compiler directive comments (<code>;@declare-type</code>, <code>;@Ahk2Exe-...</code>) and names in the code are not checked. Built-in names and their parts (<code>MsgBox</code>, <code>LoopField</code>), key names and terms like <em>hotkey</em> or <em>hotstring</em> are known words (dictionary <em>AutoHotkey</em>).</p>
+
+<h2 id="Folding">Code folding</h2>
+<p>The marks in the gutter (and <kbd>Ctrl</kbd>+<kbd>NumPad -</kbd>/<kbd>+</kbd>) fold these constructs if they span several lines:</p>
+<ul>
+  <li>everything between braces: classes, functions, methods, properties, control structures, hotkey and hotstring blocks, <code>switch</code> blocks, object literals (shown as <code>{...}</code>);</li>
+  <li>block comments (<code>/*...*/</code>) and continuation sections (<code>"(...)"</code>);</li>
+  <li>runs of two or more comment lines (shown as the first line) and of two or more <code>#Include</code> lines;</li>
+  <li>custom regions between <code>;region Name</code> and <code>;endregion</code>, or between <code>;{ Name</code> and <code>;}</code> (SciTE4AutoHotkey style), shown with their name.</li>
+</ul>
+<p>Nothing is folded when a file is opened.</p>
+
+<div class="ex" id="ExRegion">
+<p><a class="ex_number" href="#ExRegion"></a> A custom region; folded it shows only <code>Helpers</code>.</p>
+<pre>;region Helpers
+Twice(x) => x * 2
+Half(x) => x / 2
+;endregion</pre>
+</div>
+
+<h2 id="Typing">Typing aids</h2>
+<ul>
+  <li><strong>Brace matching</strong> highlights the matching <code>( )</code>, <code>[ ]</code>, <code>{ }</code> and <code>%...%</code>. For <code>%</code> the 1st, 3rd ... percent sign in a line opens, the 2nd, 4th ... closes.</li>
+  <li>Typing <code>"</code> or <code>'</code> inserts the closing quote; typing it again at the end steps over it. In code, an opening <code>%</code> brings its closing <code>%</code>.</li>
+  <li><kbd>Ctrl</kbd>+<kbd>/</kbd> comments or uncomments lines with <code>;</code>, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>/</kbd> uses <code>/* */</code>.</li>
+  <li><kbd>Enter</kbd> indents the new line according to the code style, also after <code>case x:</code>.</li>
+</ul>
+
+<h2 id="Related">Related</h2>
+<p><a href="index.htm">Plugin manual</a>, <a href="settings.htm#Colors">Color settings</a>, <a href="validate.htm">Validating with AutoHotkey</a>, <a href="limitations.htm">Known limitations</a></p>
+
+</body>
+</html>

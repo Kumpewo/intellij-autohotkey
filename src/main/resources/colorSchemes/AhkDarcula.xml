@@ -1,0 +1,12 @@
+<!-- Colors of the AutoHotkey plugin in the dark scheme Darcula (and the schemes based on it, e.g. "Dark");
+     only keys that differ from their fallback. -->
+<option name="EDITOR_COLOR_SCHEME">
+    <attributes>
+        <option name="AHK_PRIVATE_MEMBER">
+            <value>
+                <option name="FOREGROUND" value="7a7e85" />
+                <option name="FONT_TYPE" value="2" />
+            </value>
+        </option>
+    </attributes>
+</option>

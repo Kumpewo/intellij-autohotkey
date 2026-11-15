@@ -1,0 +1,57 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>Templates | AutoHotkey v2 Plugin</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../styles/theme.css" rel="stylesheet" />
+</head>
+<body>
+
+<h1>Live templates and file template</h1>
+
+<h2 id="Live">Live templates</h2>
+<p>Type an abbreviation and press <kbd>Tab</kbd>: the template is inserted, and <kbd>Tab</kbd> moves through its placeholders. <kbd>Ctrl</kbd>+<kbd>J</kbd> lists the templates that fit at the caret. The templates only apply in code, not in comments, strings or the replacement text of a hotstring.</p>
+<table class="info">
+  <tr><th>Abbreviation</th><th>Inserts</th></tr>
+  <tr><td><code>req</code></td><td><code>#Requires AutoHotkey v2.0</code></td></tr>
+  <tr><td><code>si</code></td><td><code>#SingleInstance</code> with a choice of the mode</td></tr>
+  <tr><td><code>hotif</code></td><td><code>#HotIf WinActive(...)</code> block, closed with <code>#HotIf</code></td></tr>
+  <tr><td><code>hk</code>, <code>hs</code>, <code>hsx</code></td><td>hotkey with block, hotstring with replacement text, hotstring that runs code</td></tr>
+  <tr><td><code>fn</code>, <code>arrow</code></td><td>function, fat arrow function</td></tr>
+  <tr><td><code>cls</code>, <code>clse</code></td><td>class with constructor, class with base class and constructor</td></tr>
+  <tr><td><code>prop</code></td><td>property with <code>get</code> and <code>set</code></td></tr>
+  <tr><td><code>if</code>, <code>ife</code></td><td><code>If</code> block, <code>If ... Else</code></td></tr>
+  <tr><td><code>while</code>, <code>loop</code></td><td><code>While</code> loop, <code>Loop</code> with count</td></tr>
+  <tr><td><code>lf</code>, <code>lp</code>, <code>lr</code></td><td><code>Loop Files</code>, <code>Loop Parse</code>, <code>Loop Read</code></td></tr>
+  <tr><td><code>for</code>, <code>forv</code></td><td><code>For</code> with key and value, with value only</td></tr>
+  <tr><td><code>try</code>, <code>sw</code></td><td><code>Try ... Catch</code>, <code>Switch</code> with <code>Case</code> and <code>Default</code></td></tr>
+  <tr><td><code>gui</code>, <code>timer</code>, <code>onexit</code></td><td>Gui window with text and OK button, <code>SetTimer</code> call, <code>OnExit</code> handler</td></tr>
+  <tr><td><code>dt</code>, <code>ign</code></td><td>pragmas <a href="declare-type.htm">;@declare-type</a> and <a href="ignore-next-line.htm">;@ignore-next-line</a></td></tr>
+</table>
+<p>Multi-line templates are indented by the formatter after insertion; with case adjustment on, their keywords also follow the <a href="formatting.htm#Case">case settings</a>.</p>
+
+<div class="ex" id="ExFor">
+<p><a class="ex_number" href="#ExFor"></a> <code>for</code> + <kbd>Tab</kbd> inserts the loop; type the names and press <kbd>Tab</kbd> to go to the next placeholder.</p>
+<pre>For key, value in obj {
+    |
+}</pre>
+</div>
+
+<h2 id="Surround">Surround With</h2>
+<p>Select lines and press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd> (<em>Code &gt; Surround With</em>) to wrap them in <code>If</code>, <code>While</code>, <code>Loop</code>, <code>For</code> or <code>Try ... Catch</code>.</p>
+
+<h2 id="Own">Own templates</h2>
+<p>All templates are listed and can be changed under <em>Settings &gt; Editor &gt; Live Templates &gt; AutoHotkey</em>. For an own template choose the context <em>AutoHotkey &gt; Code</em> (in code) or <em>AutoHotkey &gt; Comment</em> (in comments).</p>
+
+<h2 id="File">File template</h2>
+<p><em>File &gt; New &gt; AutoHotkey Script</em> (also in the context menu of the project view) creates a file with</p>
+<pre>#Requires AutoHotkey v2.0</pre>
+<p>The same template is used for every new, empty <code>.ahk</code> file that the IDE creates, for example with <em>New &gt; File</em> and the name <code>tool.ahk</code>. Empty files that appear from outside (Explorer, Git, other programs) and files with content stay as they are.</p>
+<p>The template <em>AutoHotkey Script</em> can be changed under <em>Settings &gt; Editor &gt; File and Code Templates</em>, tab <em>Other</em>, for example to add <code>#SingleInstance Force</code> (the live template <code>si</code> inserts it as well).</p>
+
+<h2 id="Related">Related</h2>
+<p><a href="index.htm">Plugin manual</a>, <a href="formatting.htm">Formatting</a></p>
+
+</body>
+</html>

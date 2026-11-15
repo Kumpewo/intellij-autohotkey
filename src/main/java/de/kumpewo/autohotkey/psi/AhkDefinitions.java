@@ -1,0 +1,102 @@
+package de.kumpewo.autohotkey.psi;
+
+import de.kumpewo.autohotkey.AhkBundle;
+import com.intellij.navigation.ItemPresentation;
+import com.intellij.ide.projectView.PresentationData;
+import com.intellij.lang.ASTNode;
+import com.intellij.psi.PsiElement;
+import com.intellij.psi.tree.IElementType;
+import com.intellij.psi.tree.TokenSet;
+import com.intellij.psi.util.PsiTreeUtil;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import javax.swing.*;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Helpers shared by all definitions (function/method, class, property, field) for navigation, completion and choosers.
+ */
+public final class AhkDefinitions {
+
+    private AhkDefinitions() {
+    }
+
+    /** A field of a class: its name ({@code IDENTIFIER} leaf) and whether it is declared {@code static}. */
+    public record Field(@NotNull PsiElement identifier, boolean isStatic) {
+        /** Name as written. */
+        public @NotNull String name() {
+            return identifier.getText();
+        }
+
+        /** The class that defines the field. */
+        public @Nullable AhkClass owner() {
+            return PsiTreeUtil.getParentOfType(identifier, AhkClass.class);
+        }
+    }
+
+    /**
+     * Fields of the class: statements directly in its body that assign to a name ({@code count := 0},
+     * {@code a := 1, b := 2}) or declare one with {@code static} ({@code static count := 0}); not in methods or
+     * nested classes. In the order of the code.
+     */
+    public static @NotNull List<Field> fields(@NotNull AhkClass cls) {
+        List<Field> result = new ArrayList<>();
+        ASTNode block = cls.getNode().findChildByType(AhkTypes.BLOCK);
+        if (block == null) return result;
+        for (ASTNode statement = block.getFirstChildNode(); statement != null; statement = statement.getTreeNext()) {
+            IElementType type = statement.getElementType();
+            if (type == AhkTypes.EXPR_STMT) {
+                for (ASTNode assign = statement.getFirstChildNode(); assign != null; assign = assign.getTreeNext()) {
+                    PsiElement name = assignedName(assign);
+                    if (name != null) result.add(new Field(name, false));
+                }
+            } else if (type == AhkTypes.DECL_STMT) {
+                ASTNode keyword = statement.getFirstChildNode();
+                if (keyword == null || !"static".equalsIgnoreCase(keyword.getText())) continue;
+                for (ASTNode item : statement.getChildren(TokenSet.create(AhkTypes.DECL_ITEM))) {
+                    ASTNode id = item.findChildByType(AhkTypes.IDENTIFIER);
+                    if (id != null) result.add(new Field(id.getPsi(), true));
+                }
+            }
+        }
+        return result;
+    }
+
+    /** Is the identifier the name of a field ({@link #fields})? */
+    public static boolean isFieldName(@NotNull PsiElement identifier) {
+        AhkClass cls = PsiTreeUtil.getParentOfType(identifier, AhkClass.class, AhkFunc.class) instanceof AhkClass c ? c : null;
+        if (cls == null) return false;
+        for (Field field : fields(cls)) {
+            if (field.identifier() == identifier) return true;
+        }
+        return false;
+    }
+
+    /** {@code name := …}: the identifier of the assigned name, otherwise {@code null}. */
+    private static @Nullable PsiElement assignedName(ASTNode node) {
+        if (node.getElementType() != AhkTypes.ASSIGN_EXPR) return null;
+        ASTNode target = node.getFirstChildNode();
+        if (target == null || target.getElementType() != AhkTypes.REF_EXPR) return null;
+        ASTNode id = target.findChildByType(AhkTypes.IDENTIFIER);
+        return id == null ? null : id.getPsi();
+    }
+
+    /** Directly enclosing class (of a method, property or nested class), or {@code null}. */
+    public static @Nullable AhkClass ownerClass(@NotNull PsiElement definition) {
+        PsiElement owner = PsiTreeUtil.getParentOfType(definition, AhkClass.class, AhkFunc.class);
+        return owner instanceof AhkClass cls ? cls : null;
+    }
+
+    /**
+     * Presentation in choosers (e.g. Ctrl+B with several targets): the name and, if present, the enclosing class
+     * as location. The structure view still uses the element itself as {@link ItemPresentation}.
+     */
+    public static @NotNull ItemPresentation presentation(@NotNull PsiElement definition, @NotNull String text,
+                                                        @Nullable Icon icon) {
+        AhkClass owner = ownerClass(definition);
+        String location = owner == null || owner.getName() == null ? null : AhkBundle.message("navigation.location.class", owner.getName());
+        return new PresentationData(text, location, icon, null);
+    }
+}

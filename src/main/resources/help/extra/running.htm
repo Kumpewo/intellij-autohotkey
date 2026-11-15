@@ -1,0 +1,62 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>Running Scripts | AutoHotkey v2 Plugin</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../styles/theme.css" rel="stylesheet" />
+</head>
+<body>
+
+<h1>Running scripts</h1>
+
+<h2 id="Requirements">Requirements</h2>
+<ul>
+  <li>AutoHotkey v2 installed (Windows). The plugin finds a standard installation by itself, otherwise set the path under <a href="settings.htm#Program">Settings</a>.</li>
+  <li>The script is saved: the IDE saves all files before a run.</li>
+</ul>
+
+<h2 id="Start">Start a script</h2>
+<ul>
+  <li><strong>Current file:</strong> right-click in the editor or on the file in the project view and choose <em>Run 'name.ahk'</em> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F10</kbd>). This creates a temporary run configuration for the file and starts it; an existing configuration for the same script is reused.</li>
+  <li><strong>Main script:</strong> for a project with a main script and included files, create a run configuration under <em>Run &gt; Edit Configurations</em> (<kbd>+</kbd>, <em>AutoHotkey</em>) with the script, its parameters and the working directory (see <a href="settings.htm#RunConfiguration">fields</a>). Select it in the toolbar and start it with <kbd>Shift</kbd>+<kbd>F10</kbd> from any file. Save a temporary configuration with <em>Save Configuration</em> in the toolbar menu.</li>
+  <li><strong>Stop:</strong> <kbd>Ctrl</kbd>+<kbd>F2</kbd> or the red square ends the AutoHotkey process (persistent scripts with hotkeys keep running until then).</li>
+</ul>
+
+<h2 id="Program">Which program runs the script</h2>
+<p>The command line is</p>
+<pre><i>program</i> [launcher.ahk] /ErrorStdOut <i>script</i> <i>parameters</i></pre>
+<table class="info">
+  <tr><th>Settings</th><th>Script</th><th>Started program</th></tr>
+  <tr><td>Program empty, launcher found</td><td><code>#Requires AutoHotkey v2.0</code> (also <code>v2</code>, <code>2.0.18</code>, <code>&gt;=2.0</code>)</td><td><code>v2\AutoHotkey.exe</code> next to the launcher (or <code>AutoHotkey32.exe</code>/<code>AutoHotkey64.exe</code> with <code>32-bit</code>/<code>64-bit</code>)</td></tr>
+  <tr><td>Program empty, launcher found</td><td>no <code>#Requires</code>, or 2.1 and later</td><td>the launcher <code>UX\AutoHotkeyUX.exe launcher.ahk</code>, which chooses the version</td></tr>
+  <tr><td>Program = launcher</td><td>as above</td><td>as above</td></tr>
+  <tr><td>Program = interpreter</td><td>any</td><td>exactly this program</td></tr>
+</table>
+<p>Starting the interpreter directly saves the extra launcher process. The launcher passes output and exit code through, so both ways behave the same in the IDE.</p>
+
+<h2 id="Console">Console and errors</h2>
+<ul>
+  <li><strong>Load errors</strong> (syntax errors found by AutoHotkey, a missing <code>#Include</code> file ...) appear in the console of the Run tool window, because the script is started with <code>/ErrorStdOut</code>. The file name and line are a link to the place of the error. The exit code is then 2.</li>
+  <li><strong>Runtime errors</strong> are still shown by AutoHotkey in its own error dialog, not in the console. Use the <a href="debugger.htm#Exceptions">exception breakpoint</a> of the debugger to stop at them in the IDE.</li>
+  <li><strong>Output</strong> of <code>FileAppend text, "*"</code> (stdout) and <code>"**"</code> (stderr) appears in the console. It is read in the system code page (as AutoHotkey writes it by default).</li>
+</ul>
+<div class="ex" id="ExConsole">
+<p><a class="ex_number" href="#ExConsole"></a> Write to the console of the IDE.</p>
+<pre>FileAppend "Started with " A_Args.Length " parameters`n", "*"
+FileAppend "Something went wrong`n", "**"</pre>
+</div>
+
+<h2 id="SideEffects">Things to know</h2>
+<ul>
+  <li><code>#SingleInstance</code> applies as usual: starting a script that already runs replaces the running instance (<code>Force</code>), asks (default), or does nothing (<code>Ignore</code>).</li>
+  <li>AutoHotkey v2 sets <code>A_WorkingDir</code> to the folder of the script at startup. The working directory of the run configuration is available as <code>A_InitialWorkingDir</code>.</li>
+  <li>A script without hotkeys, timers or GUI ends after its last line; the console then shows the exit code.</li>
+  <li><em>Stop</em> ends the process from outside, so <code>OnExit</code> handlers of the script may not run. To test them, let the script end itself (<code>ExitApp</code>, tray menu <em>Exit</em>).</li>
+</ul>
+
+<h2 id="Related">Related</h2>
+<p><a href="index.htm">Plugin manual</a>, <a href="validate.htm">Validating</a>, <a href="compile.htm">Compiling</a>, <a href="debugger.htm">Debugger</a>, <a href="settings.htm#RunConfiguration">Run configuration</a></p>
+
+</body>
+</html>

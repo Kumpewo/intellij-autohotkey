@@ -1,0 +1,30 @@
+; Nested built-in classes (Outer.Inner). The name after the dot is colored as a built-in class,
+; but only if exactly the outer class is left of the dot (Gui.Text = class, ctrl.Text = property).
+; Format: Outer.Inner, separated by line breaks, spaces or commas, case-insensitive.
+; Comments start with ";". See AhkNames.java. Source: help/docs/objlist.htm (as of 2026-11-07)
+
+Gui.ActiveX
+Gui.Button
+Gui.CheckBox
+Gui.ComboBox
+Gui.Control
+Gui.Custom
+Gui.DateTime
+Gui.DDL
+Gui.Edit
+Gui.GroupBox
+Gui.Hotkey
+Gui.Link
+Gui.List
+Gui.ListBox
+Gui.ListView
+Gui.MonthCal
+Gui.Pic
+Gui.Progress
+Gui.Radio
+Gui.Slider
+Gui.StatusBar
+Gui.Tab
+Gui.Text
+Gui.TreeView
+Gui.UpDown

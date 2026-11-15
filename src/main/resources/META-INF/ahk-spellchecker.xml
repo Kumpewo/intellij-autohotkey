@@ -1,0 +1,10 @@
+<!-- Spell checking (loaded only if the spellchecker module of the platform is present). -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <spellchecker.support
+                language="AutoHotkey"
+                implementationClass="de.kumpewo.autohotkey.spellchecker.AhkSpellcheckingStrategy"/>
+        <spellchecker.dictionary.runtimeDictionaryProvider
+                implementation="de.kumpewo.autohotkey.spellchecker.AhkDictionaryProvider"/>
+    </extensions>
+</idea-plugin>

@@ -1,0 +1,75 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>;@declare-private - Pragma | AutoHotkey v2 Plugin</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../styles/theme.css" rel="stylesheet" />
+</head>
+<body>
+
+<h1>;@declare-private</h1>
+
+<p>Shows members (methods, properties and fields) with certain names in the color for private members. AutoHotkey v2.0 has no private members: every method and property can be used from outside. A naming convention plus this pragma makes the members you meant to be internal recognizable at a glance. This is a <a href="pragmas.htm">pragma</a>: AutoHotkey treats it as an ordinary comment.</p>
+
+<pre class="Syntax">;@<span class="func">declare-private</span> Pattern <span class="optional">, Pattern, ...</span></pre>
+
+<h2 id="Parameters">Parameters</h2>
+<dl>
+
+  <dt>Pattern</dt>
+  <dd>
+    <p>The member names the declaration applies to. One of the following:</p>
+    <ul>
+      <li><strong>Name:</strong> exactly this name, e.g. <code>Reset</code>.</li>
+      <li><strong>Prefix:</strong> all names starting with the prefix, e.g. <code>_*</code> for <code>_count</code> and <code>_Load</code>, or <code>§*</code> for <code>§cache</code>.</li>
+      <li><strong>Suffix:</strong> all names ending with the suffix, e.g. <code>*Impl</code> for <code>SaveImpl</code>.</li>
+    </ul>
+    <p>A pattern may contain only one wildcard, at its start or end. Names may contain any character AutoHotkey allows in names, including non-ASCII characters such as <code>§</code>.</p>
+  </dd>
+
+</dl>
+
+<h2 id="Effect">Effect</h2>
+<p>The color <em>Special: Declared private member</em> (Settings &gt; Editor &gt; Color Scheme &gt; AutoHotkey; by default gray and italic) is used for matching names</p>
+<ul>
+  <li>in the definitions of a class: methods, properties and fields (<code>_count := 0</code>, <code>static _instances := 0</code>);</li>
+  <li>after the dot: <code>this._count</code>, <code>obj._Load()</code>.</li>
+</ul>
+<p>Names that stand alone (variables, functions outside of classes) are not affected.</p>
+<p>If a name is also a built-in method or property (e.g. <code>Push</code>), it keeps the built-in color when it is only covered by a pattern with a wildcard. Declare the exact name to show it as private.</p>
+
+<h2 id="Remarks">Remarks</h2>
+<p>The declaration applies to the whole file in which it stands, no matter where it is placed. To declare it once for a whole project, put it into a file named <code>pragmas.ahk</code> and include that file directly where it should apply (see <a href="pragmas.htm#PragmaFile">Pragmas</a>).</p>
+<p>The pragma only changes the color. AutoHotkey does not prevent access from outside, and completion still offers these members.</p>
+<p>Case does not matter. Several patterns and several pragmas add up.</p>
+<p>Mistakes are marked in the comment: "Invalid pattern." and "',' expected.".</p>
+<p>The platform inspection "Non-ASCII characters" does not report names in AutoHotkey files, so a prefix like <code>§</code> causes no warning.</p>
+
+<h2 id="Related">Related</h2>
+<p><a href="declare-type.htm">;@declare-type</a>, <a href="pragmas.htm">Pragmas</a></p>
+
+<h2 id="Examples">Examples</h2>
+<div class="ex" id="ExPrefix">
+<p><a class="ex_number" href="#ExPrefix"></a> Members starting with an underscore are internal.</p>
+<pre>;@declare-private _*
+class Counter {
+    _count := 0                <em>; private color</em>
+    Increment() {
+        this._count += 1       <em>; private color</em>
+        return this._count
+    }
+}</pre>
+</div>
+
+<div class="ex" id="ExSection">
+<p><a class="ex_number" href="#ExSection"></a> A section sign as prefix and an explicitly named built-in method.</p>
+<pre>;@declare-private §*, Clone
+class Settings {
+    §file := "settings.ini"
+    Clone() => Settings()     <em>; Clone: private color, although Clone is a built-in method</em>
+}</pre>
+</div>
+
+</body>
+</html>

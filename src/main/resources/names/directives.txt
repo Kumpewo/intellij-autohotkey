@@ -1,0 +1,23 @@
+; Directives (with #). Unknown directives get a warning.
+; Format: names separated by line breaks, spaces or commas, case-insensitive.
+; Comments start with ";". See AhkNames.java.
+
+#ClipboardTimeout
+#DllLoad
+#ErrorStdout
+#HotIf
+#HotIfTimeout
+#Hotstring
+#Include
+#IncludeAgain
+#InputLevel
+#MaxThreads
+#MaxThreadsBuffer
+#MaxThreadsPerHotkey
+#NoTrayIcon
+#Requires
+#SingleInstance
+#SuspendExempt
+#UseHook
+#Warn
+#WinActivateForce

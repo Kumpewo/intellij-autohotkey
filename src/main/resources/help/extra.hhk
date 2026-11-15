@@ -1,0 +1,162 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+<head>
+<meta name="GENERATOR" content="AutoHotkey v2 Plugin">
+</head>
+<body>
+<ul>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Ahk2Exe">
+    <param name="Local" value="extra\compile.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Attach to script">
+    <param name="Local" value="extra\debugger.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="AutoHotkey v2 Plugin">
+    <param name="Local" value="extra\index.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Breakpoints">
+    <param name="Local" value="extra\debugger.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Case adjustment">
+    <param name="Local" value="extra\formatting.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Code completion and parameter info">
+    <param name="Local" value="extra\completion.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Code style">
+    <param name="Local" value="extra\formatting.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Colors">
+    <param name="Local" value="extra\editor.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Compiling with Ahk2Exe">
+    <param name="Local" value="extra\compile.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Debugger">
+    <param name="Local" value="extra\debugger.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value=";@declare-auto-type">
+    <param name="Local" value="extra\declare-auto-type.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value=";@declare-private">
+    <param name="Local" value="extra\declare-private.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value=";@declare-type">
+    <param name="Local" value="extra\declare-type.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Doc comments">
+    <param name="Local" value="extra\doc-comments.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Editor: syntax, errors and colors">
+    <param name="Local" value="extra\editor.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Exception breakpoint">
+    <param name="Local" value="extra\debugger.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="External help">
+    <param name="Local" value="extra\help.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Formatting and case adjustment">
+    <param name="Local" value="extra\formatting.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Getting started">
+    <param name="Local" value="extra\getting-started.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Help">
+    <param name="Local" value="extra\help.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value=";@ignore-next-line">
+    <param name="Local" value="extra\ignore-next-line.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="#Include">
+    <param name="Local" value="extra\navigation.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Inline values">
+    <param name="Local" value="extra\debugger.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Known limitations">
+    <param name="Local" value="extra\limitations.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Live templates">
+    <param name="Local" value="extra\templates.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Live templates and file template">
+    <param name="Local" value="extra\templates.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Navigation">
+    <param name="Local" value="extra\navigation.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Parameter info">
+    <param name="Local" value="extra\completion.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Pragmas">
+    <param name="Local" value="extra\pragmas.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Quick documentation">
+    <param name="Local" value="extra\help.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Requires">
+    <param name="Local" value="extra\getting-started.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Run configuration">
+    <param name="Local" value="extra\settings.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Running scripts">
+    <param name="Local" value="extra\running.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Settings">
+    <param name="Local" value="extra\settings.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Type declarations">
+    <param name="Local" value="extra\types.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Validate">
+    <param name="Local" value="extra\validate.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Validating with AutoHotkey">
+    <param name="Local" value="extra\validate.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Versions of the help">
+    <param name="Local" value="extra\index.htm">
+  </object>
+</ul>
+</body>
+</html>

@@ -1,0 +1,68 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>;@declare-auto-type - Pragma | AutoHotkey v2 Plugin</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../styles/theme.css" rel="stylesheet" />
+</head>
+<body>
+
+<h1>;@declare-auto-type</h1>
+
+<p>Declares the class of variables by the end of their names, for a group of built-in classes at once. This is a <a href="pragmas.htm">pragma</a>: AutoHotkey treats it as an ordinary comment.</p>
+
+<pre class="Syntax">;@<span class="func">declare-auto-type</span> ClassPattern <span class="optional">, ClassPattern, ...</span></pre>
+
+<h2 id="Parameters">Parameters</h2>
+<dl>
+
+  <dt>ClassPattern</dt>
+  <dd>
+    <p>Selects built-in classes by name:</p>
+    <ul>
+      <li><strong>Class name:</strong> exactly this class, e.g. <code>Map</code> or <code>Gui.Edit</code>.</li>
+      <li><strong>Prefix:</strong> all classes starting with the prefix, e.g. <code>Gui*</code> for <code>Gui</code>, <code>Gui.Button</code>, <code>Gui.Edit</code> ...</li>
+      <li><strong>Suffix:</strong> all classes ending with the suffix, e.g. <code>*Error</code>.</li>
+      <li><code>*</code> alone: all built-in classes.</li>
+    </ul>
+  </dd>
+
+</dl>
+
+<h2 id="Effect">Effect</h2>
+<p>Every built-in class selected by a pattern becomes a declaration as with <a href="declare-type.htm">;@declare-type</a>:</p>
+<ul>
+  <li>a class <code>K</code> becomes <code>*K as K</code>: <code>Map</code> covers <code>map</code>, <code>nameMap</code>, <code>idMap</code> ...;</li>
+  <li>a nested class <code>Gui.X</code> becomes <code>*X as Gui.X</code>: <code>Gui.Button</code> covers <code>okButton</code>, <code>cancelButton</code> ...</li>
+</ul>
+<p>The declared names are colored, completed and narrowed exactly as described for <a href="declare-type.htm#Effect">;@declare-type</a>.</p>
+
+<h2 id="Remarks">Remarks</h2>
+<p>Only built-in classes are selected; own classes have to be declared with <a href="declare-type.htm">;@declare-type</a>.</p>
+<p>All declarations created this way use a wildcard. Therefore a built-in name (e.g. a variable called <code>Edit</code>) keeps its built-in color.</p>
+<p>The declaration applies to the whole file in which it stands, no matter where it is placed, and to no other files except through a directly included <a href="pragmas.htm#PragmaFile">pragmas.ahk</a>. Case does not matter.</p>
+<p>Mistakes are marked in the comment: "Invalid pattern.", "Unknown class." (no class matches) and "',' expected.".</p>
+
+<h2 id="Related">Related</h2>
+<p><a href="declare-type.htm">;@declare-type</a>, <a href="pragmas.htm">Pragmas</a></p>
+
+<h2 id="Examples">Examples</h2>
+<div class="ex" id="ExGui">
+<p><a class="ex_number" href="#ExGui"></a> Declares all GUI classes by the end of the variable names.</p>
+<pre>;@declare-auto-type Gui*
+mainGui := Gui()
+okButton := mainGui.AddButton(, "OK")    <em>; okButton is a Gui.Button</em>
+nameEdit := mainGui.AddEdit()            <em>; nameEdit is a Gui.Edit</em></pre>
+</div>
+
+<div class="ex" id="ExSeveral">
+<p><a class="ex_number" href="#ExSeveral"></a> Declares maps, arrays and files.</p>
+<pre>;@declare-auto-type Map, Array, File
+settingsMap := Map()
+lineArray := []
+logFile := FileOpen("log.txt", "w")</pre>
+</div>
+
+</body>
+</html>

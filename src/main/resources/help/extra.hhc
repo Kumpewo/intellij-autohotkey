@@ -1,0 +1,116 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+<head>
+<meta name="GENERATOR" content="AutoHotkey v2 Plugin">
+</head>
+<body>
+<ul>
+  <li><object type="text/sitemap">
+    <param name="Name" value="AutoHotkey v2 Plugin">
+    <param name="Local" value="extra\index.htm">
+    <param name="ImageNumber" value="11">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Getting started">
+    <param name="Local" value="extra\getting-started.htm">
+    <param name="ImageNumber" value="11">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Editor: syntax, errors and colors">
+    <param name="Local" value="extra\editor.htm">
+    <param name="ImageNumber" value="11">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Code completion and parameter info">
+    <param name="Local" value="extra\completion.htm">
+    <param name="ImageNumber" value="11">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Navigation">
+    <param name="Local" value="extra\navigation.htm">
+    <param name="ImageNumber" value="11">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Help">
+    <param name="Local" value="extra\help.htm">
+    <param name="ImageNumber" value="11">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Doc comments">
+    <param name="Local" value="extra\doc-comments.htm">
+    <param name="ImageNumber" value="11">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Type declarations">
+    <param name="Local" value="extra\types.htm">
+    <param name="ImageNumber" value="11">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Formatting and case adjustment">
+    <param name="Local" value="extra\formatting.htm">
+    <param name="ImageNumber" value="11">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Live templates and file template">
+    <param name="Local" value="extra\templates.htm">
+    <param name="ImageNumber" value="11">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Settings">
+    <param name="Local" value="extra\settings.htm">
+    <param name="ImageNumber" value="11">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Running scripts">
+    <param name="Local" value="extra\running.htm">
+    <param name="ImageNumber" value="11">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Validating with AutoHotkey">
+    <param name="Local" value="extra\validate.htm">
+    <param name="ImageNumber" value="11">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Compiling with Ahk2Exe">
+    <param name="Local" value="extra\compile.htm">
+    <param name="ImageNumber" value="11">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Debugger">
+    <param name="Local" value="extra\debugger.htm">
+    <param name="ImageNumber" value="11">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Pragmas">
+    <param name="Local" value="extra\pragmas.htm">
+  </object>
+  <ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value=";@declare-type">
+      <param name="Local" value="extra\declare-type.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value=";@declare-auto-type">
+      <param name="Local" value="extra\declare-auto-type.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value=";@declare-private">
+      <param name="Local" value="extra\declare-private.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
+      <param name="Name" value=";@ignore-next-line">
+      <param name="Local" value="extra\ignore-next-line.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+  </ul>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Known limitations">
+    <param name="Local" value="extra\limitations.htm">
+    <param name="ImageNumber" value="11">
+  </object>
+</ul>
+</body>
+</html>
