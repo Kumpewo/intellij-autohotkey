@@ -1956,6 +1956,9 @@ public class AhkPluginTest extends BasePlatformTestCase {
         java.nio.file.Files.writeString(dir.resolve("sub").resolve("piece.ahk"), "");
         java.nio.file.Files.writeString(dir.resolve("Lib").resolve("ZqLib.ahk"), "");
         java.nio.file.Files.writeString(dir.resolve("Lib").resolve("v2").resolve("ZqTeil.ahk"), "");
+        // a second entry starting with "v": with a single match the completion is inserted directly and the list
+        // stays empty (on the CI runner there is no user library that adds further matches)
+        java.nio.file.Files.writeString(dir.resolve("Lib").resolve("vZq.ahk"), "");
         com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByNioFile(dir);
 
         // relative to the directory of the file: .ahk files and directories, not other files, not the file itself
