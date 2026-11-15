@@ -6,15 +6,16 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Refactoring support (lang.refactoringSupport, Z.20): no inline rename in the editor, so Shift+F6 always opens the
- * Rename dialog with its forced preview (AhkRenameProcessor). Other refactorings are not offered.
+ * Refactoring support (lang.refactoringSupport, Z.20): local variables and parameters of functions (Z.27) are renamed
+ * in place in the editor, all other definitions in the Rename dialog with its forced preview (AhkRenameProcessor).
+ * Other refactorings are not offered.
  */
 public class AhkRefactoringSupportProvider extends RefactoringSupportProvider {
 
-    /** No inline rename of local elements. */
+    /** In-place rename only for local variables and parameters. */
     @Override
     public boolean isInplaceRenameAvailable(@NotNull PsiElement element, @Nullable PsiElement context) {
-        return false;
+        return element instanceof AhkLocalVariable;
     }
 
     /** No inline rename of members. */

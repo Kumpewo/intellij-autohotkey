@@ -4,6 +4,24 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-15
+
+### Added
+
+- Local variables and parameters of functions are resolved by the scoping rules of AutoHotkey v2 (also nested
+  functions and closures, `static` nested functions, `global` declarations and assume-global functions): completion
+  inside a function offers them first, *Ctrl+B* leads to their definition, *Find Usages* and the highlighting of
+  occurrences only show the same variable, and *Rename* works directly in the editor. A parameter's name after
+  `@param` in the doc comment is renamed with it, and *Ctrl+B* on it leads to the parameter.
+- *Rename* where nothing can be renamed (global variable, built-in name, keyword ...) shows a hint instead of
+  doing nothing.
+- Own color *Core: Reserved value* for `true`, `false`, `unset`, `this` and `super` (bold purple by
+  default).
+
+### Fixed
+
+- Numbers in scientific notation (`1e4`, `1.0e4`, `-2.1E-4`, `.5e3`) are recognized as one number.
+
 ## [1.0.0] - 2026-11-15
 
 First public release.

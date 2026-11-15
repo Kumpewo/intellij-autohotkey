@@ -68,9 +68,11 @@ public class AhkAnnotator implements Annotator {
             for (IElementType t : new IElementType[]{
                     AhkTypes.KEYWORD_AS, AhkTypes.KEYWORD_AND, AhkTypes.KEYWORD_OR, AhkTypes.KEYWORD_NOT,
                     AhkTypes.KEYWORD_IS, AhkTypes.KEYWORD_IN, AhkTypes.KEYWORD_CONTAINS, AhkTypes.KEYWORD_DECL,
-                    AhkTypes.KEYWORD_LITERAL, AhkTypes.KEYWORD_CLASS, AhkTypes.KEYWORD_EXTENDS}) {
+                    AhkTypes.KEYWORD_CLASS, AhkTypes.KEYWORD_EXTENDS}) {
                 KEYWORD_COLORS.put(t, AhkColors.AHK_RESERVED);
             }
+            // true, false, unset, this, super
+            KEYWORD_COLORS.put(AhkTypes.KEYWORD_LITERAL, AhkColors.AHK_RESERVED_VALUE);
         }
     }
 

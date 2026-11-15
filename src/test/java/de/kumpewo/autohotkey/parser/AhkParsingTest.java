@@ -170,6 +170,19 @@ public class AhkParsingTest extends ParsingTestCase {
         }
     }
 
+    /** Scientific notation with and without decimal point is one number token; not for hexadecimal numbers. */
+    public void testScientificNotation() {
+        for (String number : new String[]{"1e4", "1E4", "1.0e4", "2.1E-4", "3e+2", ".5e3"}) {
+            Result r = assertNoErrors("x := " + number);
+            assertTrue(number + "\n" + r.tree, r.tree.contains("PsiElement(AhkTokenType.NUMBER)('" + number + "')"));
+        }
+        assertNoErrors("y := -2.1E-4 * 1e3");
+        // 0x1e3 is the hexadecimal number 0x1E3
+        assertTrue(parse("x := 0x1e3").tree.contains("PsiElement(AhkTokenType.NUMBER)('0x1e3')"));
+        // without digits after "e" it stays a number followed by a name
+        assertFalse(parse("x := 1e").tree.contains("NUMBER)('1e')"));
+    }
+
     public void testNestedBaseClass() {
         assertNoErrors("class MyEdit extends Gui.Edit {\n}\n");
         assertNoErrors("class X extends Outer.Inner.Deep\n{\n}\n");

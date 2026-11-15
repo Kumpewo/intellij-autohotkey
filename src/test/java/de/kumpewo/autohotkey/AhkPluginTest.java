@@ -676,11 +676,15 @@ public class AhkPluginTest extends BasePlatformTestCase {
     public void testKeywordsByTokenType() {
         assertColor(AhkColors.AHK_FLOWCONTROL, "§if x\n  a()\n");
         assertColor(AhkColors.AHK_FLOWCONTROL, "loop 3\n  §break\n");
-        assertColor(AhkColors.AHK_RESERVED, "a := §true\n");
         assertColor(AhkColors.AHK_RESERVED, "f() {\n  §static x := 1\n}\n");
         assertColor(AhkColors.AHK_RESERVED, "x := a §and b\n");
-        // this is a KEYWORD_LITERAL (lexer)
-        assertColor(AhkColors.AHK_RESERVED, "x := §this.a\n");
+        assertColor(AhkColors.AHK_RESERVED, "§class A {\n}\n");
+        // true, false, unset, this, super are KEYWORD_LITERAL (lexer) with their own color
+        assertColor(AhkColors.AHK_RESERVED_VALUE, "a := §true\n");
+        assertColor(AhkColors.AHK_RESERVED_VALUE, "a := §unset\n");
+        assertColor(AhkColors.AHK_RESERVED_VALUE, "x := §this.a\n");
+        // the new key inherits the reserved-word color, so existing schemes look the same
+        assertEquals(AhkColors.AHK_RESERVED, AhkColors.AHK_RESERVED_VALUE.getFallbackAttributeKey());
     }
 
     public void testBuiltinOnlyOutsideMembers() {
@@ -1918,14 +1922,270 @@ public class AhkPluginTest extends BasePlatformTestCase {
             }
             return out;
         };
-        // definitions and assignment targets
-        assertEquals(List.of("1:count", "2:Count", "5:count", "8:count", "10:count"), lines.apply(handler.getWriteUsages()));
-        // other occurrences, not in strings and comments, not other names
-        assertEquals(List.of("3:count", "6:COUNT", "9:count"), lines.apply(handler.getReadUsages()));
+        // definitions and assignment targets; not the parameter count of f (a local variable, Z.27)
+        assertEquals(List.of("1:count", "2:Count", "8:count", "10:count"), lines.apply(handler.getWriteUsages()));
+        // other occurrences, not in strings and comments, not other names, not the uses of the parameter
+        assertEquals(List.of("3:count", "9:count"), lines.apply(handler.getReadUsages()));
         // no handler outside of names
         myFixture.configureByText("b.ahk", "s := \"te<caret>xt\"\n");
         assertNull(com.intellij.codeInsight.highlighting.HighlightUsagesHandler.createCustomHandler(
                 myFixture.getEditor(), myFixture.getFile()));
+    }
+
+    // ---------------------------------------------------------------- local variables (Z.27)
+
+    /**
+     * The local variable named at {@code <caret>}: "line:name" of its first definition, or "-" if the name is no
+     * local variable (no AhkLocalReference there).
+     */
+    private String localAt(String text) {
+        myFixture.configureByText("a.ahk", text);
+        PsiReference ref = myFixture.getFile().findReferenceAt(myFixture.getCaretOffset());
+        if (!(ref instanceof de.kumpewo.autohotkey.navigation.AhkLocalReference)) return "-";
+        var target = (de.kumpewo.autohotkey.navigation.AhkLocalVariable) ref.resolve();
+        assertNotNull(text, target);
+        com.intellij.psi.PsiElement definition = target.getNavigationElement();
+        int line = myFixture.getEditor().getDocument().getLineNumber(definition.getTextOffset()) + 1;
+        return line + ":" + definition.getText();
+    }
+
+    public void testLocalsByTheRulesOfAutoHotkey() {
+        // parameters, assignments, declarations, for and catch variables, any case
+        assertEquals("1:Count", localAt("f(Count) {\n    return <caret>COUNT\n}\n"));
+        assertEquals("2:x", localAt("f() {\n    x := 1\n    MsgBox <caret>x\n}\n"));
+        assertEquals("2:n", localAt("f() {\n    n++\n    return <caret>n\n}\n"));
+        assertEquals("2:v", localAt("f() {\n    g(&v)\n    return <caret>v\n}\n"));
+        assertEquals("3:x", localAt("f() {\n    if 1 {\n        static x := 0\n    }\n    return <caret>x\n}\n"));
+        assertEquals("2:k", localAt("f(m) {\n    for k, v in m\n        MsgBox <caret>k\n}\n"));
+        assertEquals("3:e", localAt("f() {\n    try g()\n    catch Error as e\n        MsgBox <caret>e.Message\n}\n"));
+        // the definition itself carries the reference
+        assertEquals("1:count", localAt("f(co<caret>unt) {\n}\n"));
+        assertEquals("2:x", localAt("f() {\n    local <caret>x\n}\n"));
+        // a command name can be a parameter
+        assertEquals("1:fn", localAt("f(fn) {\n    <caret>fn \"x\"\n}\n"));
+        // only read: may be a global variable; outside of functions: global
+        assertEquals("-", localAt("g := 1\nf() {\n    MsgBox <caret>g\n}\n"));
+        assertEquals("-", localAt("x := 1\nMsgBox <caret>x\n"));
+        // global declaration, assume-global (local declarations stay local)
+        assertEquals("-", localAt("f() {\n    global g\n    <caret>g := 1\n}\n"));
+        assertEquals("-", localAt("f() {\n    global\n    <caret>g := 1\n}\n"));
+        assertEquals("3:y", localAt("f() {\n    global\n    local y\n    <caret>y := 1\n}\n"));
+        // functions, classes and built-in variables are not local through an assignment
+        assertEquals("-", localAt("f() {\n    <caret>MsgBox := 1\n}\n"));
+        assertEquals("-", localAt("f() {\n    <caret>Helper := 1\n}\nHelper() {\n}\n"));
+        assertEquals("-", localAt("f() {\n    <caret>A_Clipboard := 1\n}\n"));
+        // the name of a nested function stays a function
+        assertEquals("-", localAt("f() {\n    inner() {\n    }\n    <caret>inner()\n}\n"));
+        // methods, properties and accessors
+        assertEquals("2:p", localAt("class A {\n    m(p) {\n        return <caret>p\n    }\n}\n"));
+        assertEquals("2:i", localAt("class A {\n    P[i] {\n        get => <caret>i\n    }\n}\n"));
+        assertEquals("-", localAt("class A {\n    count := 0\n    m() => <caret>count\n}\n"));
+    }
+
+    public void testLocalsInNestedFunctions() {
+        // a nested function shares the parameters and assigned variables of the outer function
+        assertEquals("1:a", localAt("outer(a) {\n    inner() {\n        return <caret>a\n    }\n}\n"));
+        assertEquals("2:x", localAt("outer() {\n    x := 1\n    inner() {\n        <caret>x := 2\n    }\n}\n"));
+        assertEquals("1:list", localAt("f(list) {\n    return (x) => <caret>list.Length + x\n}\n"));
+        assertEquals("2:x", localAt("f(list) {\n    return (x) => <caret>x * 2\n}\n"));
+        assertEquals("2:y", localAt("f() {\n    return y => <caret>y\n}\n"));
+        // own declaration wins; assigned only in the nested function: local there
+        assertEquals("4:x", localAt("outer() {\n    x := 1\n    inner() {\n        local x\n        <caret>x := 2\n    }\n}\n"));
+        assertEquals("3:z", localAt("outer() {\n    inner() {\n        z := 1\n        return <caret>z\n    }\n}\n"));
+        assertEquals("-", localAt("outer() {\n    inner() {\n        z := 1\n    }\n    return <caret>z\n}\n"));
+        // a static nested function only sees static variables of the outer function
+        assertEquals("4:x", localAt("outer() {\n    x := 1\n    static inner() {\n        <caret>x := 2\n    }\n}\n"));
+        assertEquals("2:s", localAt("outer() {\n    static s := 0\n    static inner() {\n        return <caret>s\n    }\n}\n"));
+        // a global declaration of the outer function applies to the nested function
+        assertEquals("-", localAt("outer() {\n    global g\n    inner() {\n        <caret>g := 1\n    }\n}\n"));
+    }
+
+    public void testLocalsCompletion() {
+        List<String> list = suggestions(String.join("\n",
+                "alphaGlobal := 1",
+                "f(alphaParam) {",
+                "    alphaVar := 1",
+                "    inner() {",
+                "        alphaInner := 2",
+                "        x := alph<caret>",
+                "    }",
+                "}",
+                "g() {",
+                "    alphaOther := 1",
+                "}",
+                ""));
+        // own variables, then the shared ones of the outer function; not those of other functions or global ones
+        assertEquals(List.of("alphaInner", "alphaParam", "alphaVar"), list.stream().filter(s -> s.startsWith("alpha")).sorted().toList());
+    }
+
+    public void testLocalsHighlightUsages() {
+        myFixture.configureByText("a.ahk", String.join("\n",
+                "count := 0",
+                "f(count) {",
+                "    count += 1",
+                "    inner() => count",
+                "    return co<caret>unt",
+                "}",
+                "g() {",
+                "    count := 2",
+                "}",
+                ""));
+        var handler = com.intellij.codeInsight.highlighting.HighlightUsagesHandler.createCustomHandler(
+                myFixture.getEditor(), myFixture.getFile());
+        assertNotNull(handler);
+        handler.computeUsages(handler.getTargets());
+        com.intellij.openapi.editor.Document document = myFixture.getEditor().getDocument();
+        List<Integer> write = new ArrayList<>();
+        for (var r : handler.getWriteUsages()) write.add(document.getLineNumber(r.getStartOffset()) + 1);
+        List<Integer> read = new ArrayList<>();
+        for (var r : handler.getReadUsages()) read.add(document.getLineNumber(r.getStartOffset()) + 1);
+        // the parameter of f and its uses, also in the nested function; not the global count, not count of g
+        assertEquals(List.of(2, 3), write);
+        assertEquals(List.of(4, 5), read);
+    }
+
+    public void testLocalsFindUsagesAndNavigation() {
+        myFixture.configureByText("a.ahk", String.join("\n",
+                "f(value) {",
+                "    x := val<caret>ue",
+                "    inner() => value * 2",
+                "}",
+                "g(value) {",
+                "    return value",
+                "}",
+                ""));
+        com.intellij.psi.PsiElement target = myFixture.getElementAtCaret();
+        assertTrue(String.valueOf(target), target instanceof de.kumpewo.autohotkey.navigation.AhkLocalVariable);
+        // Ctrl+B: the parameter
+        assertEquals(0, myFixture.getEditor().getDocument().getLineNumber(target.getNavigationElement().getTextOffset()));
+        List<Integer> lines = new ArrayList<>();
+        for (com.intellij.usageView.UsageInfo usage : myFixture.findUsages(target)) {
+            lines.add(myFixture.getEditor().getDocument().getLineNumber(
+                    java.util.Objects.requireNonNull(usage.getSegment()).getStartOffset()) + 1);
+        }
+        java.util.Collections.sort(lines);
+        // definition and uses in f, also in the nested function; not in g
+        assertEquals(List.of(1, 2, 3), lines);
+    }
+
+    public void testLocalsRenameInPlace() {
+        com.intellij.codeInsight.template.impl.TemplateManagerImpl.setTemplateTesting(getTestRootDisposable());
+        myFixture.configureByText("a.ahk", String.join("\n",
+                "count := 0",
+                "f(co<caret>unt) {",
+                "    Count += 1",
+                "    inner() => count",
+                "    return count",
+                "}",
+                "g() {",
+                "    count := 2",
+                "}",
+                ""));
+        com.intellij.testFramework.fixtures.CodeInsightTestUtil.doInlineRename(
+                new com.intellij.refactoring.rename.inplace.VariableInplaceRenameHandler(), "total", myFixture);
+        assertEquals(String.join("\n",
+                "count := 0",
+                "f(total) {",
+                "    total += 1",
+                "    inner() => total",
+                "    return total",
+                "}",
+                "g() {",
+                "    count := 2",
+                "}",
+                ""), myFixture.getEditor().getDocument().getText());
+    }
+
+    public void testLocalsParameterInDocComment() {
+        com.intellij.codeInsight.template.impl.TemplateManagerImpl.setTemplateTesting(getTestRootDisposable());
+        String text = String.join("\n",
+                "/**",
+                " * Adds two numbers.",
+                " * @param count the first number",
+                " * @param {Integer} other the second number",
+                " */",
+                "f(co<caret>unt, other) {",
+                "    return count + other",
+                "}",
+                "/**",
+                " * @param count of another function",
+                " */",
+                "g(count) {",
+                "}",
+                "");
+        // Find Usages and the highlighting of occurrences show the name after @param
+        myFixture.configureByText("a.ahk", text);
+        List<Integer> lines = new ArrayList<>();
+        for (com.intellij.usageView.UsageInfo usage : myFixture.findUsages(myFixture.getElementAtCaret())) {
+            lines.add(myFixture.getEditor().getDocument().getLineNumber(
+                    java.util.Objects.requireNonNull(usage.getSegment()).getStartOffset()) + 1);
+        }
+        java.util.Collections.sort(lines);
+        assertEquals(List.of(3, 6, 7), lines);
+        var handler = com.intellij.codeInsight.highlighting.HighlightUsagesHandler.createCustomHandler(
+                myFixture.getEditor(), myFixture.getFile());
+        assertNotNull(handler);
+        handler.computeUsages(handler.getTargets());
+        assertEquals(3, handler.getReadUsages().size() + handler.getWriteUsages().size());
+        // Ctrl+B on the name after @param leads to the parameter
+        int inComment = myFixture.getFile().getText().indexOf("count the first") + 2;
+        PsiReference ref = myFixture.getFile().findReferenceAt(inComment);
+        assertNotNull(ref);
+        com.intellij.psi.PsiElement target = ref.resolve();
+        assertTrue(String.valueOf(target), target instanceof de.kumpewo.autohotkey.navigation.AhkLocalVariable);
+        assertEquals(5, myFixture.getEditor().getDocument().getLineNumber(target.getNavigationElement().getTextOffset()));
+        // rename in place: the parameter, its uses and its @param name; not the doc comment of g
+        com.intellij.testFramework.fixtures.CodeInsightTestUtil.doInlineRename(
+                new com.intellij.refactoring.rename.inplace.VariableInplaceRenameHandler(), "total", myFixture);
+        assertEquals(text.replace("co<caret>unt", "total").replace("@param count the", "@param total the")
+                .replace("return count", "return total"), myFixture.getEditor().getDocument().getText());
+    }
+
+    /**
+     * What Shift+F6 does at {@code <caret>}: the hint of AhkRenameHintHandler, or the class name of the rename handler
+     * the platform chooses otherwise ("none" without any).
+     */
+    private String renameHint(String text) {
+        myFixture.configureByText("a.ahk", text);
+        com.intellij.openapi.actionSystem.DataContext context =
+                ((com.intellij.openapi.editor.ex.EditorEx) myFixture.getEditor()).getDataContext();
+        com.intellij.refactoring.rename.RenameHandler handler =
+                com.intellij.refactoring.rename.RenameHandlerRegistry.getInstance().getRenameHandler(context);
+        if (!(handler instanceof de.kumpewo.autohotkey.navigation.AhkRenameHintHandler)) {
+            return handler == null ? "none" : handler.getClass().getSimpleName();
+        }
+        try {
+            handler.invoke(getProject(), myFixture.getEditor(), myFixture.getFile(), context);
+        } catch (com.intellij.refactoring.util.CommonRefactoringUtil.RefactoringErrorHintException e) {
+            return e.getMessage();
+        }
+        throw new AssertionError("no hint: " + text);
+    }
+
+    public void testRenameHintWhereNothingCanBeRenamed() {
+        String global = AhkBundle.message("rename.hint.global", "x");
+        String nothing = AhkBundle.message("rename.hint.nothing");
+        // global variables: outside of functions, declared global, only read in a function; caret also at the end
+        assertEquals(global, renameHint("x := 1\nMsgBox <caret>x\n"));
+        assertEquals(global, renameHint("<caret>x := 1\n"));
+        assertEquals(global, renameHint("x<caret> := 1\n"));
+        assertEquals(global, renameHint("f() {\n    global x\n    <caret>x := 1\n}\n"));
+        assertEquals(global, renameHint("f() {\n    return <caret>x\n}\n"));
+        // built-in names
+        assertEquals(AhkBundle.message("rename.hint.builtin", "MsgBox"), renameHint("<caret>MsgBox \"x\"\n"));
+        assertEquals(AhkBundle.message("rename.hint.builtin", "A_Index"), renameHint("y := <caret>A_Index\n"));
+        assertEquals(AhkBundle.message("rename.hint.builtin", "Length"), renameHint("y := arr.<caret>Length\n"));
+        assertEquals(AhkBundle.message("rename.hint.builtin", "#SingleInstance"), renameHint("#Single<caret>Instance Force\n"));
+        // anything else
+        assertEquals(nothing, renameHint("y := obj.<caret>Unknown\n"));
+        assertEquals(nothing, renameHint("y := 4<caret>2\n"));
+        assertEquals(nothing, renameHint("<caret>if y\n    z := 1\n"));
+        assertEquals(nothing, renameHint("; a com<caret>ment\n"));
+        // something to rename: the hint handler stays out
+        String function = renameHint("<caret>Helper()\nHelper() {\n}\n");
+        assertFalse(function, function.equals(nothing) || function.equals("none"));
+        String local = renameHint("f(<caret>p) {\n    return p\n}\n");
+        assertFalse(local, local.equals(nothing) || local.equals("none"));
     }
 
     public void testColorSettingsPageGroups() {
@@ -1943,7 +2203,7 @@ public class AhkPluginTest extends BasePlatformTestCase {
         // every color of the preview can be configured
         assertTrue(keys.containsAll(java.util.Objects.requireNonNull(
                 page.getAdditionalHighlightingTagToDescriptorMap()).values()));
-        assertEquals(20, keys.size());
+        assertEquals(21, keys.size());
     }
 
     public void testCompletionIncludePaths() throws Exception {

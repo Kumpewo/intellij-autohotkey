@@ -2,6 +2,12 @@
      only keys that differ from their fallback. -->
 <option name="EDITOR_COLOR_SCHEME">
     <attributes>
+        <option name="AHK_RESERVED_VALUE">
+            <value>
+                <option name="FOREGROUND" value="c77dbb" />
+                <option name="FONT_TYPE" value="1" />
+            </value>
+        </option>
         <option name="AHK_PRIVATE_MEMBER">
             <value>
                 <option name="FOREGROUND" value="7a7e85" />

@@ -81,7 +81,8 @@ means. Your own libraries stay easy to use, even when you are no longer deep in 
 <p>Wherever you want to go, the plugin takes you there: <i>Ctrl+B</i> to functions, classes, methods, properties,
 fields, labels and <code>#Include</code> files (including the AutoHotkey library folders), <i>Find Usages</i>,
 <i>Rename</i> with preview, <i>Go to Symbol</i> and <i>Go to Class</i> across the project, and the structure of the
-file.</p>
+file. Local variables and parameters of functions follow the scoping rules of AutoHotkey and are renamed right in
+the editor.</p>
 
 <p><b>Run, validate, debug, compile</b></p>
 <ul>
@@ -101,7 +102,8 @@ file.</p>
 <ul>
   <li>The plugin understands AutoHotkey v2. Files with <code>#Requires AutoHotkey v1</code> are left unparsed; for
       files without <code>#Requires</code> it detects v1 code and offers to insert the right line.</li>
-  <li>There is no type inference: navigation and completion work by name, so check the preview of a rename.</li>
+  <li>There is no type inference: navigation and completion work by name (local variables and parameters by
+      function), so check the preview of a rename.</li>
   <li>Editing works without AutoHotkey; running, validating, debugging and compiling need an AutoHotkey v2
       installation (Windows).</li>
 </ul>
@@ -214,6 +216,8 @@ file.</p>
         <lang.refactoringSupport
                 language="AutoHotkey"
                 implementationClass="de.kumpewo.autohotkey.navigation.AhkRefactoringSupportProvider"/>
+        <!-- Shift+F6 where nothing can be renamed: a hint instead of silence -->
+        <renameHandler implementation="de.kumpewo.autohotkey.navigation.AhkRenameHintHandler"/>
         <vetoRenameCondition
                 implementation="de.kumpewo.autohotkey.navigation.AhkRenameVeto"/>
         <additionalTextAttributes scheme="Default" file="colorSchemes/AhkDefault.xml"/>

@@ -1,5 +1,11 @@
 <option name="EDITOR_COLOR_SCHEME">
     <attributes>
+        <option name="AHK_RESERVED_VALUE">
+            <value>
+                <option name="FOREGROUND" value="871094" />
+                <option name="FONT_TYPE" value="1" />
+            </value>
+        </option>
         <option name="AHK_CLASS">
             <value>
                 <option name="FOREGROUND" value="2060d0" />

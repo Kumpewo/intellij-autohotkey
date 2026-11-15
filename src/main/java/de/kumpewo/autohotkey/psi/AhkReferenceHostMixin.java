@@ -8,8 +8,10 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Base of expressions that can carry references (ref_expr, literal_expr). Otherwise ASTWrapperPsiElement does
- * not ask the registered psi.referenceContributor extensions (e.g. AhkLabelReferenceContributor for goto targets).
+ * Base of elements that can carry references (ref_expr, literal_expr, member_expr, command_stmt, directive, and the
+ * definitions of local variables: parameter, decl_item, for_vars, catch_clause, lambda_expr). Otherwise
+ * ASTWrapperPsiElement does not ask the registered psi.referenceContributor extensions (e.g.
+ * AhkLabelReferenceContributor for goto targets).
  */
 public abstract class AhkReferenceHostMixin extends ASTWrapperPsiElement {
 

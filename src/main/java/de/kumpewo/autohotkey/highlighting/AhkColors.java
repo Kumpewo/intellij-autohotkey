@@ -41,10 +41,14 @@ public class AhkColors {
             createTextAttributesKey("AHK_FLOWCONTROL",
                     DefaultLanguageHighlighterColors.KEYWORD);
 
-    // and, or, not, is, in, contains, as, local/global/static, true/false/unset/super, class, extends, this
+    // and, or, not, is, in, contains, as, local/global/static, class, extends
     public static final TextAttributesKey AHK_RESERVED =
             createTextAttributesKey("AHK_RESERVED",
                     DefaultLanguageHighlighterColors.PREDEFINED_SYMBOL);
+
+    // true, false, unset, this, super (token KEYWORD_LITERAL); inherits the reserved-word color by default
+    public static final TextAttributesKey AHK_RESERVED_VALUE =
+            createTextAttributesKey("AHK_RESERVED_VALUE", AHK_RESERVED);
 
     // predefined/built-in functions
     public static final TextAttributesKey AHK_BUILTIN_FUNCTION =

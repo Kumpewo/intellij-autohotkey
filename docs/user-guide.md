@@ -72,7 +72,8 @@ Colors are configured under *Settings > Editor > Color Scheme > AutoHotkey*, in 
 | Group | Color | Examples |
 |-------|-------|----------|
 | Core | Flow control | `if`, `loop`, `return`, `switch`, `case`, `default` in a switch, `Files`/`Parse`/`Read`/`Reg` after `Loop` |
-| Core | Reserved word | `and`, `or`, `not`, `is`, `in`, `local`, `global`, `true`, `this`, `class`, `extends` |
+| Core | Reserved word | `and`, `or`, `not`, `is`, `in`, `local`, `global`, `static`, `class`, `extends` |
+| Core | Reserved value | `true`, `false`, `unset`, `this`, `super` (bold purple by default) |
 | Core | Directive | `#Include`, `#SingleInstance`; unknown directives get a warning |
 | Core | Number, String, Label, Comment | `42`, `"text"`, `Retry:`, `; note` |
 | Declaration | Function, Class | the name in `Next() {` and `class Counter` |
@@ -95,8 +96,9 @@ does not matter while typing; the spelling of the list is inserted. Functions an
 What is offered depends on the position:
 
 - **Directive** (after `#`): all known directives.
-- **Free-standing name**: built-in variables, classes and functions; own functions and classes of the file and
-  of the files it includes directly with `#Include`. At the start of a statement also the flow control
+- **Free-standing name**: inside a function first its [local variables and parameters](#local-variables-and-parameters)
+  (also those it shares with enclosing functions); built-in variables, classes and functions; own functions and
+  classes of the file and of the files it includes directly with `#Include`. At the start of a statement also the flow control
   keywords; directly after `Loop` also `Files`, `Parse`, `Read`, `Reg`.
 - **After the dot**: methods and properties of the built-in classes; methods, properties and fields (`count := 0`
   in a class body) of the own classes. After the name of
@@ -148,7 +150,8 @@ The command form of a method call (`obj.Method "x", 1`) has no parameter info.
 names only (case-insensitive) and offers a chooser if there are several matches - first the current file,
 then the included files in the order of their `#Include` lines.
 
-- **Free-standing name** (`DoWork()`, `Counter.count`): functions outside of classes and top-level classes.
+- **Free-standing name** (`DoWork()`, `Counter.count`): functions outside of classes and top-level classes; inside
+  a function a [local variable or parameter](#local-variables-and-parameters) leads to its definition.
 - **Name after the dot** (`obj.Next()`): methods, properties, fields and nested classes of all classes.
 - **Base class** after `extends`: the class; `extends Outer.Inner` resolves step by step.
 - **Labels**: `goto Target`, `goto "Target"`, `break Outer`, `continue Outer`, within the same function or
@@ -164,12 +167,34 @@ The global library folders are added to the project as the library *AutoHotkey L
 the project view), so files opened from there are fully highlighted. Files outside the project that are not in
 a library folder only get the basic lexer highlighting; add their folder as a content root if needed.
 
+### Local variables and parameters
+
+Inside a function (also a method, a property, `get`/`set`, and a fat-arrow function `(x) => x * 2`) the plugin
+knows which names are local, following the rules of AutoHotkey v2:
+
+- **Local** are the parameters, names declared with `local` or `static`, and names that are assigned (`x := 1`,
+  `x += 1`, `x++`), passed by reference (`&x`) or used as `for` and `catch ... as` variables - anywhere in the
+  function, as AutoHotkey decides this when the script loads.
+- **Not local** are names that are only read (they may be global variables), names declared `global`, all names
+  that are only assigned in an assume-global function (`global` alone as the first line), built-in variables, and
+  the names of functions and classes (built-in or own) unless they are parameters or declared `local`/`static`.
+- **Nested functions** share the variables of the enclosing function that it has as parameters, declares or
+  assigns, unless they declare the name themselves; a `static` nested function only shares `static` variables. A
+  `global` declaration in the enclosing function applies to the nested functions as well.
+
+For such a variable, *Ctrl+B* leads to its first definition (parameter, declaration or first assignment);
+completion, *Find Usages*, *Rename* and the highlighting of occurrences only look at the same variable, so a
+`count` in another function or a global `count` is not affected. Variables outside of functions (global variables)
+still work by name.
+
 The structure view (*Alt+7*) lists hotkeys and hotstrings, classes, functions and labels. Breadcrumbs and
 sticky lines show the enclosing class, function, hotkey and control structures.
 
 ### Find Usages
 
 *Alt+F7* on a function, method, class, property, field or label (at its definition or at a use) lists its usages.
+For a local variable or parameter only its function is searched (see
+[Local variables and parameters](#local-variables-and-parameters)).
 Searched are the file of the definition and all AutoHotkey files of the project that include it with a direct
 `#Include` - exactly the places from which *Ctrl+B* leads to the definition. The matching follows navigation: by
 name, ignoring case, so a free-standing variable with the name of a function counts as well. *Ctrl+B* on a
@@ -186,7 +211,11 @@ with a **preview**: all occurrences appear in the Find tool window; exclude thos
 - *Search in comments and strings* adds whole-word occurrences in comments and strings of these files.
 - The new name must be a valid AutoHotkey name and no reserved word; an existing function or class (or member of
   the same class) with that name is reported as a conflict.
-- Variables and parameters are not renamed.
+- **Local variables and parameters** are renamed directly in the editor, without dialog and preview: type the new
+  name, *Enter* applies it to all occurrences of the variable in its function (and in nested functions that share
+  it) and, for a parameter, to its name after `@param` in the doc comment; *Escape* cancels. Global variables are not renamed.
+- Where nothing can be renamed (a global variable, a built-in name, a keyword, a member without an own definition),
+  a hint at the caret says why; for global variables it suggests *Edit > Find > Replace in Files*.
 
 Check the preview: which class a call like `obj.f()` reaches is only decided at run time (`obj` may be an `X` in
 one call and a `Y` in the next, both with a method `f`), and dynamic names (`obj.%name%()`, `HasMethod(obj, "f")`)
@@ -213,7 +242,8 @@ choose the entry. Go to declaration still only looks at the file and its directl
 When the caret rests on a name, all occurrences of that name in the file are highlighted (also with
 *Ctrl+Shift+F7*; *F3*/*Shift+F3* move between them). As for navigation there is no type analysis: every name
 with the same spelling counts, ignoring case - variables, functions, classes, members after the dot and labels
-alike. Definitions and assignment targets (`x := 1`, `obj.x += 1`, parameters, declarations, `for` and
+alike. Only for a local variable or parameter of a function just the occurrences of that variable count, and the
+local variables of functions are left out for any other name. Definitions and assignment targets (`x := 1`, `obj.x += 1`, parameters, declarations, `for` and
 `catch ... as` variables, function, class and property names, labels) are shown as write access, all other
 occurrences as read access. Names in strings and comments don't count.
 
@@ -285,6 +315,8 @@ OpenBox(name, force := false) {
 - *Ctrl+Q* or hover on the definition or any use shows the signature, the description, a section per tag and the
   file. The definitions are found by name like *Ctrl+B*; an own definition takes precedence over built-in help of
   the same name, several matching definitions are listed with links. *Ctrl+hover* shows the signature.
+- The name after `@param` belongs to the parameter: *Ctrl+B* on it leads to the parameter, renaming the parameter
+  renames it as well, and *Find Usages* and the highlighting of occurrences show it.
 - The doc comment also appears for *Ctrl+Q* in the completion list, and the parameter info shows the `@param`
   text of the current parameter.
 - `@param {Gui} g` works like `;@declare-type g as Gui`, but only inside that function (several types with `|`).

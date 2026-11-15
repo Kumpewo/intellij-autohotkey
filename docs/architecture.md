@@ -152,6 +152,17 @@ AutoHotkey files (AutoHotkey allows non-ASCII characters in names, e.g. a `§` p
   names, names after the dot and the names after `extends`. The reference is poly-variant: it collects matching
   functions, classes and properties in the file and its directly included files. Without a definition but with a
   help page, the target is an `AhkHelpTarget`, which opens the quick documentation.
+- Local variables and parameters (Z.27): `psi/AhkLocals` collects per scope (function, accessor, property,
+  fat-arrow function; cached per PSI modification) the parameters, `local`/`static`/`global` declarations,
+  assigned names and nested functions, and resolves a name by the rules of AutoHotkey v2 (closures, static nested
+  functions, assume-global). Where a free-standing name, command name or definition (parameter, `decl_item`,
+  `for_vars`, `catch ... as`, `x => ...`) is local, `AhkDefinitionReferenceContributor` attaches an
+  `AhkLocalReference` instead; its target `AhkLocalVariable` (a `FakePsiElement`, equal by scope and name) has a
+  `LocalSearchScope` of the owning function, so `AhkReferencesSearcher` only searches there.
+  `AhkRefactoringSupportProvider` allows in-place rename for it; `AhkRenameProcessor` leaves it to the platform's
+  default processor. Every occurrence, also the definition, is a reference, so `setName` does nothing. The name
+  after `@param` in a function's doc comment carries an `AhkDocParamReference` (provider on AutoHotkey comments;
+  the searcher adds it explicitly, because the comment lies outside the function).
 - `AhkLabelReferenceContributor` / `AhkLabelReference`: targets of `goto`, `break`, `continue`.
 - `AhkInclude` resolves `#Include` arguments (library folders, built-in variables, current include directory);
   `AhkIncludeReferenceContributor` / `AhkIncludeReference` open the file, `AhkIncludeDirectoryTarget` shows a hint
@@ -179,12 +190,14 @@ AutoHotkey files (AutoHotkey allows non-ASCII characters in names, e.g. a `§` p
   comments and strings as `NonCodeUsageInfo` in `findCollisions` (the platform's own search needs the word index)
   and reports conflicts. `setName` of the definitions and `handleElementRename` of the references replace the text
   of one leaf (`psi/AhkRenames`). `AhkNamesValidator` (`lang.namesValidator`), `AhkRefactoringSupportProvider`
-  (no inline rename) and `AhkRenameVeto` (help and directory targets) complete it. The searcher enumerates
+  (in-place rename only for local variables), `AhkRenameHintHandler` (`renameHandler`: a hint where the platform
+  finds nothing to rename, otherwise Shift+F6 silently does nothing) and `AhkRenameVeto` (help and directory targets) complete it. The searcher enumerates
   AutoHotkey files by walking the content roots and additional libraries, not through the file type index (in tests
   the index queried from the background thread did not show files of a content root added in the same run).
 - `AhkHighlightUsagesHandlerFactory` (`highlightUsagesHandlerFactory`): occurrences of the name under the caret
   (automatic identifier highlighting and Ctrl+Shift+F7). Name-based like navigation: every `IDENTIFIER` with the
-  same name, ignoring case; definitions and assignment targets are write occurrences. `highlightReferences()` is
+  same name, ignoring case (local variables: only the same variable, `AhkLocals.occurrences`; other names skip
+  local variables); definitions and assignment targets are write occurrences. `highlightReferences()` is
   false, so the platform does not add its own reference search.
 
 ## Help (`documentation/`)

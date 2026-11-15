@@ -9,6 +9,7 @@ import com.intellij.codeInsight.completion.CompletionUtilCore;
 import com.intellij.codeInsight.completion.InsertHandler;
 import com.intellij.codeInsight.completion.util.ParenthesesInsertHandler;
 import com.intellij.codeInsight.lookup.LookupElement;
+import com.intellij.codeInsight.completion.PrioritizedLookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.editor.colors.TextAttributesKey;
@@ -42,7 +43,8 @@ import java.util.Set;
  *       declared with ;@declare-type or @param {Type}, only the members of its classes (plus those of the own classes);
  *       never meta members starting with "__" (__New, __Item ...)</li>
  *   <li>directly after "Loop": Files/Parse/Read/Reg, plus the free-standing names</li>
- *   <li>free-standing: built-in variables, classes, functions, own functions and classes of the file and of the
+ *   <li>free-standing: local variables and parameters of the function (first), built-in variables, classes,
+ *       functions, own functions and classes of the file and of the
  *       files included directly with #Include (not recursive, as for navigation);
  *       at the start of a statement also the flow control keywords</li>
  *   <li>after goto/break/continue: only labels (provided by AhkLabelReference.getVariants)</li>
@@ -308,13 +310,23 @@ public class AhkCompletionContributor extends CompletionContributor {
         return false;
     }
 
-    /** Built-in variables, classes and functions (priority as in highlighting) and own definitions. */
+    /**
+     * Local variables and parameters of the function (Z.27, also those shared with enclosing functions), built-in
+     * variables, classes and functions (priority as in highlighting) and own definitions.
+     */
     private static void addFreeStanding(PsiFile file, PsiElement leaf, CompletionResultSet out) {
+        Set<String> seen = new HashSet<>();
+        for (AhkLocals.Local local : AhkLocals.visible(leaf)) {
+            String name = ownName(local.name(), leaf, seen);
+            if (name == null) continue;
+            out.addElement(PrioritizedLookupElement.withPriority(item(name,
+                    AhkBundle.message(local.parameter() ? "completion.local.parameter" : "completion.local.variable"),
+                    local.parameter() ? AllIcons.Nodes.Parameter : AllIcons.Nodes.Variable, false), 1));
+        }
         addBuiltins("variables", AhkColors.AHK_BUILTIN_VARIABLE, AhkBundle.message("completion.variable"), AllIcons.Nodes.Variable, out);
         addBuiltins("classes", AhkColors.AHK_BUILTIN_CLASS, AhkBundle.message("completion.class"), AllIcons.Nodes.Class, out);
         addBuiltins("functions", AhkColors.AHK_BUILTIN_FUNCTION, AhkBundle.message("completion.function"), AllIcons.Nodes.Function, out);
 
-        Set<String> seen = new HashSet<>();
         for (PsiFile source : definitionFiles(file)) {
             String where = origin(source, file);
             for (AhkFunc func : PsiTreeUtil.findChildrenOfType(source, AhkFunc.class)) {

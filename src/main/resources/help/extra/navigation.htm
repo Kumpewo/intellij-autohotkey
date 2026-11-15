@@ -14,7 +14,7 @@
 <p><kbd>Ctrl</kbd>+<kbd>B</kbd> or <kbd>Ctrl</kbd>+click on a name jumps to its definition. AutoHotkey has no static types, so the plugin matches names only, ignoring case. If several definitions match, a list lets you choose: first those of the current file, then those of the included files in the order of their <code>#Include</code> lines.</p>
 <table class="info">
   <tr><th>Name</th><th>Target</th></tr>
-  <tr><td nowrap="nowrap">Free-standing (<code>DoWork()</code>, <code>Counter</code>)</td><td>Functions that are not methods (also nested functions) and top-level classes.</td></tr>
+  <tr><td nowrap="nowrap">Free-standing (<code>DoWork()</code>, <code>Counter</code>)</td><td>Functions that are not methods (also nested functions) and top-level classes. Inside a function a <a href="#Locals">local variable or parameter</a> leads to its first definition.</td></tr>
   <tr><td nowrap="nowrap">After the dot (<code>obj.Next()</code>)</td><td>Methods, properties, fields (<code>count := 0</code> in a class body) and nested classes of <em>all</em> classes with that name. Without type analysis <code>obj.__New</code> offers every <code>__New</code>.</td></tr>
   <tr><td nowrap="nowrap">After <code>extends</code></td><td>The base class; in <code>extends Outer.Inner</code> <code>Outer</code> is the top-level class and <code>Inner</code> the class nested in it.</td></tr>
   <tr><td nowrap="nowrap"><code>goto</code>, <code>break</code>, <code>continue</code></td><td>The label in the same function, hotkey or at the top level (<code>goto Retry</code>, <code>goto "Retry"</code>, <code>break Outer</code>). A name in parentheses (<code>goto(target)</code>) is a variable.</td></tr>
@@ -49,8 +49,31 @@ Log(text) {
 <p>The existing global library folders (<code>Documents\AutoHotkey\Lib</code> and <code>Lib</code> of the installation) are added to every project as the library <em>AutoHotkey Lib</em>; it appears under <em>External Libraries</em> in the project view. Files there are fully colored and checked when opened via <kbd>Ctrl</kbd>+<kbd>B</kbd>.</p>
 <p class="note"><strong>Note:</strong> Other files outside of the project (for example <code>#Include ..\other\x.ahk</code>) only get the basic colors (strings, numbers, comments, hotkeys), without the role colors and error checks. Add their folder to the project as a content root (<em>File &gt; Project Structure &gt; Modules</em>) if you edit them often. A library folder created while the IDE runs appears after a restart or a change on the settings page.</p>
 
+<h2 id="Locals">Local variables and parameters</h2>
+<p>Inside a function (also a method, a property, <code>get</code>/<code>set</code>, and a fat-arrow function <code>(x) =&gt; x * 2</code>) the plugin knows which names are local, following the rules of AutoHotkey v2 (AutoHotkey help, <em>Functions</em>: <em>Local and Global Variables</em> and <em>Nested Functions</em>):</p>
+<ul>
+  <li><strong>Local</strong> are the parameters, names declared with <code>local</code> or <code>static</code>, and names that are assigned (<code>x := 1</code>, <code>x += 1</code>, <code>x++</code>), passed by reference (<code>&amp;x</code>) or used as <code>for</code> and <code>catch ... as</code> variables - anywhere in the function, as AutoHotkey decides this when the script loads.</li>
+  <li><strong>Not local</strong> are names that are only read (they may be global variables), names declared <code>global</code>, all names that are only assigned in an assume-global function (<code>global</code> alone as the first line), built-in variables, and the names of functions and classes (built-in or own) unless they are parameters or declared <code>local</code>/<code>static</code>.</li>
+  <li><strong>Nested functions</strong> share the variables of the enclosing function that it has as parameters, declares or assigns, unless they declare the name themselves; a <code>static</code> nested function only shares <code>static</code> variables. A <code>global</code> declaration in the enclosing function applies to the nested functions as well.</li>
+</ul>
+<p>For such a variable, <kbd>Ctrl</kbd>+<kbd>B</kbd> leads to its first definition (parameter, declaration or first assignment); <a href="completion.htm">completion</a>, <a href="#Usages">Find Usages</a>, <a href="#Rename">Rename</a> and the <a href="editor.htm#Occurrences">highlighting of occurrences</a> only look at the same variable, so a <code>count</code> in another function or a global <code>count</code> is not affected. Variables outside of functions (global variables) still work by name.</p>
+<div class="ex" id="ExLocals">
+<p><a class="ex_number" href="#ExLocals"></a> Two functions with a variable <code>total</code>, and a nested function that shares one.</p>
+<pre>Sum(values) {
+    total := 0              <em>; local variable of Sum</em>
+    Add(v) =&gt; total += v    <em>; shares total and is a closure</em>
+    for v in values
+        Add(v)
+    return total
+}
+Average(values) {
+    total := Sum(values)    <em>; another variable: renaming total in Sum leaves it alone</em>
+    return total / values.Length
+}</pre>
+</div>
+
 <h2 id="Usages">Find Usages</h2>
-<p><kbd>Alt</kbd>+<kbd>F7</kbd> on a function, method, class, property, field or label (at its definition or at a use) lists its usages. Searched are the file of the definition and all AutoHotkey files of the project that include it with a direct <code>#Include</code> - exactly the places from which <kbd>Ctrl</kbd>+<kbd>B</kbd> leads to the definition. The matching follows navigation: by name, ignoring case, so a free-standing variable with the name of a function counts as well. <kbd>Ctrl</kbd>+<kbd>B</kbd> on a definition shows the same list.</p>
+<p><kbd>Alt</kbd>+<kbd>F7</kbd> on a function, method, class, property, field or label (at its definition or at a use) lists its usages. Searched are the file of the definition and all AutoHotkey files of the project that include it with a direct <code>#Include</code> - exactly the places from which <kbd>Ctrl</kbd>+<kbd>B</kbd> leads to the definition. The matching follows navigation: by name, ignoring case, so a free-standing variable with the name of a function counts as well. <kbd>Ctrl</kbd>+<kbd>B</kbd> on a definition shows the same list. For a <a href="#Locals">local variable or parameter</a> only its function is searched.</p>
 
 <h2 id="Rename">Rename</h2>
 <p><kbd>Shift</kbd>+<kbd>F6</kbd> on a function, method, class, property, field or label (at its definition or at a use) renames it. The dialog always leads to a <strong>preview</strong>: all occurrences appear in the Find tool window, grouped by file. Exclude occurrences that belong to something else (<kbd>Delete</kbd> or <em>Exclude</em> in the context menu, also whole files), then click <em>Do Refactor</em>. <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes the rename in all files.</p>
@@ -59,7 +82,9 @@ Log(text) {
   <li>Occurrences are found by name, ignoring case, as for <a href="#Usages">Find Usages</a>; all of them get the spelling of the new name.</li>
   <li><em>Search in comments and strings</em> adds whole-word occurrences in comments and strings of these files, shown separately in the preview.</li>
   <li>The new name must be a valid AutoHotkey name and no reserved word; if a function or class (or a member of the same class) with that name already exists, the dialog reports a conflict.</li>
-  <li>Variables and parameters are not renamed; for them use <em>Replace in Files</em> (see <a href="limitations.htm#UniqueNames">Limitations</a>).</li>
+  <li><a href="#Locals">Local variables and parameters</a> are renamed directly in the editor, without dialog and preview: type the new name, <kbd>Enter</kbd> applies it to all occurrences of the variable in its function (and in nested functions that share it) and, for a parameter, to its name after <code>@param</code> in the <a href="doc-comments.htm">doc comment</a>; <kbd>Escape</kbd> cancels.</li>
+  <li>Global variables are not renamed; for them use <em>Replace in Files</em> (see <a href="limitations.htm#UniqueNames">Limitations</a>).</li>
+  <li>Where nothing can be renamed (a global variable, a built-in name, a keyword, a member without an own definition), a hint at the caret says why.</li>
 </ul>
 <p>Why the preview matters and what no search can find: see <a href="limitations.htm#Refactoring">Limitations</a>.</p>
 

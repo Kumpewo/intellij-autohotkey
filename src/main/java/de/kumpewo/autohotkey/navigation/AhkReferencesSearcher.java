@@ -39,6 +39,11 @@ import java.util.Set;
  *       definition indirectly (through other included files). A reference in such a file counts if the definition
  *       is among the matching definitions in that file and all files it includes, directly or indirectly.</li>
  * </ul>
+ * <ul>
+ *   <li>A local variable or parameter ({@link AhkLocalVariable}, Z.27): only the function that owns it, including
+ *       nested functions that share it; a reference counts if it resolves to the same variable. For a parameter
+ *       also its name after {@code @param} in the doc comment of the function ({@link AhkDocParamReference}).</li>
+ * </ul>
  * Names are compared ignoring case, as in AutoHotkey, so the case-sensitive word index of the platform is not used.
  */
 public class AhkReferencesSearcher extends QueryExecutorBase<PsiReference, ReferencesSearch.SearchParameters> {
@@ -57,7 +62,8 @@ public class AhkReferencesSearcher extends QueryExecutorBase<PsiReference, Refer
 
     /** Is the element a definition this searcher handles? */
     public static boolean isDefinition(@Nullable PsiElement element) {
-        return element instanceof AhkNamedElement || element instanceof AhkFieldTarget;
+        return element instanceof AhkNamedElement || element instanceof AhkFieldTarget
+                || element instanceof AhkLocalVariable;
     }
 
     /**
@@ -67,6 +73,7 @@ public class AhkReferencesSearcher extends QueryExecutorBase<PsiReference, Refer
     public static boolean search(@NotNull PsiElement target, @NotNull SearchScope scope, boolean transitive,
                                  @NotNull Processor<? super PsiReference> consumer) {
         if (!isDefinition(target)) return true;
+        if (target instanceof AhkLocalVariable local) return searchLocal(local, consumer);
         String name = ((PsiNamedElement) target).getName();
         PsiFile definitionFile = target.getContainingFile();
         if (name == null || !(definitionFile instanceof AhkFile)) return true;
@@ -78,6 +85,25 @@ public class AhkReferencesSearcher extends QueryExecutorBase<PsiReference, Refer
                     if (pointsTo(reference, target, visible) && !consumer.process(reference)) return false;
                 }
             }
+        }
+        return true;
+    }
+
+    /** Reports the references to the local variable inside the function that owns it (and in its doc comment). */
+    private static boolean searchLocal(@NotNull AhkLocalVariable target,
+                                       @NotNull Processor<? super PsiReference> consumer) {
+        if (!target.isValid()) return true;
+        PsiElement scope = target.local().scope();
+        for (PsiElement element : PsiTreeUtil.collectElements(scope, e -> e.getReferences().length > 0)) {
+            for (PsiReference reference : element.getReferences()) {
+                if (reference instanceof AhkLocalReference && reference.isReferenceTo(target)
+                        && !consumer.process(reference)) {
+                    return false;
+                }
+            }
+        }
+        for (AhkDocParamReference reference : AhkDocParamReference.of(target.local())) {
+            if (reference.isReferenceTo(target) && !consumer.process(reference)) return false;
         }
         return true;
     }

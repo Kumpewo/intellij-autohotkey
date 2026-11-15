@@ -11,6 +11,7 @@ import com.intellij.psi.tree.IElementType;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.util.Consumer;
 import de.kumpewo.autohotkey.AhkFile;
+import de.kumpewo.autohotkey.psi.AhkLocals;
 import de.kumpewo.autohotkey.psi.AhkTypes;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -25,6 +26,11 @@ import java.util.List;
  * declarations, {@code for} and {@code catch ... as} variables, labels, the left side of {@code :=} and other
  * assignment operators) are write occurrences, everything else read occurrences. Names in strings and comments don't
  * count. Accessor names ({@code get}/{@code set} in a property) are no target.
+ * <p>
+ * Local variables and parameters of functions (Z.27, {@link AhkLocals}) are the exception: for them only the
+ * occurrences of the same variable count (in the function that owns it and the nested functions that share it, for a
+ * parameter also its name after {@code @param} in the doc comment), and
+ * for any other name the local variables with that name in functions are left out.
  */
 public class AhkHighlightUsagesHandlerFactory extends HighlightUsagesHandlerFactoryBase implements DumbAware {
 
@@ -99,13 +105,26 @@ public class AhkHighlightUsagesHandlerFactory extends HighlightUsagesHandlerFact
             selectionConsumer.consume(targets);
         }
 
-        /** All identifiers of the file with the same name, ignoring case. */
+        /**
+         * The occurrences of the local variable under the caret, otherwise all identifiers of the file with the same
+         * name, ignoring case, that are no local variables.
+         */
         @Override
         public void computeUsages(@NotNull List<? extends PsiElement> targets) {
             String name = target.getText();
-            for (PsiElement leaf = PsiTreeUtil.firstChild(myFile); leaf != null; leaf = PsiTreeUtil.nextLeaf(leaf)) {
-                if (!isName(leaf) || !leaf.getText().equalsIgnoreCase(name)) continue;
-                (isWrite(leaf) ? myWriteUsages : myReadUsages).add(leaf.getTextRange());
+            AhkLocals.Local local = AhkLocals.resolve(target);
+            if (local != null) {
+                for (PsiElement leaf : AhkLocals.occurrences(local)) {
+                    (isWrite(leaf) ? myWriteUsages : myReadUsages).add(leaf.getTextRange());
+                }
+                for (AhkDocParamReference reference : AhkDocParamReference.of(local)) {
+                    myReadUsages.add(reference.getAbsoluteRange());
+                }
+            } else {
+                for (PsiElement leaf = PsiTreeUtil.firstChild(myFile); leaf != null; leaf = PsiTreeUtil.nextLeaf(leaf)) {
+                    if (!isName(leaf) || !leaf.getText().equalsIgnoreCase(name) || AhkLocals.resolve(leaf) != null) continue;
+                    (isWrite(leaf) ? myWriteUsages : myReadUsages).add(leaf.getTextRange());
+                }
             }
             buildStatusText(name, myReadUsages.size() + myWriteUsages.size());
         }

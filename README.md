@@ -34,6 +34,8 @@ More screenshots: [library completion](docs/images/include-completion.png),
 - **Highlighting of occurrences**: the name under the caret is highlighted throughout the file.
 - **Find Usages** (Alt+F7) and **Rename** (Shift+F6, always with preview) for functions, methods, classes,
   properties, fields and labels.
+- **Local variables and parameters** of functions by the scoping rules of AutoHotkey (also closures): completion,
+  Ctrl+B, Find Usages, highlighting of occurrences, and rename directly in the editor.
 - **Go to Symbol** (Ctrl+Alt+Shift+N) and **Go to Class** (Ctrl+N) over all AutoHotkey files of the project,
   including members, labels, hotkeys and hotstrings.
 - **Spell checking** of comments, strings and hotstrings, with a dictionary of the built-in names.

@@ -215,13 +215,13 @@ loop_stmt ::= KEYWORD_LOOP loop_args? body_ (until_branch | else_branch )? { pin
 private loop_args ::= !L_BRACE expr (COMMA expr)*
 
 for_stmt ::= KEYWORD_FOR for_vars KEYWORD_IN expr body_ else_branch? { pin=1 }
-for_vars ::= for_var_ (COMMA for_var_?)* | COMMA for_var_
+for_vars ::= (for_var_ (COMMA for_var_?)* | COMMA for_var_) { mixin="de.kumpewo.autohotkey.psi.AhkReferenceHostMixin" }
 private for_var_ ::= AMP? IDENTIFIER
 
 // Only for try is a single statement on the same line allowed as well: try FileDelete("x")
 // Order as in AHK: try, any number of catch, else (only executed without an exception), finally.
 try_stmt ::= KEYWORD_TRY try_body_ (CRLF* catch_clause)* else_branch? (CRLF* finally_clause)? { pin=1 }
-catch_clause   ::= KEYWORD_CATCH (!L_BRACE expr)? (KEYWORD_AS IDENTIFIER)? body_ { pin=1 }
+catch_clause   ::= KEYWORD_CATCH (!L_BRACE expr)? (KEYWORD_AS IDENTIFIER)? body_ { pin=1 mixin="de.kumpewo.autohotkey.psi.AhkReferenceHostMixin" }
 finally_clause ::= KEYWORD_FINALLY body_ { pin=1 }
 
 return_stmt ::= KEYWORD_RETURN expr_list_? { pin=1 }
@@ -249,14 +249,14 @@ private case_start_ ::= KEYWORD_CASE | <<defaultName>> IDENTIFIER COLON
 // Without a name: "global" alone as the first statement of a function (all variables global, "assume-global").
 // Where this is not allowed (other place, local/static), AhkDeclAnnotator reports the error.
 decl_stmt ::= KEYWORD_DECL (decl_item (COMMA decl_item)*)? { pin=1 }
-decl_item ::= IDENTIFIER (ASSIGN_OP expr)?
+decl_item ::= IDENTIFIER (ASSIGN_OP expr)? { mixin="de.kumpewo.autohotkey.psi.AhkReferenceHostMixin" }
 
 // Function call without parentheses: MsgBox "x" / Sleep 100 / Foo a, b
 // Only if the name is directly followed by a token that cannot be an operator.
 // (Open: "MsgBox -1", "Foo %x%", implicit concatenation)
 // Omitted arguments after the first one: MouseClick "Left",,, 1 (like foo(a,,b) in expr_items_).
 // "(CRLF* expr)?" as a group: a comma at the end never swallows the line break (end of statement).
-// Mixin: reference from the command name to the function
+// Mixin: reference from the command name to the function (or to a local variable, AhkLocals)
 command_stmt ::= IDENTIFIER &command_arg_start_ command_args_ { mixin="de.kumpewo.autohotkey.psi.AhkReferenceHostMixin" }
 private command_arg_start_ ::= STRING | UNCLOSED_STRING | NUMBER | IDENTIFIER | KEYWORD_LITERAL
 private command_args_ ::= expr (COMMA (CRLF* expr)?)*
@@ -289,7 +289,7 @@ index_parameter_list ::= L_BRACKET CRLF* (parameter (COMMA CRLF* parameter)*)? C
 parameter_list ::= L_PAREN CRLF* <<inParens parameter_items_>>? CRLF* R_PAREN
 private parameter_items_ ::= parameter (COMMA CRLF* parameter)*
 // "*" alone: any number of parameters, ignored: f(*) { } and (*) => 1
-parameter ::= STAR | AMP? IDENTIFIER (STAR | QUESTION | ASSIGN_OP expr)?
+parameter ::= (STAR | AMP? IDENTIFIER (STAR | QUESTION | ASSIGN_OP expr)?) { mixin="de.kumpewo.autohotkey.psi.AhkReferenceHostMixin" }
 
 // pin=2 (only after the name): "Class.prototype..." is an expression and may backtrack after "Class".
 // Base class also nested: "extends Gui.Edit", "extends Outer.Inner.Deep" (DOT without whitespace).
@@ -335,7 +335,7 @@ expr ::= lambda_expr
        | object_expr
        | deref_expr
 
-lambda_expr   ::= (IDENTIFIER | parameter_list) FAT_ARROW expr
+lambda_expr   ::= (IDENTIFIER | parameter_list) FAT_ARROW expr { mixin="de.kumpewo.autohotkey.psi.AhkReferenceHostMixin" }
 assign_expr   ::= expr nl_op_? ASSIGN_OP expr { rightAssociative=true }
 ternary_expr  ::= expr QUESTION !(COMMA | R_PAREN | R_BRACKET | R_BRACE) expr COLON expr { rightAssociative=true }
 coalesce_expr ::= expr COALESCE expr

@@ -30,7 +30,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Rename (Shift+F6, Z.20) of functions, methods, classes, properties, fields and labels:
+ * Rename (Shift+F6, Z.20) of functions, methods, classes, properties, fields and labels (local variables and
+ * parameters are renamed in place, see AhkRefactoringSupportProvider):
  * <ul>
  *   <li>always with preview: all occurrences appear in the Find tool window, single occurrences or files can be
  *       excluded, only "Do Refactor" changes the code ({@link #forcesShowPreview});</li>
@@ -42,7 +43,8 @@ import java.util.regex.Pattern;
  *   <li>conflicts: a definition of the same kind with the new name (function/class at the top level, member of the
  *       same class, label of the same file).</li>
  * </ul>
- * Inline rename in the editor is switched off (AhkRefactoringSupportProvider), so the dialog always opens.
+ * For these definitions inline rename in the editor is switched off (AhkRefactoringSupportProvider), so the dialog
+ * always opens.
  */
 public class AhkRenameProcessor extends RenamePsiElementProcessor {
 
@@ -54,10 +56,13 @@ public class AhkRenameProcessor extends RenamePsiElementProcessor {
         static final ThreadLocal<Boolean> CURRENT = new ThreadLocal<>();
     }
 
-    /** Definitions of AutoHotkey. */
+    /**
+     * Definitions of AutoHotkey; not local variables (renamed in place by the platform's default processor, which
+     * finds their references through AhkReferencesSearcher).
+     */
     @Override
     public boolean canProcessElement(@NotNull PsiElement element) {
-        return AhkReferencesSearcher.isDefinition(element);
+        return AhkReferencesSearcher.isDefinition(element) && !(element instanceof AhkLocalVariable);
     }
 
     /** The preview always opens. */

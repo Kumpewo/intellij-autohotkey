@@ -53,7 +53,9 @@ WHITE_SPACE         = [ \t]+
 
 ASSIGN_OP           = ":=" | "+=" | "-=" | "*=" | "//=" | "/=" | ".=" | "|=" | "&=" | "^=" | "<<=" | ">>>=" | ">>=" | "??="
 
-NUMBER              = [0-9]+(\.[0-9]+)? | 0[xX][0-9a-fA-F]+
+// Scientific notation with or without decimal point (1e4, 1.0e4, 2.1E-4); not for hexadecimal numbers
+EXPONENT            = [eE][+-]?[0-9]+
+NUMBER              = [0-9]+(\.[0-9]+)?{EXPONENT}? | 0[xX][0-9a-fA-F]+
 // v2: letters, digits, _ and all non-ASCII characters
 IDENTIFIER          = [a-zA-Z_\u0080-\uFFFF][a-zA-Z0-9_\u0080-\uFFFF]*
 
@@ -336,8 +338,8 @@ SKIP_LINE           = [ \t]* ( ";" [^\r\n]* | "/*" ~"*/" [ \t]* )? {EOL}
     "extends"                                { return AhkTypes.KEYWORD_EXTENDS; }
 
     {NUMBER}                 { return AhkTypes.NUMBER; }
-    // Float without leading zero (.5). Directly after an operand the dot stays member access (a.5 = DOT NUMBER).
-    "." [0-9]+               { if (afterOperand()) { yypushback(yylength() - 1); return op(AhkTypes.DOT); }
+    // Float without leading zero (.5, .5e3). Directly after an operand the dot stays member access (a.5 = DOT NUMBER).
+    "." [0-9]+ {EXPONENT}?   { if (afterOperand()) { yypushback(yylength() - 1); return op(AhkTypes.DOT); }
                                return AhkTypes.NUMBER; }
     {IDENTIFIER}             { return AhkTypes.IDENTIFIER; }
 

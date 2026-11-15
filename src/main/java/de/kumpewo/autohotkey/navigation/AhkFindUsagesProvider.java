@@ -14,7 +14,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Enables Find Usages (Alt+F7) for functions, methods, classes, properties, fields and labels. The usages are
+ * Enables Find Usages (Alt+F7) for functions, methods, classes, properties, fields, labels, and local variables and
+ * parameters of functions. The usages are
  * collected by {@link AhkReferencesSearcher}; this class only names the elements in the dialog and the usage view.
  * No words scanner: the search does not use the word index (it is case-sensitive, AutoHotkey names are not).
  */
@@ -26,10 +27,11 @@ public class AhkFindUsagesProvider implements FindUsagesProvider {
         return null;
     }
 
-    /** Definitions with a name, and fields. */
+    /** Definitions with a name, fields and local variables. */
     @Override
     public boolean canFindUsagesFor(@NotNull PsiElement element) {
-        return element instanceof AhkNamedElement named && named.getName() != null || element instanceof AhkFieldTarget;
+        return element instanceof AhkNamedElement named && named.getName() != null || element instanceof AhkFieldTarget
+                || element instanceof AhkLocalVariable;
     }
 
     /** No help topic. */
@@ -49,6 +51,9 @@ public class AhkFindUsagesProvider implements FindUsagesProvider {
         if (element instanceof AhkClassProperty) return AhkBundle.message("findUsages.type.property");
         if (element instanceof AhkFieldTarget) return AhkBundle.message("findUsages.type.field");
         if (element instanceof AhkLabel) return AhkBundle.message("findUsages.type.label");
+        if (element instanceof AhkLocalVariable local) {
+            return AhkBundle.message(local.local().parameter() ? "findUsages.type.parameter" : "findUsages.type.variable");
+        }
         return "";
     }
 

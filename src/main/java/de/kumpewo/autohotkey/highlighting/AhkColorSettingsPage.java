@@ -28,6 +28,7 @@ public class AhkColorSettingsPage implements ColorSettingsPage {
         static final Object[][] COLORS = {
                 {"core.flow", AhkColors.AHK_FLOWCONTROL},
                 {"core.reserved", AhkColors.AHK_RESERVED},
+                {"core.reserved.value", AhkColors.AHK_RESERVED_VALUE},
                 {"core.directive", AhkColors.AHK_DIRECTIVE},
                 {"core.number", AhkColors.NUMBER},
                 {"core.string", AhkColors.STRING},
@@ -80,9 +81,9 @@ public class AhkColorSettingsPage implements ColorSettingsPage {
                 <RESERVED>class</RESERVED> <CLASS>MyEdit</CLASS> <RESERVED>extends</RESERVED> <BUILTIN_CLASS>Gui</BUILTIN_CLASS>.<BUILTIN_CLASS>Edit</BUILTIN_CLASS> {
                     <PRIVATE>_count</PRIVATE> := 0
                     <FUNC>example_fun</FUNC>() {
-                        <RESERVED>this</RESERVED>.<BUILTIN_METHOD>Focus</BUILTIN_METHOD>()
-                        <RESERVED>this</RESERVED>.<PRIVATE>_count</PRIVATE> += 1
-                        <FLOW>return</FLOW> <RESERVED>this</RESERVED>.<BUILTIN_PROPERTY>Value</BUILTIN_PROPERTY>
+                        <RESERVED_VALUE>this</RESERVED_VALUE>.<BUILTIN_METHOD>Focus</BUILTIN_METHOD>()
+                        <RESERVED_VALUE>this</RESERVED_VALUE>.<PRIVATE>_count</PRIVATE> += 1
+                        <FLOW>return</FLOW> <RESERVED_VALUE>this</RESERVED_VALUE>.<BUILTIN_PROPERTY>Value</BUILTIN_PROPERTY>
                     }
                 }
 
@@ -102,7 +103,7 @@ public class AhkColorSettingsPage implements ColorSettingsPage {
                 <FLOW>default</FLOW>: a := 3
                 }
 
-                <FLOW>if</FLOW> (<RESERVED>true</RESERVED> <RESERVED>and</RESERVED> a)
+                <FLOW>if</FLOW> (<RESERVED_VALUE>true</RESERVED_VALUE> <RESERVED>and</RESERVED> a)
                     <FLOW>goto</FLOW> skip
                 a := 42
 
@@ -128,6 +129,7 @@ public class AhkColorSettingsPage implements ColorSettingsPage {
         map.put("ESC", AhkColors.AHK_STRING_ESCAPE);
         map.put("DIRECTIVE", AhkColors.AHK_DIRECTIVE);
         map.put("RESERVED", AhkColors.AHK_RESERVED);
+        map.put("RESERVED_VALUE", AhkColors.AHK_RESERVED_VALUE);
         map.put("HOTKEY", AhkColors.AHK_HOTKEY);
         map.put("HOTSTRING", AhkColors.AHK_HOTSTRING);
         map.put("DECLARED", AhkColors.AHK_DECLARED_TYPE);

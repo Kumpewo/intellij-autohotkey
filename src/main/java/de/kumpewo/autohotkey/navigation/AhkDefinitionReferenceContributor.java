@@ -10,15 +10,22 @@ import com.intellij.psi.PsiReferenceProvider;
 import com.intellij.psi.PsiReferenceRegistrar;
 import com.intellij.psi.tree.IElementType;
 import com.intellij.util.ProcessingContext;
+import de.kumpewo.autohotkey.psi.AhkCatchClause;
 import de.kumpewo.autohotkey.psi.AhkClass;
 import de.kumpewo.autohotkey.psi.AhkCommandStmt;
+import de.kumpewo.autohotkey.psi.AhkDeclItem;
+import de.kumpewo.autohotkey.psi.AhkForVars;
 import de.kumpewo.autohotkey.psi.AhkGotoStmt;
 import de.kumpewo.autohotkey.psi.AhkJumpStmt;
+import de.kumpewo.autohotkey.psi.AhkLambdaExpr;
+import de.kumpewo.autohotkey.psi.AhkLocals;
 import de.kumpewo.autohotkey.psi.AhkMemberExpr;
+import de.kumpewo.autohotkey.psi.AhkParameter;
 import de.kumpewo.autohotkey.psi.AhkRefExpr;
 import de.kumpewo.autohotkey.psi.AhkTokenSets;
 import de.kumpewo.autohotkey.psi.AhkTypes;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,24 +34,51 @@ import java.util.List;
  * References to functions, classes and members ({@link AhkDefinitionReference}): free-standing names
  * ({@code ref_expr} except goto/break/continue targets, command names), names after the dot (only a whole name,
  * not {@code obj.a%b%}) and the base class after {@code extends}.
+ * <p>
+ * A free-standing name or command name that is a local variable or parameter ({@link AhkLocals}) gets an
+ * {@link AhkLocalReference} instead; so do the definitions of local variables (parameters, {@code local}/{@code static}
+ * declarations, {@code for} and {@code catch ... as} variables, the parameter of {@code x => ...}). The names after
+ * {@code @param} in the doc comment of a function get an {@link AhkDocParamReference} to the parameter.
  */
 public final class AhkDefinitionReferenceContributor extends PsiReferenceContributor {
 
-    /** Registers one provider each for ref_expr, command_stmt, member_expr and class. */
+    /**
+     * Registers one provider each for ref_expr, command_stmt, member_expr and class, and for the definitions of local
+     * variables (parameter, decl_item, for_vars, catch_clause, lambda_expr).
+     */
     @Override
     public void registerReferenceProviders(@NotNull PsiReferenceRegistrar registrar) {
         registrar.registerReferenceProvider(PlatformPatterns.psiElement(AhkRefExpr.class), provider(element -> {
             PsiElement parent = element.getParent();
             if (parent instanceof AhkGotoStmt || parent instanceof AhkJumpStmt) return none();   // labels
+            PsiReference local = localReference(element, element.getFirstChild());
+            if (local != null) return one(local);
             return one(new AhkDefinitionReference(element, new TextRange(0, element.getTextLength()),
                     AhkDefinitionReference.Kind.FREE, null));
         }));
         registrar.registerReferenceProvider(PlatformPatterns.psiElement(AhkCommandStmt.class), provider(element -> {
             ASTNode first = element.getNode().getFirstChildNode();
             if (first == null || first.getElementType() != AhkTypes.IDENTIFIER) return none();
+            PsiReference local = localReference(element, first.getPsi());
+            if (local != null) return one(local);
             return one(new AhkDefinitionReference(element, new TextRange(0, first.getTextLength()),
                     AhkDefinitionReference.Kind.FREE, null));
         }));
+        PsiReferenceProvider definitions = provider(element -> {
+            List<PsiReference> result = new ArrayList<>();
+            for (ASTNode node : element.getNode().getChildren(null)) {
+                if (node.getElementType() != AhkTypes.IDENTIFIER) continue;
+                PsiReference local = localReference(element, node.getPsi());
+                if (local != null) result.add(local);
+            }
+            return result.toArray(PsiReference.EMPTY_ARRAY);
+        });
+        for (Class<? extends PsiElement> type : List.of(AhkParameter.class, AhkDeclItem.class, AhkForVars.class,
+                AhkCatchClause.class, AhkLambdaExpr.class)) {
+            registrar.registerReferenceProvider(PlatformPatterns.psiElement(type), definitions);
+        }
+        registrar.registerReferenceProvider(PlatformPatterns.psiComment().withLanguage(de.kumpewo.autohotkey.AhkLanguage.INSTANCE),
+                provider(element -> AhkDocParamReference.in(element).toArray(PsiReference.EMPTY_ARRAY)));
         registrar.registerReferenceProvider(PlatformPatterns.psiElement(AhkMemberExpr.class), provider(element -> {
             ASTNode name = memberName(element.getNode());
             if (name == null) return none();
@@ -70,6 +104,12 @@ public final class AhkDefinitionReferenceContributor extends PsiReferenceContrib
             }
             return result.toArray(PsiReference.EMPTY_ARRAY);
         }));
+    }
+
+    /** Reference to the local variable named by the identifier, or {@code null} if it is no local variable. */
+    private static @Nullable PsiReference localReference(PsiElement element, @Nullable PsiElement identifier) {
+        if (identifier == null || AhkLocals.resolve(identifier) == null) return null;
+        return new AhkLocalReference(element, identifier);
     }
 
     /**
