@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-17
+
 ### Added
 
 - First support for AutoHotkey v2.1 (alpha): each file has a language level, v2.0 or v2.1, from its `#Requires`
