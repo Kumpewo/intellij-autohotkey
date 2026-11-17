@@ -1,4 +1,4 @@
-; Options in option strings (completion, Z.19 C11): MsgBox "YesNo Icon!", Gui("+Resize"), MyGui.Add("Edit", "w200 ReadOnly").
+; Options in option strings (completion): MsgBox "YesNo Icon!", Gui("+Resize"), MyGui.Add("Edit", "w200 ReadOnly").
 ; Maintained by hand, options from the help (help/docs/lib/MsgBox.htm, gui.htm, guicontrols.htm, listview.htm,
 ; treeview.htm).
 ; Format: Name Position: Option Option ...   (Position = number of the argument from 1; ";" = comment)

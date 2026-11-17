@@ -11,7 +11,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Formats the text of one doc comment (Z.23, tab "Doc Comments", switches in {@link AhkCodeStyleSettings}): alignment
+ * Formats the text of one doc comment (tab "Doc Comments", switches in {@link AhkCodeStyleSettings}): alignment
  * of the {@code @param} lines, blank lines between the sections, wrapping at the right margin, leading stars and the
  * handling of invalid, empty, unsorted and missing {@code @param} tags. A pure text function (input: the whole
  * comment from {@code /**} to its end), used by {@link AhkDocCommentPostFormatProcessor}.

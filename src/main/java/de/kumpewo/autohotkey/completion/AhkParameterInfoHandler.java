@@ -27,9 +27,11 @@ public class AhkParameterInfoHandler implements ParameterInfoHandler<PsiElement,
     public @Nullable PsiElement findElementForParameterInfo(@NotNull CreateParameterInfoContext context) {
         AhkArguments.Owner owner = AhkArguments.find(context.getFile(), context.getOffset());
         if (owner == null) return null;
-        List<AhkCommandInfo.Signature> signatures = owner.method()
+        List<AhkCommandInfo.Signature> module = owner.method() && owner.qualifier() != null
+                ? AhkCommandInfo.moduleSignatures(owner.qualifier(), owner.name()) : null;
+        List<AhkCommandInfo.Signature> signatures = module != null ? module : owner.method()
                 ? AhkCommandInfo.methodSignatures(context.getFile(), owner.qualifier(), owner.name())
-                : AhkCommandInfo.signatures(context.getFile(), owner.name());
+                : AhkCommandInfo.signatures(owner.element(), owner.name());
         if (signatures.isEmpty()) return null;
         context.setItemsToShow(signatures.toArray());
         return owner.element();
@@ -93,7 +95,7 @@ public class AhkParameterInfoHandler implements ParameterInfoHandler<PsiElement,
                     context.getDefaultParameterColor());
             return;
         }
-        // own function with a doc comment (Z.22): the description of the current parameter in a second line
+        // own function with a doc comment: the description of the current parameter in a second line
         String html = start < 0 ? escape(text.toString())
                 : escape(text.substring(0, start)) + "<b>" + escape(text.substring(start, end)) + "</b>"
                 + escape(text.substring(end));

@@ -24,7 +24,7 @@
 ;@Ahk2Exe-Base ..\v2\AutoHotkey64.exe
 ;@Ahk2Exe-SetMainIcon app.ico
 ;@Ahk2Exe-SetProductName Clipboard Tool
-;@Ahk2Exe-SetProductVersion 1.2.0
+;@Ahk2Exe-SetVersion 1.2.0
 ;@Ahk2Exe-SetCopyright (c) Example Ltd.</pre>
 <ul>
   <li>A relative path in <code>;@Ahk2Exe-Base</code> is relative to the folder of <code>Ahk2Exe.exe</code>: <code>..\v2\AutoHotkey64.exe</code> is the 64-bit interpreter of a standard installation. The older form <code>;@Ahk2Exe-Bin</code> is accepted as well.</li>
@@ -38,23 +38,19 @@
 <pre>#Requires AutoHotkey v2.0
 ;@Ahk2Exe-Base ..\v2\AutoHotkey64.exe
 ; ---------------------------------------------------------------------------
-Ahk2Exe_ProductName :=          "tool"
-;@Ahk2Exe-SetProductName        %A_PriorLine~U)(.+")(.*)".*$~$2%
-Ahk2Exe_ProductVersion :=       "1.0"
-;@Ahk2Exe-SetProductVersion     %A_PriorLine~U)(.+")(.*)".*$~$2%
-Ahk2Exe_Description :=          "tool"
-;@Ahk2Exe-SetDescription        %A_PriorLine~U)(.+")(.*)".*$~$2%
-;@Ahk2Exe-SetLanguage           0x0409
-;@Ahk2Exe-SetCopyright          &copy; 2026 Your Name
-;;@Ahk2Exe-SetMainIcon          tool.ico
+;@Ahk2Exe-SetProductName    tool
+;@Ahk2Exe-SetVersion        1.0.0
+;@Ahk2Exe-SetDescription    tool description
+;@Ahk2Exe-SetLanguage       0x0409
+;@Ahk2Exe-SetCopyright      &copy; 2026 Your Name
+;;@Ahk2Exe-SetMainIcon      tool.ico
 ;;@Ahk2Exe-ConsoleApp
-; ---------------------------------------------------------------------------
-;GetProductInfo() =&gt; Ahk2Exe_ProductName " v" Ahk2Exe_ProductVersion
 ; ---------------------------------------------------------------------------</pre>
 <ul>
-  <li>The placeholders (product name, version, description, copyright) are selected one after another; type the value and press <kbd>Tab</kbd> for the next one, <kbd>Enter</kbd> or <kbd>Esc</kbd> to keep the rest. Name and description default to the file name.</li>
+  <li>The placeholders (product name, version, description, copyright) are selected one after another; type the value and press <kbd>Tab</kbd> for the next one, <kbd>Enter</kbd> or <kbd>Esc</kbd> to keep the rest. The name defaults to the file name.</li>
   <li>The base file is <code>AutoHotkey64.exe</code>, or <code>AutoHotkey32.exe</code> if <code>#Requires</code> asks for <code>32-bit</code>.</li>
-  <li>Product name, version and description are ordinary variables of the script. The directive below each one reads the value from the line above (<code>A_PriorLine</code> with a regular expression), so the executable and the script use the same values. Remove the <code>;</code> in front of <code>GetProductInfo</code> to use them, e.g. in an about box.</li>
+  <li>Write the values <strong>without quotes</strong>: Ahk2Exe takes the rest of the line as it is, quotes would appear in the properties of the executable. Spaces are fine; a comma must be written as <code>`,</code>; a comment after the value needs a space before the <code>;</code>.</li>
+  <li><code>;@Ahk2Exe-SetVersion</code> sets file and product version. <a href="installer.htm#Version">Set Version...</a> changes this line for you, with commit and version tag.</li>
   <li>Lines starting with <code>;;@</code> are disabled directives. Remove one <code>;</code> to set an icon or to build a console application.</li>
   <li><code>0x0409</code> is the language code for English (United States), e.g. <code>0x0407</code> for German.</li>
 </ul>
@@ -105,7 +101,7 @@ ExitApp 0</pre>
 </ul>
 
 <h2 id="Related">Related</h2>
-<p><a href="index.htm">Plugin manual</a>, <a href="settings.htm#Ahk2Exe">Settings</a>, <a href="running.htm">Running scripts</a></p>
+<p><a href="index.htm">Plugin manual</a>, <a href="settings.htm#Ahk2Exe">Settings</a>, <a href="running.htm">Running scripts</a>, <a href="installer.htm">Deploying tools and setting versions</a></p>
 
 </body>
 </html>

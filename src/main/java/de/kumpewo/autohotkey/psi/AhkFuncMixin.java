@@ -20,7 +20,7 @@ public abstract class AhkFuncMixin extends ASTWrapperPsiElement implements ItemP
         super(node);
     }
 
-    /** Rename (Z.20): replaces the name token of the function. */
+    /** Rename: replaces the name token of the function. */
     @Override
     public PsiElement setName(@NonNls @NotNull String name) {
         AhkRenames.replaceLeaf(getNameIdentifier(), name);

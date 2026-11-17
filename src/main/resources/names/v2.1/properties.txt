@@ -1,0 +1,7 @@
+; Built-in properties of AutoHotkey v2.1: only the differences to names/properties.txt (a name is added, "-Name"
+; removes it). Source: help/v2.1/docs/v2.1-changes.htm and names/v2.1/members.txt (v2.1-alpha.39).
+; See AhkResources.java.
+
+FontHandle
+Hint
+__Value

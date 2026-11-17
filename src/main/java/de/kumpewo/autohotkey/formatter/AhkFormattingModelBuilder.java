@@ -20,7 +20,7 @@ public class AhkFormattingModelBuilder implements FormattingModelBuilder {
 
     /**
      * Formatting model for the file with the root block and the spacing rules. {@link AhkFormattingModel} keeps the
-     * CRLF tokens when whitespace is changed through the PSI (Z.25).
+     * CRLF tokens when whitespace is changed through the PSI.
      */
     @Override
     public @NotNull FormattingModel createModel(@NotNull FormattingContext context) {
@@ -65,7 +65,8 @@ public class AhkFormattingModelBuilder implements FormattingModelBuilder {
         b.after(TokenSet.create(
                 AhkTypes.KEYWORD_NOT, AhkTypes.KEYWORD_IF, AhkTypes.KEYWORD_WHILE, AhkTypes.KEYWORD_FOR,
                 AhkTypes.KEYWORD_LOOP, AhkTypes.KEYWORD_RETURN, AhkTypes.KEYWORD_THROW, AhkTypes.KEYWORD_CATCH,
-                AhkTypes.KEYWORD_DECL, AhkTypes.KEYWORD_CLASS,
+                AhkTypes.KEYWORD_DECL, AhkTypes.KEYWORD_CLASS, AhkTypes.KEYWORD_STRUCT, AhkTypes.KEYWORD_EXPORT,
+                AhkTypes.KEYWORD_UNION,
                 AhkTypes.KEYWORD_SWITCH, AhkTypes.KEYWORD_CASE, AhkTypes.KEYWORD_GOTO)).spaces(1);
         b.afterInside(AhkTypes.IDENTIFIER, AhkTypes.COMMAND_STMT).spaces(1);   // MsgBox "x"
 
@@ -76,7 +77,8 @@ public class AhkFormattingModelBuilder implements FormattingModelBuilder {
                 .spaceIf(c.SPACE_AROUND_LOGICAL_OPERATORS);
         b.around(TokenSet.create(AhkTypes.EQ, AhkTypes.EQ_EQ, AhkTypes.NOT_EQ))
                 .spaceIf(c.SPACE_AROUND_EQUALITY_OPERATORS);
-        b.around(TokenSet.create(AhkTypes.LT, AhkTypes.GT, AhkTypes.LE, AhkTypes.GE, AhkTypes.REGEX_MATCH))
+        b.around(TokenSet.create(AhkTypes.LT, AhkTypes.GT, AhkTypes.LE, AhkTypes.GE, AhkTypes.REGEX_MATCH,
+                        AhkTypes.REGEX_NOT_MATCH))
                 .spaceIf(c.SPACE_AROUND_RELATIONAL_OPERATORS);
         b.around(AhkTypes.SHIFT_OP).spaceIf(c.SPACE_AROUND_SHIFT_OPERATORS);
         b.around(TokenSet.create(AhkTypes.BAR, AhkTypes.CARET)).spaceIf(c.SPACE_AROUND_BITWISE_OPERATORS);
@@ -102,7 +104,10 @@ public class AhkFormattingModelBuilder implements FormattingModelBuilder {
         // ---- object property {a: 1}, member access a.b, parameter markers, deref
         b.beforeInside(AhkTypes.COLON, AhkTypes.PROPERTY).none();
         b.afterInside(AhkTypes.COLON, AhkTypes.PROPERTY).spaces(1);
+        // typed property x : Int32 (v2.1): one space on both sides, as in the AutoHotkey documentation
+        b.aroundInside(AhkTypes.COLON, AhkTypes.TYPED_PROPERTY).spaces(1);
         b.aroundInside(AhkTypes.DOT, AhkTypes.MEMBER_EXPR).none();
+        b.beforeInside(AhkTypes.QUESTION, AhkTypes.MEMBER_EXPR).none();   // a?.b (v2.1)
         b.aroundInside(AhkTypes.CONCAT_DOT, AhkTypes.CONCAT_EXPR).spaces(1);   // a . b: the spaces are required
         b.beforeInside(AhkTypes.STAR, AhkTypes.PARAMETER).none();      // b*
         b.beforeInside(AhkTypes.QUESTION, AhkTypes.PARAMETER).none();  // b?
@@ -135,12 +140,18 @@ public class AhkFormattingModelBuilder implements FormattingModelBuilder {
         b.beforeInside(AhkTypes.R_BRACKET, AhkTypes.INDEX_PARAMETER_LIST).spaceIf(spaceInIndex);
         b.afterInside(AhkTypes.L_BRACE, AhkTypes.OBJECT_EXPR).spaceIf(c.SPACE_WITHIN_BRACES);
         b.beforeInside(AhkTypes.R_BRACE, AhkTypes.OBJECT_EXPR).spaceIf(c.SPACE_WITHIN_BRACES);
+        // #Import X { a, b } (v2.1): like an object literal; a space before "{" (AutoHotkey requires it after X)
+        b.afterInside(AhkTypes.L_BRACE, AhkTypes.IMPORT_LIST).spaceIf(c.SPACE_WITHIN_BRACES);
+        b.beforeInside(AhkTypes.R_BRACE, AhkTypes.IMPORT_LIST).spaceIf(c.SPACE_WITHIN_BRACES);
+        b.before(AhkTypes.IMPORT_LIST).spaces(1);
+        b.before(AhkTypes.IMPORT_SPEC).spaces(1);
 
         // ---- before the body / before { (K&R or Allman stays as the user wrote it)
         b.beforeInside(AhkTypes.BLOCK, AhkTypes.FUNC).spaceIf(c.SPACE_BEFORE_METHOD_LBRACE);
         b.beforeInside(AhkTypes.BLOCK, AhkTypes.CLASS).spaceIf(c.SPACE_BEFORE_CLASS_LBRACE);
         b.beforeInside(AhkTypes.PROPERTY_BLOCK, AhkTypes.CLASS_PROPERTY).spaceIf(c.SPACE_BEFORE_METHOD_LBRACE);
         b.beforeInside(AhkTypes.BLOCK, AhkTypes.ACCESSOR).spaceIf(c.SPACE_BEFORE_METHOD_LBRACE);
+        b.beforeInside(AhkTypes.BLOCK, AhkTypes.UNION_BLOCK).spaceIf(c.SPACE_BEFORE_CLASS_LBRACE);   // union { (v2.1)
         for (IElementType control : CONTROL) {
             b.beforeInside(AhkTypes.BODY, control).spaces(1);
         }

@@ -14,13 +14,14 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * Declaration without a variable name (DECL_STMT without DECL_ITEM).
- * Only "global" alone as the first statement in the body of a function, method, hotkey or hotstring is allowed
- * (all variables of the function are global then). Otherwise an error at the keyword.
+ * Only "global" or "static" alone as the first statement in the body of a function, method, hotkey or hotstring is
+ * allowed (assume-global/assume-static: all variables of the function are global/static then). "local" always needs a
+ * name. Otherwise an error at the keyword.
  * The parser accepts the keyword alone everywhere so that it can be reported here specifically.
  */
 public class AhkDeclAnnotator implements Annotator {
 
-    /** Reports {@code local}/{@code static} without a name and a misplaced {@code global}. */
+    /** Reports {@code local} without a name and a misplaced {@code global}/{@code static}. */
     @Override
     public void annotate(@NotNull PsiElement element, @NotNull AnnotationHolder holder) {
         ASTNode decl = element.getNode();
@@ -31,13 +32,13 @@ public class AhkDeclAnnotator implements Annotator {
         if (keyword == null) return;
         String word = keyword.getText();
 
-        if (!"global".equalsIgnoreCase(word)) {
+        if ("local".equalsIgnoreCase(word)) {
             holder.newAnnotation(HighlightSeverity.ERROR, AhkBundle.message("annotator.decl.needs.name", word))
                     .range(keyword)
                     .create();
         } else if (!isFirstStatementOfFunction(decl)) {
             holder.newAnnotation(HighlightSeverity.ERROR,
-                            AhkBundle.message("annotator.global.first.statement"))
+                            AhkBundle.message("annotator.global.first.statement", word))
                     .range(keyword)
                     .create();
         }

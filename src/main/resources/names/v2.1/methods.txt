@@ -1,0 +1,8 @@
+; Built-in methods of AutoHotkey v2.1: only the differences to names/methods.txt (a name is added, "-Name" removes
+; it). Source: help/v2.1/docs/v2.1-changes.htm and names/v2.1/members.txt (v2.1-alpha.39). See AhkResources.java.
+
+At
+OnMessage
+Props
+SetCue
+__Ref

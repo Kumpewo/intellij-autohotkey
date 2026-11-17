@@ -1,5 +1,6 @@
 package de.kumpewo.autohotkey.documentation;
 
+import de.kumpewo.autohotkey.parser.AhkLanguageLevel;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,20 +44,29 @@ import java.util.regex.Pattern;
  * <p>
  * Links inside the pages name files in any case; inside the JAR the case matters. Therefore a linked path is tried
  * as given, with a lower-case file name, and completely in lower case.
+ * <p>
+ * Per language level: v2.1 has its own copy of the AutoHotkey help in {@code /help/v2.1/docs/} and in
+ * {@code /help/lookup/v2.1/docs.txt} only the differences to {@code docs.txt} (a line replaces all entries of its
+ * word, {@code -word} removes them, see {@link de.kumpewo.autohotkey.AhkResources#merge}). The pages of its entries
+ * are loaded from {@code /help/v2.1/} ({@link Topic#root}); {@code extra.txt} is the same for all levels.
  */
 public final class AhkHelpRepository {
 
     /**
      * An entry of the lookup files: word, path as in the file ({@code /docs/lib/File.htm}), anchor (or
-     * {@code null}), class (or {@code null}) and whether it comes from {@code docs.txt} (external help in the
-     * AutoHotkey.chm) or from {@code extra.txt} (external help in the plugin's own {@code extra.chm}).
+     * {@code null}), class (or {@code null}), whether it comes from {@code docs.txt} (external help in the
+     * AutoHotkey.chm) or from {@code extra.txt} (external help in the plugin's own {@code extra.chm}) and the folder
+     * under {@code /help/} the path is relative to ({@code ""}, for the help of v2.1 {@code "v2.1/"}).
      */
     public record Topic(@NotNull String name, @NotNull String path, @Nullable String anchor,
-                        @Nullable String className, boolean fromDocs) {
+                        @Nullable String className, boolean fromDocs, @NotNull String root) {
 
-        /** Path of the page under {@code /help/} in lower case, without leading {@code /} ({@code docs/lib/file.htm}). */
+        /**
+         * Path of the page under {@code /help/} in lower case, without leading {@code /} ({@code docs/lib/file.htm},
+         * {@code v2.1/docs/lib/file.htm}).
+         */
         public @NotNull String page() {
-            String page = normalize(path.toLowerCase(Locale.ROOT));
+            String page = normalize(root + path.toLowerCase(Locale.ROOT));
             return page == null ? "" : page;
         }
 
@@ -96,22 +106,22 @@ public final class AhkHelpRepository {
     }
 
     /**
-     * All entries for the identifier ({@code MsgBox}, {@code #Include}, {@code Gui.Button}) in file order: those
-     * from docs.txt, or if there are none, those from extra.txt; empty = no help.
+     * All entries for the identifier ({@code MsgBox}, {@code #Include}, {@code Gui.Button}) at the language level
+     * in file order: those from docs.txt, or if there are none, those from extra.txt; empty = no help.
      */
-    public static @NotNull List<Topic> topics(@NotNull String identifier) {
-        return Index.current().lookup(listKey(identifier));
+    public static @NotNull List<Topic> topics(@NotNull AhkLanguageLevel level, @NotNull String identifier) {
+        return Index.current(level).lookup(listKey(identifier));
     }
 
-    /** First entry for the identifier or {@code null}. */
-    public static @Nullable Topic topic(@NotNull String identifier) {
-        List<Topic> topics = topics(identifier);
+    /** First entry for the identifier at the language level or {@code null}. */
+    public static @Nullable Topic topic(@NotNull AhkLanguageLevel level, @NotNull String identifier) {
+        List<Topic> topics = topics(level, identifier);
         return topics.isEmpty() ? null : topics.get(0);
     }
 
     /** Prepared help page of the first entry for the identifier, or {@code null} if there is none. */
-    public static @Nullable String getHelp(@NotNull String identifier) {
-        Topic topic = topic(identifier);
+    public static @Nullable String getHelp(@NotNull AhkLanguageLevel level, @NotNull String identifier) {
+        Topic topic = topic(level, identifier);
         return topic == null ? null : getTopicPage(topic);
     }
 
@@ -296,13 +306,12 @@ public final class AhkHelpRepository {
         });
     }
 
-    /** Replaces the lookup files until the end of the test (lines as in the files). */
+    /** Replaces the lookup files of all levels until the end of the test (lines as in the files, pages of v2.0). */
     @org.jetbrains.annotations.TestOnly
     public static void useListsForTest(@NotNull String docs, @NotNull String extra,
                                        @NotNull com.intellij.openapi.Disposable disposable) {
-        Index previous = Index.current();
-        Index.current = new Index(lines(docs), lines(extra));
-        com.intellij.openapi.util.Disposer.register(disposable, () -> Index.current = previous);
+        Index.override = new Index(lines(docs), lines(extra), "");
+        com.intellij.openapi.util.Disposer.register(disposable, () -> Index.override = null);
     }
 
     /** Lines without comment and empty lines. */
@@ -310,32 +319,46 @@ public final class AhkHelpRepository {
         return text.lines().filter(l -> !l.isBlank() && !l.stripLeading().startsWith(";")).toList();
     }
 
-    /** The two lookup files; loaded once (thread-safe), replaceable in tests. */
+    /** The two lookup files of a level; loaded once per level (thread-safe), replaceable in tests. */
     private static final class Index {
         /** Logs malformed lines and missing pages (idea.log, in tests on the console) to help maintaining the files. */
         private static final com.intellij.openapi.diagnostic.Logger LOG =
                 com.intellij.openapi.diagnostic.Logger.getInstance(AhkHelpRepository.class);
-        private static volatile Index current;
+        /** Loaded indexes per data level. */
+        private static final Map<AhkLanguageLevel, Index> LOADED =
+                java.util.Collections.synchronizedMap(new java.util.EnumMap<>(AhkLanguageLevel.class));
+        /** Index of a test for all levels, otherwise {@code null}. */
+        private static volatile Index override;
 
         final Map<String, List<Topic>> docs = new HashMap<>();
         final Map<String, List<Topic>> extra = new HashMap<>();
 
-        /** The current index, loaded from the resources on first access. */
-        static Index current() {
-            Index index = current;
-            if (index == null) {
-                synchronized (Index.class) {
-                    index = current;
-                    if (index == null) current = index = new Index(resource("docs.txt"), resource("extra.txt"));
-                }
-            }
-            return index;
+        /** The index of the level, loaded from the resources on first access. */
+        static Index current(AhkLanguageLevel level) {
+            Index index = override;
+            return index != null ? index : LOADED.computeIfAbsent(level.dataLevel(), Index::load);
         }
 
-        /** Builds the tables from the lines of docs.txt and extra.txt. */
-        Index(List<String> docsLines, List<String> extraLines) {
-            read(docsLines, "docs.txt", true, docs);
-            read(extraLines, "extra.txt", false, extra);
+        /**
+         * Loads the lookup files of the level: docs.txt merged with the differences of the level (pages in the
+         * help of the level), extra.txt.
+         */
+        private static Index load(AhkLanguageLevel level) {
+            List<String> docsLines = resource("docs.txt");
+            String root = "";
+            String own = level.folder;
+            if (own != null) {
+                docsLines = de.kumpewo.autohotkey.AhkResources.merge(docsLines, resource(own + "/docs.txt"),
+                        line -> line.split("\t", 2)[0].trim());
+                root = own + "/";
+            }
+            return new Index(docsLines, resource("extra.txt"), root);
+        }
+
+        /** Builds the tables from the lines of docs.txt (pages under {@code /help/root}) and extra.txt. */
+        Index(List<String> docsLines, List<String> extraLines, String root) {
+            read(docsLines, "docs.txt", true, root, docs);
+            read(extraLines, "extra.txt", false, "", extra);
         }
 
         /** Entries for the key: docs.txt first, otherwise extra.txt. */
@@ -345,7 +368,8 @@ public final class AhkHelpRepository {
         }
 
         /** Reads the lines of one lookup file into {@code target}; identical entries count once. */
-        private static void read(List<String> lines, String file, boolean fromDocs, Map<String, List<Topic>> target) {
+        private static void read(List<String> lines, String file, boolean fromDocs, String root,
+                                 Map<String, List<Topic>> target) {
             for (String line : lines) {
                 String[] parts = line.split("\t", -1);
                 if (parts.length < 3 || parts.length > 4 || parts[0].isBlank() || parts[1].isBlank()) {
@@ -356,9 +380,9 @@ public final class AhkHelpRepository {
                 String className = parts.length > 3 ? parts[3].trim() : "";
                 Topic topic = new Topic(parts[0].trim(), parts[1].trim(),
                         anchor.isEmpty() || anchor.equals(NO_ANCHOR) ? null : anchor,
-                        className.isEmpty() ? null : className, fromDocs);
+                        className.isEmpty() ? null : className, fromDocs, root);
                 if (AhkHelpRepository.class.getResource("/help/" + topic.page()) == null) {
-                    LOG.warn("Help page missing, entry ignored (" + file + "): " + line);
+                    LOG.warn("Help page missing, entry ignored (" + root + file + "): " + line);
                     continue;
                 }
                 List<Topic> topics = target.computeIfAbsent(listKey(topic.name()), k -> new ArrayList<>());

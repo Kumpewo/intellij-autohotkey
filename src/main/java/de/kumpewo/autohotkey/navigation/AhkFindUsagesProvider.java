@@ -27,11 +27,11 @@ public class AhkFindUsagesProvider implements FindUsagesProvider {
         return null;
     }
 
-    /** Definitions with a name, fields and local variables. */
+    /** Definitions with a name, fields, local variables, modules and import aliases (v2.1). */
     @Override
     public boolean canFindUsagesFor(@NotNull PsiElement element) {
         return element instanceof AhkNamedElement named && named.getName() != null || element instanceof AhkFieldTarget
-                || element instanceof AhkLocalVariable;
+                || element instanceof AhkLocalVariable || AhkReferencesSearcher.isDefinition(element);
     }
 
     /** No help topic. */
@@ -53,6 +53,9 @@ public class AhkFindUsagesProvider implements FindUsagesProvider {
         if (element instanceof AhkLabel) return AhkBundle.message("findUsages.type.label");
         if (element instanceof AhkLocalVariable local) {
             return AhkBundle.message(local.local().parameter() ? "findUsages.type.parameter" : "findUsages.type.variable");
+        }
+        if (element instanceof de.kumpewo.autohotkey.module.AhkModuleSymbol symbol) {
+            return AhkBundle.message("module.symbol." + symbol.kind().name().toLowerCase(java.util.Locale.ROOT));
         }
         return "";
     }

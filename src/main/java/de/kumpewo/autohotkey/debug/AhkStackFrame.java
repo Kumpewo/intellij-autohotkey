@@ -105,11 +105,15 @@ final class AhkStackFrame extends XStackFrame {
 
     /**
      * True for a built-in variable, class or function: facet {@code Builtin}, or a name from the built-in lists
-     * ({@link AhkNames#nonMember}); inside a function the engine lists e.g. {@code Array}, {@code Gui} and
+     * ({@link AhkNames#nonMember}, of any language level); inside a function the engine lists e.g. {@code Array}, {@code Gui} and
      * {@code A_Args} as globals without that facet.
      */
     static boolean isBuiltIn(@NotNull DbgpProperty property) {
-        return "Builtin".equals(property.facet()) || AhkNames.nonMember(property.name()) != null;
+        if ("Builtin".equals(property.facet())) return true;
+        for (de.kumpewo.autohotkey.parser.AhkLanguageLevel level : de.kumpewo.autohotkey.parser.AhkLanguageLevel.selectable()) {
+            if (AhkNames.get(level).nonMember(property.name()) != null) return true;
+        }
+        return false;
     }
 
     /** Message of a failed request. */

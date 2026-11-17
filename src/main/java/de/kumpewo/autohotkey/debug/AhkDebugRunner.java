@@ -55,7 +55,7 @@ public final class AhkDebugRunner extends GenericProgramRunner<RunnerSettings> {
         AhkRunConfiguration configuration = (AhkRunConfiguration) environment.getRunProfile();
         String script = configuration.getScriptPath();
         String exe = AhkSettings.getInstance().findInterpreter(script);
-        if (exe == null) throw new ExecutionException(AhkBundle.message("run.autohotkey.not.found"));
+        if (exe == null) throw new ExecutionException(AhkSettings.getInstance().notFoundMessage(script));
         DbgpServer server;
         try {
             server = DbgpServer.open();

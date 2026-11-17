@@ -61,13 +61,14 @@ public class AhkRenameHintHandler implements RenameHandler {
         if (leaf != null) {
             IElementType type = leaf.getNode().getElementType();
             String name = leaf.getText();
+            AhkNames names = AhkNames.of(leaf);
             if (type == AhkTypes.DIRECTIVE_NAME) {
-                return AhkNames.directive(name) != null ? AhkBundle.message("rename.hint.builtin", name)
+                return names.directive(name) != null ? AhkBundle.message("rename.hint.builtin", name)
                         : AhkBundle.message("rename.hint.nothing");
             }
             if (leaf.getParent() instanceof AhkMemberExpr) {
-                if (AhkNames.member(name) != null) return AhkBundle.message("rename.hint.builtin", name);
-            } else if (AhkNames.nonMember(name) != null) {
+                if (names.member(name) != null) return AhkBundle.message("rename.hint.builtin", name);
+            } else if (names.nonMember(name) != null) {
                 return AhkBundle.message("rename.hint.builtin", name);
             } else if (AhkLocals.isVariablePosition(leaf) && AhkLocals.resolve(leaf) == null) {
                 return AhkBundle.message("rename.hint.global", name);

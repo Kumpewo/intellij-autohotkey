@@ -5,7 +5,7 @@ import com.intellij.psi.PsiElement;
 import de.kumpewo.autohotkey.include.AhkIncludeDirectoryTarget;
 
 /**
- * Forbids renaming targets that are no definitions (vetoRenameCondition, Z.20): the help target of a built-in name
+ * Forbids renaming targets that are no definitions (vetoRenameCondition): the help target of a built-in name
  * and the directory hint of an {@code #Include}.
  */
 public class AhkRenameVeto implements Condition<PsiElement> {

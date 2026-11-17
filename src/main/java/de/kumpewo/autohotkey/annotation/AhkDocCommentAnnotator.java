@@ -30,7 +30,7 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * Doc comments (Z.22, {@link AhkDocComment}):
+ * Doc comments ({@link AhkDocComment}):
  * <ul>
  *   <li>on the file (the ranges lie in comments, outside of the definitions): warning "Unknown parameter 'x'." for
  *       {@code @param x} without a parameter {@code x}, "Unknown class." for an unknown type in {@code {...}};</li>

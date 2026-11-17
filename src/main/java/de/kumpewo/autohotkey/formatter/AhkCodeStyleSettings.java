@@ -34,7 +34,7 @@ public class AhkCodeStyleSettings extends CustomCodeStyleSettings {
      */
     public String KEYWORD_CASE = "";
 
-    // Doc comments (Z.23, tab "Doc Comments", AhkDocCommentFormatter); defaults like JavaDoc, main switch off
+    // Doc comments (tab "Doc Comments", AhkDocCommentFormatter); defaults like JavaDoc, main switch off
     /** "Reformat Code" formats doc comments (main switch). Without it only the * lines are aligned. */
     public boolean DOC_FORMAT = false;
     /** Descriptions of all @param in one column. */

@@ -19,7 +19,7 @@ import java.util.List;
 
 /**
  * Formatting model that keeps the {@code CRLF} tokens when the formatter changes whitespace through the PSI
- * ({@code CodeStyleManager.reformat(PsiElement)}: previews of the code style page, refactorings; Z.25).
+ * ({@code CodeStyleManager.reformat(PsiElement)}: previews of the code style page, refactorings).
  * <p>
  * A line break is a real token ({@code CRLF}, the end of a statement), but no formatter block, so the whitespace
  * between two blocks can contain {@code CRLF} tokens. The platform's PSI-based replacement only knows

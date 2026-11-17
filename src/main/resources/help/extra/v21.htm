@@ -1,0 +1,68 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>AutoHotkey v2.1 (alpha) | AutoHotkey v2 Plugin</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../styles/theme.css" rel="stylesheet" />
+</head>
+<body>
+
+<h1>AutoHotkey v2.1 (alpha)</h1>
+
+<p class="warning"><strong>Alpha:</strong> AutoHotkey v2.1 is still being developed; the current version is an alpha (the plugin follows <strong>v2.1-alpha.39</strong>). Its specification changes from one alpha to the next. The plugin implements v2.1 as closely to the current specification as it can, but this support is itself at an early stage: expect unexpected errors, missing features and differences from AutoHotkey, and expect parts of it to change together with AutoHotkey. AutoHotkey <strong>v2.0</strong> is not affected: files of language level v2.0 are fully supported.</p>
+
+<p>This chapter collects everything the plugin does for AutoHotkey v2.1. <a href="modules.htm">Modules</a>, the largest new feature, have a page of their own.</p>
+
+<h2 id="Levels">Language level</h2>
+<p>Each file has a language level, AutoHotkey v2.0 or v2.1 (v2.1 is currently an alpha version). It comes from <code>#Requires</code>: if a part asks for 2.1 or later (<code>#Requires AutoHotkey v2.1-alpha.39</code>, <code>&gt;=2.1</code>), the file is v2.1, otherwise v2.0. Files without <code>#Requires</code> use the setting <a href="settings.htm#LanguageLevel">Language level</a> (default v2.0).</p>
+<p>The status bar shows the level of the file in the editor: <em>AHK v2.0</em>, <em>AHK v2.1</em>, or <em>AHK v1</em> for a file of another version, which the plugin does not parse. Its tooltip says where the level comes from; a click goes to the deciding <code>#Requires</code> line or, for the default level, opens the settings. A right-click on the status bar hides it. The Project view shows the level in grey after the name of each AutoHotkey file; the setting <a href="settings.htm#LanguageLevel">Show the language level in the Project view</a> switches this off.</p>
+<p>Choose v2.1 only for scripts that really use it; for everything else v2.0 is the stable choice.</p>
+
+<h2 id="Names">Built-in names and help</h2>
+<p>In v2.1 files the plugin knows the new built-in names of v2.1-alpha.39 (for example <code>ATan2</code>, <code>WinGetEnabled</code>, <code>A_HotIf</code>, <code>Struct</code>, <code>#Module</code>, <code>Error.Show</code>), their parameter info and the help pages of that version.</p>
+
+<h2 id="Syntax">New syntax</h2>
+<p>Of the new syntax of v2.1 the parser knows so far:</p>
+<ul>
+  <li>the operators <code>a !~= b</code> (not RegExMatch), <code>x ??= y</code> (maybe-assign) and the optional chain <code>a?.b</code>;</li>
+  <li>struct definitions <code>struct Name { ... }</code> (like a class; <code>struct</code> is a keyword only there, otherwise a normal name such as the class <code>Struct</code>);</li>
+  <li>mandatory parameters after optional ones (<code>f(a?, b)</code>, <code>f(a := 1, &amp;b)</code>); a variadic parameter (<code>b*</code>) may follow an optional one in v2.0 too;</li>
+  <li>modules: <code>#Module Name</code> and <code>#Import [Export] Name [as Alias] [{ *, Name [as Alias], ... }]</code>; inside the braces line breaks and comments are allowed. <code>#Module</code> is only allowed at the top level, <code>#Import</code> also directly in the body of a function (not in other blocks or a class body), as in AutoHotkey;</li>
+  <li>function definition expressions: <code>x := f(a) { ... }</code>, <code>SetTimer(() { ... }, 100)</code>, also called directly (<code>f() { ... }(1)</code>). As in AutoHotkey the name must stand directly before <code>(</code> (<code>f () { ... }</code> concatenates <code>f</code> with an anonymous function), the <code>{</code> must be on the line of the <code>)</code> unless the function is enclosed in <code>( )</code>, <code>[ ]</code> or <code>{ }</code>, and in the head of <code>if</code>, <code>while</code>, <code>loop</code>, <code>for</code>, <code>switch</code>, <code>catch</code> and <code>until</code> a function expression must be enclosed in brackets (<code>if f() {</code> is a call followed by the block of the <code>if</code>). A function expression that forms a whole statement on its own (<code>(a) { ... }</code> at the start of a line, <code>else f() { ... }</code>) is an error; only after a hotkey or hotstring a named one is allowed (<code>F1::f(hk) { ... }</code>). The function is a normal function for the plugin: its name is found by navigation, completion and parameter info, its parameters and variables are local, and it uses the variables of an enclosing function (closure). Named function expressions appear in the structure view, anonymous ones do not;</li>
+  <li>typed properties in the body of a class or struct: <code>x : Int32</code>, <code>cbSize : UInt32 := this.Size</code>, several on one line (<code>x : Int32, y : Int32</code>, also mixed with fields such as <code>y := 2</code>), and <code>union { ... }</code> blocks of typed properties. The type is a class name, an expression in brackets, or a name with calls, index and member access (<code>RECT</code>, <code>Int32[10]</code>, <code>RECT.Ptr</code>, <code>CString(32, "UTF-8")</code>, <code>(expr)</code>); an operator such as <code>+</code> or a string is an error, as in AutoHotkey. Outside a class body <code>x : Int32</code> is not recognized (as in AutoHotkey). A union block contains only typed properties and stands directly in a class body; <code>union { }</code> without a typed property is a property named <code>union</code>. Typed properties are fields of the class: navigation, completion after <code>this.</code> or a declared type, Find Usages and Rename work as for <code>x := 0</code>. The formatter puts one space around the <code>:</code>.</li>
+  <li><code>Throw</code> as a function in an expression: <code>x := c ? 1 : throw(Error())</code>, <code>f := Throw</code>; at the start of a statement <code>throw</code> stays the statement.</li>
+</ul>
+<p>In a v2.0 file these are marked as errors ("Requires AutoHotkey v2.1", for parameters "Parameter default required"). Modules are separate namespaces for navigation, completion, Find Usages and Rename, and <code>#Import</code> finds module files (see <a href="modules.htm">Modules</a>).</p>
+
+<h2 id="Running">Running, validating and debugging with the alpha</h2>
+<ul>
+  <li>Files of language level v2.1 are run, validated and debugged with the <a href="settings.htm#ProgramV21">AutoHotkey v2.1 interpreter</a> (the newest installed v2.1 unless one is set), always directly and never via the launcher, which does not know alpha versions that were only unpacked (see <a href="running.htm">Running scripts</a>).</li>
+  <li><strong>Validation</strong> (<code>/validate</code>) uses this alpha. It may report errors you would not expect, or accept code that the plugin marks as an error and the other way round, because the alpha, the plugin and the help of v2.1 do not always agree. When AutoHotkey accepts code that the plugin marks, the mark becomes "Syntax error (AutoHotkey accepts this code)" (see <a href="validate.htm#Accepted">Validating</a>); the result of AutoHotkey counts. Please report such differences.</li>
+  <li>The <a href="debugger.htm">debugger</a> works with the v2.1 engine, which reports objects a little differently (inherited properties and getters as children, the prototype as <code>Name.Prototype</code>).</li>
+  <li>A new alpha can change the language. The plugin is checked against the alpha named above; with a newer one, keep an eye on validation.</li>
+</ul>
+
+<h2 id="Limits">Known limitations</h2>
+<p>Not supported yet:</p>
+<ul>
+  <li>Any syntax of v2.1 not listed under <a href="#Syntax">New syntax</a>.</li>
+  <li>The type of a typed property is not used for completion (<code>this.rc.</code> after <code>rc : RECT</code> does not offer the fields of <code>RECT</code>), and it is not checked in detail (for example <code>Int32?</code> is accepted).</li>
+  <li><code>&amp;x.y</code>, <code>IsSet(X?.Y)</code> and <code>Type(V?)</code> have not been checked against AutoHotkey.</li>
+  <li>Modules: <code>#Warn</code> per module and embedded modules (<code>#Import "*Resource"</code>) are not evaluated; in the debugger the <em>Global</em> node always shows the module of the innermost frame (see <a href="modules.htm#Limits">Modules</a>).</li>
+</ul>
+<p>Deliberate differences from v2.1-alpha.39:</p>
+<ul>
+  <li>Each file has its own language level. An included file does not take over the level of the file that includes it; AutoHotkey uses the mode that applies at the <code>#Include</code> line. Give included v2.1 files their own <code>#Requires</code> line.</li>
+  <li><code>#Include &lt;Name&gt;</code>: the additional folder searched first is the folder of the including file; AutoHotkey uses the folder of the main script.</li>
+  <li>Accepted by the plugin although the alpha rejects or treats them differently: <code>a? .b</code> (space before the dot), <code>#Import X{*}</code> without a space, a function expression after <code>case x:</code> on the same line.</li>
+  <li>An empty <code>#Import</code> is an error for the plugin.</li>
+  <li><code>union { }</code> without a typed property is a property named <code>union</code>.</li>
+</ul>
+<p>See also the <a href="limitations.htm">general known limitations</a>, which apply to v2.1 files as well.</p>
+
+<h2 id="Related">Related</h2>
+<p><a href="index.htm">Plugin manual</a>, <a href="modules.htm">Modules</a>, <a href="settings.htm#LanguageLevel">Settings: language level</a>, <a href="settings.htm#ProgramV21">Settings: AutoHotkey v2.1 interpreter</a>, <a href="limitations.htm">Known limitations</a></p>
+
+</body>
+</html>

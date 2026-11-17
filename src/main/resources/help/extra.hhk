@@ -10,12 +10,24 @@
     <param name="Local" value="extra\compile.htm">
   </object>
   <li><object type="text/sitemap">
+    <param name="Name" value="AhkLibPath">
+    <param name="Local" value="extra\modules.htm#Files">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Alpha version (v2.1)">
+    <param name="Local" value="extra\v21.htm">
+  </object>
+  <li><object type="text/sitemap">
     <param name="Name" value="Attach to script">
     <param name="Local" value="extra\debugger.htm">
   </object>
   <li><object type="text/sitemap">
     <param name="Name" value="AutoHotkey v2 Plugin">
     <param name="Local" value="extra\index.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="AutoHotkey v2.1 (alpha)">
+    <param name="Local" value="extra\v21.htm">
   </object>
   <li><object type="text/sitemap">
     <param name="Name" value="Breakpoints">
@@ -42,6 +54,10 @@
     <param name="Local" value="extra\compile.htm">
   </object>
   <li><object type="text/sitemap">
+    <param name="Name" value="Create settings.ahk-plugin.ini">
+    <param name="Local" value="extra\installer.htm#Ini">
+  </object>
+  <li><object type="text/sitemap">
     <param name="Name" value="Debugger">
     <param name="Local" value="extra\debugger.htm">
   </object>
@@ -56,6 +72,10 @@
   <li><object type="text/sitemap">
     <param name="Name" value=";@declare-type">
     <param name="Local" value="extra\declare-type.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Deploy to Local Target">
+    <param name="Local" value="extra\installer.htm">
   </object>
   <li><object type="text/sitemap">
     <param name="Name" value="Doc comments">
@@ -102,12 +122,28 @@
     <param name="Local" value="extra\limitations.htm">
   </object>
   <li><object type="text/sitemap">
+    <param name="Name" value="Language level">
+    <param name="Local" value="extra\v21.htm#Levels">
+  </object>
+  <li><object type="text/sitemap">
     <param name="Name" value="Live templates">
     <param name="Local" value="extra\templates.htm">
   </object>
   <li><object type="text/sitemap">
     <param name="Name" value="Live templates and file template">
     <param name="Local" value="extra\templates.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="Modules">
+    <param name="Local" value="extra\modules.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="#Import">
+    <param name="Local" value="extra\modules.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="#Module">
+    <param name="Local" value="extra\modules.htm">
   </object>
   <li><object type="text/sitemap">
     <param name="Name" value="Navigation">
@@ -138,8 +174,16 @@
     <param name="Local" value="extra\running.htm">
   </object>
   <li><object type="text/sitemap">
+    <param name="Name" value="Set Version">
+    <param name="Local" value="extra\installer.htm">
+  </object>
+  <li><object type="text/sitemap">
     <param name="Name" value="Settings">
     <param name="Local" value="extra\settings.htm">
+  </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="settings.ahk-plugin.ini">
+    <param name="Local" value="extra\installer.htm">
   </object>
   <li><object type="text/sitemap">
     <param name="Name" value="Type declarations">

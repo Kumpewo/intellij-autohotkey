@@ -1,0 +1,5 @@
+; Nested built-in classes of AutoHotkey v2.1: only the differences to names/nested-classes.txt (a name is added,
+; "-Name" removes it). Source: help/v2.1/docs/objlist.htm (v2.1-alpha.39). See AhkResources.java.
+
+Struct.Array
+Struct.Ptr

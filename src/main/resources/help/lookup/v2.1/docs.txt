@@ -1,0 +1,56 @@
+; Lookup entries of the help of AutoHotkey v2.1 (help/v2.1/docs/, v2.1-alpha.39): only the differences to
+; help/lookup/docs.txt. Same format (word<TAB>path<TAB>anchor[<TAB>class]); the lines of a word here replace
+; ALL its entries in docs.txt (so a word that gets a new entry repeats the old ones), "-word" removes them.
+; The pages are loaded from help/v2.1/.
+
+#Requires	/docs/_requires.htm	<null>
+#Import	/docs/lib/_Import.htm	<null>
+#Module	/docs/lib/_Module.htm	<null>
+#StructPack	/docs/lib/_StructPack.htm	<null>
+A_HotIf	/docs/Variables.htm	HotIf
+A_KeybdHookInstalled	/docs/Variables.htm	HookInstalled
+A_MouseHookInstalled	/docs/Variables.htm	HookInstalled
+ATan2	/docs/lib/Math.htm	ATan2
+WinGetAlwaysOnTop	/docs/lib/WinGetAlwaysOnTop.htm	<null>
+WinGetEnabled	/docs/lib/WinGetEnabled.htm	<null>
+ObjCreateWithDataPtr	/docs/lib/ObjCreateWithDataPtr.htm	<null>
+ObjGetDataPtr	/docs/lib/Object.htm	GetDataPtr
+ObjGetDataSize	/docs/lib/Object.htm	GetDataSize
+ObjSetDataPtr	/docs/lib/Object.htm	SetDataPtr
+DefineProp	/docs/lib/Object.htm	DefineProp	Object
+DefineProp	/docs/lib/Object.htm	DefineProp
+Props	/docs/lib/Props.htm	<null>
+Props	/docs/lib/Any.htm	Props	Any
+PropRef	/docs/lib/PropRef.htm	<null>
+Struct	/docs/lib/Struct.htm	<null>
+struct	/docs/Structs.htm	classdef
+union	/docs/Structs.htm	classdef-union
+At	/docs/lib/Struct.htm	At	Struct
+Ptr	/docs/lib/Buffer.htm	Ptr	Buffer
+Ptr	/docs/lib/ComValue.htm	Ptr	ComValue
+Ptr	/docs/lib/Struct.htm	Ptr	Struct
+Size	/docs/lib/Buffer.htm	Size	Buffer
+Size	/docs/lib/Struct.htm	Size	Struct
+__Ref	/docs/lib/Object.htm	__Ref	Object
+__Ref	/docs/lib/Struct.htm	__Ref	Struct
+__Value	/docs/Structs.htm	abstract
+FontHandle	/docs/lib/Gui.htm	FontHandle	Gui
+Hint	/docs/lib/Error.htm	Hint	Error
+Show	/docs/lib/Gui.htm	Show	Gui
+Show	/docs/lib/Menu.htm	Show	Menu
+Show	/docs/lib/Error.htm	Show	Error
+OnMessage	/docs/lib/OnMessage.htm	<null>
+OnMessage	/docs/lib/Gui.htm	OnMessage	Gui
+OnMessage	/docs/lib/GuiControl.htm	OnMessage	Gui.Control
+SetCue	/docs/lib/GuiControl.htm	SetCue	Gui.ComboBox
+SetCue	/docs/lib/GuiControl.htm	SetCue	Gui.Edit
+Int8	/docs/Structs.htm	numeric-types
+UInt8	/docs/Structs.htm	numeric-types
+Int16	/docs/Structs.htm	numeric-types
+UInt16	/docs/Structs.htm	numeric-types
+Int32	/docs/Structs.htm	numeric-types
+UInt32	/docs/Structs.htm	numeric-types
+Int64	/docs/Structs.htm	numeric-types
+IntPtr	/docs/Structs.htm	numeric-types
+Float32	/docs/Structs.htm	numeric-types
+Float64	/docs/Structs.htm	numeric-types

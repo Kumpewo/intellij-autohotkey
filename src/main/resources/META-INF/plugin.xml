@@ -158,6 +158,18 @@ the editor.</p>
                    implementationClass="de.kumpewo.autohotkey.annotation.AhkVersionAnnotator"/>
         <annotator language="AutoHotkey"
                    implementationClass="de.kumpewo.autohotkey.annotation.AhkDeclAnnotator"/>
+        <!-- mandatory parameter after an optional one: v2.1 only -->
+        <annotator language="AutoHotkey"
+                   implementationClass="de.kumpewo.autohotkey.annotation.AhkParameterOrderAnnotator"/>
+        <!-- #Module / #Import: v2.1 only, where allowed, module name -->
+        <annotator language="AutoHotkey"
+                   implementationClass="de.kumpewo.autohotkey.annotation.AhkModuleAnnotator"/>
+        <!-- function definition expressions: v2.1 only, not a statement on their own -->
+        <annotator language="AutoHotkey"
+                   implementationClass="de.kumpewo.autohotkey.annotation.AhkFuncExprAnnotator"/>
+        <!-- typed properties and union blocks: v2.1 only, only in a class body -->
+        <annotator language="AutoHotkey"
+                   implementationClass="de.kumpewo.autohotkey.annotation.AhkTypedPropertyAnnotator"/>
         <annotator language="AutoHotkey"
                    implementationClass="de.kumpewo.autohotkey.annotation.AhkTypeDeclarationAnnotator"/>
         <!-- No "Non-ASCII characters" warning for names (AutoHotkey allows them, e.g. "§" as prefix) -->
@@ -200,6 +212,10 @@ the editor.</p>
                 implementationClass="de.kumpewo.autohotkey.navigation.AhkFindUsagesProvider"/>
         <referencesSearch
                 implementation="de.kumpewo.autohotkey.navigation.AhkReferencesSearcher"/>
+        <!-- the name of a field in its definition is a target (Find Usages and Rename there) -->
+        <targetElementEvaluator
+                language="AutoHotkey"
+                implementationClass="de.kumpewo.autohotkey.navigation.AhkTargetElementEvaluator"/>
         <!-- Go to Symbol / Go to Class: project-wide search over all definitions (index of the names) -->
         <fileBasedIndex
                 implementation="de.kumpewo.autohotkey.navigation.AhkSymbolIndex"/>
@@ -249,6 +265,9 @@ the editor.</p>
         <psi.referenceContributor
                 language="AutoHotkey"
                 implementation="de.kumpewo.autohotkey.include.AhkIncludeReferenceContributor"/>
+        <psi.referenceContributor
+                language="AutoHotkey"
+                implementation="de.kumpewo.autohotkey.module.AhkModuleReferenceContributor"/>
         <lang.commenter
                 language="AutoHotkey"
                 implementationClass="de.kumpewo.autohotkey.formatter.AhkCommenter"/>
@@ -292,6 +311,24 @@ the editor.</p>
             <bundleName>messages.AhkBundle</bundleName>
             <categoryKey>intention.category</categoryKey>
         </intentionAction>
+        <!-- Language level of the current file in the status bar and after AutoHotkey files in the Project view (level/) -->
+        <statusBarWidgetFactory id="AutoHotkey.LanguageLevel"
+                                implementation="de.kumpewo.autohotkey.level.AhkLevelWidgetFactory"/>
+        <projectViewNodeDecorator implementation="de.kumpewo.autohotkey.level.AhkLevelDecorator"/>
+        <!-- Alt+Enter anywhere: insert #Requires (annotation/AhkAddRequiresIntention; v1 variant only for v1 code) -->
+        <intentionAction>
+            <language>AutoHotkey</language>
+            <className>de.kumpewo.autohotkey.annotation.AhkAddRequiresIntention</className>
+            <bundleName>messages.AhkBundle</bundleName>
+            <categoryKey>intention.category</categoryKey>
+        </intentionAction>
+        <intentionAction>
+            <language>AutoHotkey</language>
+            <className>de.kumpewo.autohotkey.annotation.AhkAddRequiresIntention$V1</className>
+            <descriptionDirectoryName>AhkAddRequiresIntentionV1</descriptionDirectoryName>
+            <bundleName>messages.AhkBundle</bundleName>
+            <categoryKey>intention.category</categoryKey>
+        </intentionAction>
         <!-- Balloon notifications (e.g. "Compile with Ahk2Exe" without ;@Ahk2Exe-Base) -->
         <notificationGroup id="AutoHotkey" displayType="BALLOON" bundle="messages.AhkBundle" key="notification.group"/>
     </extensions>
@@ -315,6 +352,24 @@ the editor.</p>
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
             <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
         </action>
+        <!-- Copying a tool to its local target as described by settings.ahk-plugin.ini (install/AhkInstaller) -->
+        <action id="AutoHotkey.Install" class="de.kumpewo.autohotkey.install.AhkInstallAction" icon="/icons/autohotkey.png">
+            <add-to-group group-id="CodeMenu" anchor="last"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+        </action>
+        <!-- Documented default settings.ahk-plugin.ini (install/AhkSettingsFile) -->
+        <action id="AutoHotkey.CreateSettings" class="de.kumpewo.autohotkey.install.AhkCreateSettingsAction" icon="/icons/autohotkey.png">
+            <add-to-group group-id="CodeMenu" anchor="last"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+        </action>
+        <!-- Version line ;@Ahk2Exe-SetVersion, commit and tag (install/AhkSetVersion) -->
+        <action id="AutoHotkey.SetVersion" class="de.kumpewo.autohotkey.install.AhkSetVersionAction" icon="/icons/autohotkey.png">
+            <add-to-group group-id="CodeMenu" anchor="last"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+        </action>
         <!-- Attach the debugger to a running script (AhkAttach) -->
         <action id="AutoHotkey.AttachDebugger" class="de.kumpewo.autohotkey.debug.AhkAttachAction" icon="/icons/autohotkey.png">
             <add-to-group group-id="RunMenu" anchor="after" relative-to-action="XDebugger.AttachToProcess"/>
@@ -323,9 +378,12 @@ the editor.</p>
         <action id="AutoHotkey.Manual" class="de.kumpewo.autohotkey.documentation.AhkManualAction" icon="/icons/autohotkey.png">
             <add-to-group group-id="HelpMenu" anchor="after" relative-to-action="HelpTopics"/>
         </action>
-        <!-- Help of the AutoHotkey installation (AhkExternalHelp.openDocs) -->
+        <!-- Help of AutoHotkey v2.0 and v2.1 (AhkExternalHelp.openDocs) -->
         <action id="AutoHotkey.Help" class="de.kumpewo.autohotkey.documentation.AhkHelpAction" icon="/icons/autohotkey.png">
             <add-to-group group-id="HelpMenu" anchor="after" relative-to-action="AutoHotkey.Manual"/>
+        </action>
+        <action id="AutoHotkey.HelpV21" class="de.kumpewo.autohotkey.documentation.AhkHelpAction$V21" icon="/icons/autohotkey.png">
+            <add-to-group group-id="HelpMenu" anchor="after" relative-to-action="AutoHotkey.Help"/>
         </action>
     </actions>
 

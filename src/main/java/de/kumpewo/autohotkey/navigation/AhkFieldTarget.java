@@ -16,13 +16,21 @@ import javax.swing.*;
 /**
  * Navigation target for a field of a class ({@code count := 0}, {@code static count := 0};
  * {@link AhkDefinitions#fields}): fields are no named PSI elements of their own, so this target stands for the name
- * and shows "name" with "Class X" in choosers, like the other definitions.
+ * and shows "name" with "Class X" in choosers, like the other definitions. It is the target of a name after the dot
+ * ({@link AhkDefinitionReference}) and of the name in the defining statement itself ({@link AhkTargetElementEvaluator}:
+ * Find Usages and Rename at the definition), and a node of the structure view.
  */
 public final class AhkFieldTarget extends FakePsiElement {
 
     private final AhkDefinitions.Field field;
 
-    AhkFieldTarget(@NotNull AhkDefinitions.Field field) {
+    /** The field this target stands for. */
+    public @NotNull AhkDefinitions.Field field() {
+        return field;
+    }
+
+    /** Target for the field. */
+    public AhkFieldTarget(@NotNull AhkDefinitions.Field field) {
         this.field = field;
     }
 
@@ -43,7 +51,7 @@ public final class AhkFieldTarget extends FakePsiElement {
         return field.identifier().getContainingFile();
     }
 
-    /** Rename (Z.20): replaces the name of the field in its defining statement. */
+    /** Rename: replaces the name of the field in its defining statement. */
     @Override
     public PsiElement setName(@NotNull String name) {
         de.kumpewo.autohotkey.psi.AhkRenames.replaceLeaf(field.identifier(), name);

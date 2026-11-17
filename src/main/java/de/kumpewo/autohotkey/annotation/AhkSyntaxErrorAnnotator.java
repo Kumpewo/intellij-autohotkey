@@ -66,6 +66,7 @@ public class AhkSyntaxErrorAnnotator implements Annotator {
     private static final class OwnMessages {
         static final Set<String> TEXTS = Set.of(
                 AhkBundle.message("parser.case.or.default.expected"),
-                AhkBundle.message("parser.stray.brace"));
+                AhkBundle.message("parser.stray.brace"),
+                AhkBundle.message("parser.requires.v21"));
     }
 }

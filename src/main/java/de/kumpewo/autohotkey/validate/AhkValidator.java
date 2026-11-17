@@ -74,7 +74,8 @@ import java.util.regex.Pattern;
  * warning opens a dialog, and the line numbers stay the same. The path of the copy is replaced by the original one
  * in the output ({@link #restorePaths}). Command line:
  * {@code AutoHotkey.exe [launcher.ahk] /ErrorStdOut /validate copy} (program chosen for the script by
- * {@link AhkSettings#findAutoHotkey(String)}: v2 interpreter instead of the launcher for {@code #Requires} v2.0).
+ * {@link AhkSettings#findAutoHotkey(String)}: v2 interpreter instead of the launcher for {@code #Requires} v2.0,
+ * the v2.1 interpreter for language level v2.1).
  * <p>
  * AutoHotkey reports only the first load error; warnings ({@code ==> Warning: …}) are shown but do not count as
  * errors. If AutoHotkey still waits for a dialog, it is stopped after {@link #TIMEOUT_MS}. Started manually
@@ -177,10 +178,11 @@ public final class AhkValidator {
         Target target = target(project, file);
         if (target == null) return;
         VirtualFile script = target.script();
-        String exe = AhkSettings.getInstance().findAutoHotkey();
-        if (exe == null) {
+        // checked again with the saved script in the background (#Requires decides between the programs)
+        String scriptPath = script.getPath();
+        if (AhkSettings.getInstance().findAutoHotkey(scriptPath) == null) {
             if (manual) {
-                Messages.showErrorDialog(project, AhkBundle.message("run.autohotkey.not.found"),
+                Messages.showErrorDialog(project, AhkSettings.getInstance().notFoundMessage(scriptPath),
                         AhkBundle.message("validate.title", script.getName()));
             }
             return;
@@ -213,9 +215,13 @@ public final class AhkValidator {
                 try {
                     Files.write(copy, withWarnToStdOut(Files.readAllBytes(original)));
                     Path dir = original.getParent();
-                    // the saved script decides between launcher and v2 interpreter (#Requires)
+                    // the saved script decides between launcher, v2 and v2.1 interpreter (#Requires)
                     String program = AhkSettings.getInstance().findAutoHotkey(original.toString());
-                    GeneralCommandLine commandLine = AhkRunState.createCommandLine(program == null ? exe : program,
+                    if (program == null) {
+                        failure = AhkSettings.getInstance().notFoundMessage(original.toString());
+                        return;
+                    }
+                    GeneralCommandLine commandLine = AhkRunState.createCommandLine(program,
                             List.of("/ErrorStdOut", "/validate"), copy.toString(), "",
                             dir == null ? "" : dir.toString());
                     ProcessOutput raw = new CapturingProcessHandler(commandLine).runProcess(TIMEOUT_MS, true);

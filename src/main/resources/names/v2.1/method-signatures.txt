@@ -1,0 +1,186 @@
+; Signatures of the methods of built-in classes for the parameter info. Generated with
+; a maintainer tool (tools/methodensignaturen, not published) from the class pages of the help, do not edit by hand.
+; Format: Class.Method Param1, [optional], ... One line per form; ";" = comment.
+
+Any.GetMethod [Name], [ParamCount]
+Any.HasBase BaseObj
+Any.HasMethod [Name], [ParamCount]
+Any.HasProp Name
+Any.Props
+Object.Call
+Object.Clone
+Object.DefineProp Name, Descriptor
+Object.DeleteProp Name
+Object.GetOwnPropDesc Name
+Object.HasOwnProp Name
+Object.OwnProps
+Object.__Ref Name
+Array.Call [Value], [Value2], [...]
+Array.Clone
+Array.Delete Index
+Array.Get Index, [Default]
+Array.Has Index
+Array.InsertAt Index, Value1, [Value2], [...]
+Array.Pop
+Array.Push [Value], [Value2], [...]
+Array.RemoveAt Index
+Array.RemoveAt Index, Length
+Array.__New [Value], [Value2], [...]
+Buffer.Call [ByteCount], [FillByte]
+Buffer.__New [ByteCount], [FillByte]
+Class.Call
+Class.Call [Name], [BaseClass], [Args*]
+Class.Call [BaseClass], [Args*]
+Class.Call Params*
+Error.Call Message, [What], [Extra]
+Error.Show [Mode]
+File.Read [Characters]
+File.Write String
+File.ReadLine
+File.WriteLine [String]
+File.ReadUInt
+File.ReadInt
+File.ReadInt64
+File.ReadShort
+File.ReadUShort
+File.ReadChar
+File.ReadUChar
+File.ReadDouble
+File.ReadFloat
+File.WriteUInt Num
+File.WriteInt Num
+File.WriteInt64 Num
+File.WriteShort Num
+File.WriteUShort Num
+File.WriteChar Num
+File.WriteUChar Num
+File.WriteDouble Num
+File.WriteFloat Num
+File.RawRead Buffer, [Bytes]
+File.RawWrite Data, [Bytes]
+File.Seek Distance, [Origin]
+File.Close
+Func.Call Param1, Param2, ...
+Func.Bind Param1, Param2, ...
+Func.IsByRef [ParamIndex]
+Func.IsOptional [ParamIndex]
+Enumerator.Call &OutputVar1, [&OutputVar2]
+Gui.Call [Options], [Title], [EventObj]
+Gui.Add ControlType, [Options], [Text]
+Gui.AddActiveX [Options], [Text]
+Gui.AddButton [Options], [Text]
+Gui.AddCheckBox [Options], [Text]
+Gui.AddComboBox [Options], [Text]
+Gui.AddCustom [Options], [Text]
+Gui.AddDateTime [Options], [Text]
+Gui.AddDropDownList [Options], [Text]
+Gui.AddDDL [Options], [Text]
+Gui.AddEdit [Options], [Text]
+Gui.AddGroupBox [Options], [Text]
+Gui.AddHotkey [Options], [Text]
+Gui.AddLink [Options], [Text]
+Gui.AddListBox [Options], [Text]
+Gui.AddListView [Options], [Text]
+Gui.AddMonthCal [Options], [Text]
+Gui.AddPicture [Options], [Text]
+Gui.AddPic [Options], [Text]
+Gui.AddProgress [Options], [Text]
+Gui.AddRadio [Options], [Text]
+Gui.AddSlider [Options], [Text]
+Gui.AddStatusBar [Options], [Text]
+Gui.AddTab [Options], [Text]
+Gui.AddTab2 [Options], [Text]
+Gui.AddTab3 [Options], [Text]
+Gui.AddText [Options], [Text]
+Gui.AddTreeView [Options], [Text]
+Gui.AddUpDown [Options], [Text]
+Gui.Destroy
+Gui.Flash [Blink]
+Gui.GetClientPos [&X], [&Y], [&Width], [&Height]
+Gui.GetPos [&X], [&Y], [&Width], [&Height]
+Gui.Hide
+Gui.Maximize
+Gui.Minimize
+Gui.Move [X], [Y], [Width], [Height]
+Gui.OnEvent EventName, Callback, [AddRemove]
+Gui.OnMessage MsgNumber, Callback, [AddRemove]
+Gui.Opt Options
+Gui.Restore
+Gui.SetFont [Options], [FontName]
+Gui.Show [Options]
+Gui.Submit [Hide]
+Gui.__New [Options], [Title], [EventObj]
+Gui.Control.Add Items
+Gui.Control.Choose Item
+Gui.Control.Delete [Item]
+Gui.Control.Focus
+Gui.Control.GetPos [&X], [&Y], [&Width], [&Height]
+Gui.Control.Move [X], [Y], [Width], [Height]
+Gui.Control.OnCommand NotifyCode, Callback, [AddRemove]
+Gui.Control.OnEvent EventName, Callback, [AddRemove]
+Gui.Control.OnMessage MsgNumber, Callback, [AddRemove]
+Gui.Control.OnNotify NotifyCode, Callback, [AddRemove]
+Gui.Control.Opt Options
+Gui.Control.Redraw
+Gui.Control.SetCue NewText
+Gui.Control.SetCue NewText, [ShowWhenFocused]
+Gui.Control.SetFont [Options], [FontName]
+Gui.DateTime.SetFormat [Format]
+Gui.Tab.UseTab [Tab], [FullNameMatch]
+Gui.ListView.Add [Options], [Col1], [Col2], [...]
+Gui.ListView.Insert RowNumber, [Options], [Col1], [Col2], [...]
+Gui.ListView.Modify RowNumber, [Options], [NewCol1], [NewCol2], [...]
+Gui.ListView.Delete [RowNumber]
+Gui.ListView.ModifyCol [ColumnNumber], [Options], [ColumnTitle]
+Gui.ListView.InsertCol [ColumnNumber], [Options], [ColumnTitle]
+Gui.ListView.DeleteCol ColumnNumber
+Gui.ListView.GetCount [Mode]
+Gui.ListView.GetNext [StartingRowNumber], [RowType]
+Gui.ListView.GetText RowNumber, [ColumnNumber]
+Gui.ListView.SetImageList ImageListID, [IconType]
+Gui.StatusBar.SetText NewText, [PartNumber], [Style]
+Gui.StatusBar.SetParts [Width1], [Width2], [...]
+Gui.StatusBar.SetIcon FileName, [IconNumber], [PartNumber]
+Gui.TreeView.Add Name, [ParentItemID], [Options]
+Gui.TreeView.Modify ItemID, [Options], [NewName]
+Gui.TreeView.Delete [ItemID]
+Gui.TreeView.GetSelection
+Gui.TreeView.GetCount
+Gui.TreeView.GetParent ItemID
+Gui.TreeView.GetChild ItemID
+Gui.TreeView.GetPrev ItemID
+Gui.TreeView.GetNext [ItemID], [ItemType]
+Gui.TreeView.GetText ItemID
+Gui.TreeView.Get ItemID, Attribute
+Gui.TreeView.SetImageList ImageListID, [IconType]
+InputHook.KeyOpt Keys, KeyOptions
+InputHook.Start
+InputHook.Stop
+InputHook.Wait [MaxTime]
+Map.Call Key1, Value1, Key2, Value2, ...
+Map.Clear
+Map.Clone
+Map.Delete Key
+Map.Get Key, [Default]
+Map.Has Key
+Map.Set [Key], [Value], [Key2], [Value2], [...]
+Map.__New [Key], [Value], [Key2], [Value2], [...]
+Menu.Call
+Menu.Add [MenuItemName], [CallbackOrSubmenu], [Options]
+Menu.AddStandard
+Menu.Check MenuItemName
+Menu.Delete [MenuItemName]
+Menu.Disable MenuItemName
+Menu.Enable MenuItemName
+Menu.Insert [MenuItemName], [ItemToInsert], [CallbackOrSubmenu], [Options]
+Menu.Rename MenuItemName, [NewName]
+Menu.SetColor [ColorValue], [ApplyToSubmenus]
+Menu.SetIcon MenuItemName, FileName, [IconNumber], [IconWidth]
+Menu.Show [X], [Y], [Wait]
+Menu.ToggleCheck MenuItemName
+Menu.ToggleEnable MenuItemName
+Menu.Uncheck MenuItemName
+Struct.Call
+Struct.At Address
+Struct.__New [Values...]
+Struct.__Ref Name

@@ -11,10 +11,13 @@ import com.intellij.psi.util.PsiTreeUtil;
 import de.kumpewo.autohotkey.documentation.AhkDocumentationProvider;
 import de.kumpewo.autohotkey.documentation.AhkHelpRepository;
 import de.kumpewo.autohotkey.include.AhkInclude;
+import de.kumpewo.autohotkey.module.AhkModules;
+import de.kumpewo.autohotkey.parser.AhkLanguageLevel;
 import de.kumpewo.autohotkey.psi.AhkClass;
 import de.kumpewo.autohotkey.psi.AhkClassProperty;
 import de.kumpewo.autohotkey.psi.AhkDefinitions;
 import de.kumpewo.autohotkey.psi.AhkFunc;
+import de.kumpewo.autohotkey.psi.AhkMemberExpr;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -35,7 +38,12 @@ import java.util.List;
  *   <li>{@link Kind#BASE_CLASS}: first name after {@code extends} = top-level class;</li>
  *   <li>{@link Kind#NESTED_BASE_CLASS}: further names ({@code extends A.B}) = nested class B in A.</li>
  * </ul>
- * If there is no own definition but a help page for the name, the target is the help ({@link AhkHelpTarget}).
+ * In v2.1 files the modules decide ({@link AhkModules}): a free-standing name or base class finds the
+ * definitions of its own module, otherwise what the module imports (also global variables of imported modules);
+ * a name after a module ({@code X.Name}, {@code extends X.Base}) finds what the module exports. Names after the dot
+ * of other objects still find the members of all classes of the file and its includes.
+ * If there is no own definition but a help page for the name, the target is the help ({@link AhkHelpTarget}); this
+ * includes {@code AHK.Name} after {@code #Import AHK}.
  */
 public final class AhkDefinitionReference extends PsiPolyVariantReferenceBase<PsiElement> {
 
@@ -55,18 +63,29 @@ public final class AhkDefinitionReference extends PsiPolyVariantReferenceBase<Ps
         this.outerClass = outerClass;
     }
 
+    /** Which definitions the name can refer to. */
+    public @NotNull Kind kind() {
+        return kind;
+    }
+
     /** All matching definitions; without any, the help target if the name has help. */
     @Override
     public ResolveResult @NotNull [] multiResolve(boolean incompleteCode) {
-        List<PsiElement> targets = definitions(myElement.getContainingFile());
+        PsiFile file = myElement.getContainingFile();
+        List<PsiElement> targets = definitions(file);
         if (targets.isEmpty()) {
             int offset = myElement.getTextRange().getStartOffset() + getRangeInElement().getStartOffset();
-            PsiFile file = myElement.getContainingFile();
-            // Topics by role as in the quick documentation (Gui.Button instead of Button, variants);
-            // with several variants the quick documentation shows the overview page
-            PsiElement leaf = file == null ? null : file.findElementAt(offset);
-            boolean hasHelp = leaf == null ? AhkHelpRepository.topic(name) != null
-                    : !AhkDocumentationProvider.topics(leaf, null).isEmpty();
+            AhkLanguageLevel level = AhkLanguageLevel.of(myElement);
+            boolean hasHelp;
+            if (builtinModuleMember()) {
+                hasHelp = AhkHelpRepository.topic(level, name) != null;
+            } else {
+                // Topics by role as in the quick documentation (Gui.Button instead of Button, variants);
+                // with several variants the quick documentation shows the overview page
+                PsiElement leaf = file == null ? null : file.findElementAt(offset);
+                hasHelp = leaf == null ? AhkHelpRepository.topic(level, name) != null
+                        : !AhkDocumentationProvider.topics(leaf, null).isEmpty();
+            }
             if (hasHelp) {
                 targets = List.of(new AhkHelpTarget(name, myElement, offset));
             }
@@ -74,7 +93,7 @@ public final class AhkDefinitionReference extends PsiPolyVariantReferenceBase<Ps
         return PsiElementResolveResult.createResults(targets);
     }
 
-    /** Rename (Z.20): replaces the name in the element (only the range of this reference). */
+    /** Rename: replaces the name in the element (only the range of this reference). */
     @Override
     public PsiElement handleElementRename(@NotNull String newElementName) {
         return de.kumpewo.autohotkey.psi.AhkRenames.replaceRange(myElement, getRangeInElement(), newElementName);
@@ -86,7 +105,7 @@ public final class AhkDefinitionReference extends PsiPolyVariantReferenceBase<Ps
      */
     public @NotNull List<PsiElement> definitionsIn(@NotNull java.util.Collection<PsiFile> files) {
         List<PsiElement> result = new ArrayList<>();
-        for (PsiFile file : files) result.addAll(definitionsIn(file));
+        for (PsiFile file : files) result.addAll(definitionsIn(file, kind, name, outerClass));
         return result;
     }
 
@@ -96,26 +115,74 @@ public final class AhkDefinitionReference extends PsiPolyVariantReferenceBase<Ps
         return EMPTY_ARRAY;   // completion is done by AhkCompletionContributor
     }
 
-    /** Definitions in the file itself, then in the files included directly with #Include. */
+    /** Definitions in the file itself, then in the files included directly with #Include; in v2.1 by module. */
     private List<PsiElement> definitions(@Nullable PsiFile file) {
         List<PsiElement> result = new ArrayList<>();
         if (file == null) return result;
-        result.addAll(definitionsIn(file));
-        for (PsiFile included : AhkInclude.includedFiles(file)) result.addAll(definitionsIn(included));
+        if (AhkModules.isActive(file)) {
+            List<PsiElement> modular = moduleDefinitions();
+            if (modular != null) return modular;
+        }
+        result.addAll(definitionsIn(file, kind, name, outerClass));
+        for (PsiFile included : AhkInclude.includedFiles(file)) result.addAll(definitionsIn(included, kind, name, outerClass));
         return result;
     }
 
+    /**
+     * Definitions through the modules (v2.1); {@code null} if the modules do not decide (a name after the dot of
+     * an object that is no module, {@code extends A.B} with a class A).
+     */
+    private @Nullable List<PsiElement> moduleDefinitions() {
+        switch (kind) {
+            case FREE, BASE_CLASS -> {
+                return AhkModules.resolve(myElement, name, finder(kind, name, null), kind == Kind.FREE).targets();
+            }
+            case MEMBER -> {
+                AhkModules.Module module = qualifierModule();
+                if (module == null) return null;
+                return AhkModules.exports(module, name, finder(Kind.FREE, name, null), true).targets();
+            }
+            case NESTED_BASE_CLASS -> {
+                if (outerClass == null) return null;
+                AhkModules.Module module = AhkModules.resolve(myElement, outerClass, finder(Kind.FREE, outerClass, null), false).module();
+                if (module == null) return null;
+                return AhkModules.exports(module, name, finder(Kind.BASE_CLASS, name, null), false).targets();
+            }
+        }
+        return null;
+    }
+
+    /** The module left of the dot of a name after the dot ({@code X.Name}), or {@code null}. */
+    private @Nullable AhkModules.Module qualifierModule() {
+        if (kind != Kind.MEMBER || !(myElement instanceof AhkMemberExpr)) return null;
+        PsiElement qualifier = myElement.getFirstChild();
+        return qualifier == null ? null : AhkModules.qualifierModule(qualifier, n -> finder(Kind.FREE, n, null));
+    }
+
+    /** {@code AHK.Name} after {@code #Import AHK}: the target is the help of the built-in name. */
+    private boolean builtinModuleMember() {
+        PsiFile file = myElement.getContainingFile();
+        if (!AhkModules.isActive(file)) return false;
+        AhkModules.Module module = qualifierModule();
+        return module != null && module.isBuiltin();
+    }
+
+    /** Finder for the module logic: the definitions of one kind and name in a whole file. */
+    public static @NotNull AhkModules.Finder finder(@NotNull Kind kind, @NotNull String name, @Nullable String outerClass) {
+        return file -> definitionsIn(file, kind, name, outerClass);
+    }
+
     /** Definitions of one file, sorted by position. */
-    private List<PsiElement> definitionsIn(PsiFile file) {
+    private static List<PsiElement> definitionsIn(PsiFile file, Kind kind, String name, @Nullable String outerClass) {
         List<PsiElement> result = new ArrayList<>();
         if (kind == Kind.FREE || kind == Kind.MEMBER) {
             for (AhkFunc func : PsiTreeUtil.findChildrenOfType(file, AhkFunc.class)) {
-                if (matches(func) && isMember(func) == (kind == Kind.MEMBER)) result.add(func);
+                if (matches(func, name) && isMember(func) == (kind == Kind.MEMBER)) result.add(func);
             }
         }
         if (kind == Kind.MEMBER) {
             for (AhkClassProperty property : PsiTreeUtil.findChildrenOfType(file, AhkClassProperty.class)) {
-                if (matches(property) && isMember(property)) result.add(property);
+                if (matches(property, name) && isMember(property)) result.add(property);
             }
             for (AhkClass cls : PsiTreeUtil.findChildrenOfType(file, AhkClass.class)) {
                 for (AhkDefinitions.Field field : AhkDefinitions.fields(cls)) {
@@ -124,7 +191,7 @@ public final class AhkDefinitionReference extends PsiPolyVariantReferenceBase<Ps
             }
         }
         for (AhkClass cls : PsiTreeUtil.findChildrenOfType(file, AhkClass.class)) {
-            if (!matches(cls)) continue;
+            if (!matches(cls, name)) continue;
             AhkClass owner = AhkDefinitions.ownerClass(cls);
             boolean ok = switch (kind) {
                 case FREE, BASE_CLASS -> owner == null && PsiTreeUtil.getParentOfType(cls, AhkFunc.class) == null;
@@ -139,7 +206,7 @@ public final class AhkDefinitionReference extends PsiPolyVariantReferenceBase<Ps
     }
 
     /** Same name, case-insensitive. */
-    private boolean matches(PsiNameIdentifierOwner definition) {
+    private static boolean matches(PsiNameIdentifierOwner definition, String name) {
         return name.equalsIgnoreCase(definition.getName());
     }
 

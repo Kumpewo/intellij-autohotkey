@@ -76,10 +76,27 @@
     <param name="ImageNumber" value="11">
   </object>
   <li><object type="text/sitemap">
+    <param name="Name" value="Deploying tools and setting versions">
+    <param name="Local" value="extra\installer.htm">
+    <param name="ImageNumber" value="11">
+  </object>
+  <li><object type="text/sitemap">
     <param name="Name" value="Debugger">
     <param name="Local" value="extra\debugger.htm">
     <param name="ImageNumber" value="11">
   </object>
+  <li><object type="text/sitemap">
+    <param name="Name" value="AutoHotkey v2.1 (alpha)">
+    <param name="Local" value="extra\v21.htm">
+    <param name="ImageNumber" value="11">
+  </object>
+  <ul>
+    <li><object type="text/sitemap">
+      <param name="Name" value="Modules">
+      <param name="Local" value="extra\modules.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+  </ul>
   <li><object type="text/sitemap">
     <param name="Name" value="Pragmas">
     <param name="Local" value="extra\pragmas.htm">

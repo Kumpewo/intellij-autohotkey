@@ -20,7 +20,7 @@ public abstract class AhkClassMixin extends ASTWrapperPsiElement implements Item
         super(node);
     }
 
-    /** Rename (Z.20): replaces the name token of the class. */
+    /** Rename: replaces the name token of the class. */
     @Override
     public PsiElement setName(@NonNls @NotNull String name) {
         AhkRenames.replaceLeaf(getNameIdentifier(), name);

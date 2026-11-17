@@ -37,7 +37,8 @@ import java.util.concurrent.CompletableFuture;
  * value" link), numbers, {@code unset} for undefined values, objects with their class. Children are loaded page by
  * page ({@code property_get -p}); a full page gets a "more" link with the number of remaining children (for
  * {@code Array}/{@code Map} from {@code Length}/{@code Count}, because the engine's {@code numchildren} does not count
- * their entries). Values can be set ({@link AhkValueText} rules) and added to the watches ({@code fullName}).
+ * their entries; AutoHotkey v2.1 reports no {@code numchildren} at all, then other objects get a "more" link without
+ * a number). Values can be set ({@link AhkValueText} rules) and added to the watches ({@code fullName}).
  */
 final class AhkValue extends XNamedValue {
 
@@ -175,11 +176,16 @@ final class AhkValue extends XNamedValue {
             node.addChildren(XValueChildrenList.EMPTY, true);
             return;
         }
-        loadPage(node, 0, 0);
+        loadPage(node, 0, 0, 0);
     }
 
-    /** Adds one page; if it is full, offers the next page with the number of remaining children. */
-    private void loadPage(@NotNull XCompositeNode node, int page, int loadedBefore) {
+    /**
+     * Adds one page; if it is full, offers the next page with the number of remaining children (without a number if
+     * the total is unknown; then the last offered page may turn out empty).
+     *
+     * @param members children of page 0 that are not entries ({@link #members}); only used for Array and Map
+     */
+    private void loadPage(@NotNull XCompositeNode node, int page, int loadedBefore, int members) {
         controller.propertyGet(epoch, property.fullName(), context, level, page).thenCompose(response -> {
             List<DbgpProperty> children = response.properties().isEmpty() ? List.of()
                     : response.properties().get(0).children();
@@ -187,14 +193,16 @@ final class AhkValue extends XNamedValue {
             XValueChildrenList list = new XValueChildrenList();
             for (DbgpProperty child : children) list.add(new AhkValue(controller, epoch, context, level, child));
             int loaded = loadedBefore + children.size();
+            int fixed = page == 0 ? members(children) : members;
             if (pageSize <= 0 || children.size() < pageSize) {
                 node.addChildren(list, true);
                 return CompletableFuture.completedFuture(null);
             }
-            return total().thenAccept(total -> {
-                int remaining = total - loaded;
-                node.addChildren(list, remaining <= 0);
-                if (remaining > 0) node.tooManyChildren(remaining, () -> loadPage(node, page + 1, loaded));
+            return total(fixed).thenAccept(total -> {
+                boolean more = total < 0 || total > loaded;
+                node.addChildren(list, !more);
+                if (more) node.tooManyChildren(total < 0 ? -1 : total - loaded,
+                        () -> loadPage(node, page + 1, loaded, fixed));
             });
         }).exceptionally(error -> {
             node.setErrorMessage(AhkStackFrame.message(error));
@@ -203,10 +211,24 @@ final class AhkValue extends XNamedValue {
     }
 
     /**
-     * Number of children including {@code <base>}: for Array and Map {@code Length}/{@code Count} + 1, otherwise
-     * {@code numchildren}.
+     * Children of page 0 that are not entries ({@code [1]}, {@code ["key"]}): {@code <base>}, own properties and,
+     * from AutoHotkey v2.1 on, the inherited properties ({@code Length}, {@code Capacity}, {@code Count} …). The
+     * engine lists them before the entries.
      */
-    private @NotNull CompletableFuture<Integer> total() {
+    private static int members(@NotNull List<DbgpProperty> children) {
+        int count = 0;
+        for (DbgpProperty child : children) {
+            if (!child.name().startsWith("[")) count++;
+        }
+        return count;
+    }
+
+    /**
+     * Number of children, or {@code -1} if unknown: for Array and Map {@code Length}/{@code Count} plus the
+     * {@code members} of page 0 (the engine's {@code numchildren} does not count the entries), otherwise
+     * {@code numchildren} (AutoHotkey v2.1 does not report it: unknown).
+     */
+    private @NotNull CompletableFuture<Integer> total(int members) {
         String countMember = switch (property.className()) {
             case "Array" -> "Length";
             case "Map" -> "Count";
@@ -216,7 +238,7 @@ final class AhkValue extends XNamedValue {
         return controller.propertyGet(epoch, property.fullName() + "." + countMember, context, level)
                 .thenApply(response -> {
                     try {
-                        return Integer.parseInt(response.properties().get(0).value()) + 1;
+                        return Integer.parseInt(response.properties().get(0).value()) + members;
                     } catch (RuntimeException e) {
                         return property.numChildren();
                     }

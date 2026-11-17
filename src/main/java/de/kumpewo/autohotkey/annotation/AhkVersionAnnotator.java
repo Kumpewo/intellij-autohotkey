@@ -14,6 +14,7 @@ import com.intellij.psi.tree.IElementType;
 import com.intellij.psi.util.CachedValueProvider;
 import com.intellij.psi.util.CachedValuesManager;
 import com.intellij.psi.util.PsiTreeUtil;
+import de.kumpewo.autohotkey.parser.AhkLanguageLevel;
 import de.kumpewo.autohotkey.parser.AhkVersion;
 import de.kumpewo.autohotkey.psi.AhkOtherVersionCode;
 import de.kumpewo.autohotkey.psi.AhkTypes;
@@ -24,7 +25,7 @@ import org.jetbrains.annotations.Nullable;
  * AutoHotkey version (#Requires, see AhkVersion and AhkParserUtil.otherVersion):
  *  * File for another version (element OTHER_VERSION_CODE): warning at the deciding #Requires line.
  *  * File without "#Requires AutoHotkey ..." with a version: weak warning in the first line, with a quick fix for
- *    "#Requires AutoHotkey v2.0". If the syntax detection of the AutoHotkey launcher (AhkVersionDetector, in the
+ *    the #Requires line of the file's level (AhkAddRequiresFix.lineFor: v2.0, or v2.1 if that is the default). If the syntax detection of the AutoHotkey launcher (AhkVersionDetector, in the
  *    background) says v1: a warning instead, with the fix for "#Requires AutoHotkey v1.1" first.
  */
 public class AhkVersionAnnotator implements Annotator {
@@ -58,18 +59,20 @@ public class AhkVersionAnnotator implements Annotator {
             holder.newAnnotation(HighlightSeverity.WARNING, AhkBundle.message("annotator.requires.v1", detected.marks()))
                     .range(range)
                     .withFix(new AhkAddRequiresFix(AhkAddRequiresFix.LINE_V1, PriorityAction.Priority.HIGH))
-                    .withFix(new AhkAddRequiresFix(AhkAddRequiresFix.LINE, PriorityAction.Priority.NORMAL))
+                    .withFix(new AhkAddRequiresFix(AhkAddRequiresFix.lineFor(AhkLanguageLevel.of(file)),
+                            PriorityAction.Priority.NORMAL))
                     .create();
             return;
         }
         holder.newAnnotation(HighlightSeverity.WEAK_WARNING, AhkBundle.message("annotator.requires.missing"))
                 .range(range)
-                .withFix(new AhkAddRequiresFix())
+                .withFix(new AhkAddRequiresFix(AhkAddRequiresFix.lineFor(AhkLanguageLevel.of(file)),
+                        PriorityAction.Priority.HIGH))
                 .create();
     }
 
     /** Offset of the first leaf of the file that is not whitespace/line break (-1: none). */
-    private static int firstLeafOffset(PsiElement element) {
+    static int firstLeafOffset(PsiElement element) {
         PsiFile file = element.getContainingFile();
         if (file == null) return -1;
         return CachedValuesManager.getCachedValue(file, () -> {
@@ -86,7 +89,7 @@ public class AhkVersionAnnotator implements Annotator {
     }
 
     /** Is there a #Requires directive with an AutoHotkey version? */
-    private static boolean hasVersionRequires(PsiFile file) {
+    static boolean hasVersionRequires(PsiFile file) {
         return CachedValuesManager.getCachedValue(file, () -> {
             boolean found = false;
             for (PsiElement leaf = PsiTreeUtil.firstChild(file); leaf != null; leaf = PsiTreeUtil.nextLeaf(leaf)) {
@@ -119,6 +122,6 @@ public class AhkVersionAnnotator implements Annotator {
         ASTNode args = n.getTreeNext();
         while (args != null && args.getElementType() == TokenType.WHITE_SPACE) args = args.getTreeNext();
         if (args == null || args.getElementType() != AhkTypes.DIRECTIVE_ARGS) return null;
-        return AhkVersion.requiresV2(args.getText()) != null ? args : null;
+        return AhkVersion.level(args.getText()) != null ? args : null;
     }
 }

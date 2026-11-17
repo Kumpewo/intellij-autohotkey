@@ -28,7 +28,7 @@ public final class AhkHelpTarget extends FakePsiElement {
     private final PsiElement host;
     private final int offset;
 
-    AhkHelpTarget(@NotNull String name, @NotNull PsiElement host, int offset) {
+    public AhkHelpTarget(@NotNull String name, @NotNull PsiElement host, int offset) {
         this.name = name;
         this.host = host;
         this.offset = offset;

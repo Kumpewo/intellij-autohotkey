@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Tab "Doc Comments" of the code style page (Z.23): main switch and the switches of {@link AhkDocCommentFormatter} in
+ * Tab "Doc Comments" of the code style page: main switch and the switches of {@link AhkDocCommentFormatter} in
  * the groups Alignment, Blank lines, Other and Tags, like the JavaDoc tab of Java. With a preview. The switches are
  * the boolean fields DOC_* of {@link AhkCodeStyleSettings} (read and written by name).
  */
@@ -201,7 +201,7 @@ final class AhkDocCommentCodeStylePanel extends CodeStyleAbstractPanel {
     }
 
     // Preview: untidy doc comments in a class (the preview formats through the PSI, AhkFormattingModel keeps its
-    // line breaks, Z.25)
+    // line breaks)
     private static final String SAMPLE = """
             class Box {
             /**

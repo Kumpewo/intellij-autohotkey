@@ -7,6 +7,7 @@ import com.intellij.psi.PsiFile;
 import com.intellij.psi.util.PsiTreeUtil;
 import de.kumpewo.autohotkey.highlighting.AhkColors;
 import de.kumpewo.autohotkey.highlighting.AhkNames;
+import de.kumpewo.autohotkey.parser.AhkLanguageLevel;
 import de.kumpewo.autohotkey.psi.AhkDirective;
 import de.kumpewo.autohotkey.psi.AhkTypes;
 import de.kumpewo.autohotkey.settings.AhkSettings;
@@ -30,7 +31,8 @@ import java.util.regex.Pattern;
  * <ul>
  *   <li>{@code #Include <Name>}: {@code Name.ahk} in {@code A_ScriptDir\Lib}, {@code A_MyDocuments\AutoHotkey\Lib},
  *       {@code directory-of-AutoHotkey.exe\Lib}; if not found and the name contains {@code _}: again with the part
- *       before the first {@code _}.</li>
+ *       before the first {@code _}. In v2.1 files the directory of the file first, the exact name before
+ *       {@code Name.ahk} and no {@code _} rule ({@link #library}).</li>
  *   <li>{@code #Include File/Directory}: optionally in quotes, optionally with {@code *i } before it,
  *       {@code %A_…%} variables. Relative to the directory of the file, unless an earlier
  *       {@code #Include Directory} in the same file has set another one.</li>
@@ -140,7 +142,7 @@ public final class AhkInclude {
         if (range == null) return null;
         String argument = range.substring(directive.getText());
         if (argument.length() > 2 && argument.startsWith("<") && argument.endsWith(">")) {
-            return library(argument.substring(1, argument.length() - 1).trim(), file);
+            return library(argument.substring(1, argument.length() - 1).trim(), file, AhkLanguageLevel.of(directive));
         }
         argument = unquote(argument);
         if (argument.regionMatches(true, 0, "*i ", 0, 3)) argument = argument.substring(3).trim();
@@ -156,50 +158,131 @@ public final class AhkInclude {
         }
     }
 
-    /** Library {@code <Name>}: first existing file in the Lib folders. */
-    private static @Nullable Path library(String name, Path file) {
+    /**
+     * Library {@code <Name>}: first existing file in the Lib folders ({@link #libraryDirectories}). The search depends
+     * on the language level of the file with the {@code #Include} (AutoHotkey: on the mode in effect there):
+     * <ul>
+     *   <li>v2.0: {@code Name.ahk} in every folder; if not found and the name contains {@code _}, again with the part
+     *       before the first {@code _}.</li>
+     *   <li>v2.1: in each folder the exact name (a file, e.g. {@code Name} or {@code Name.txt}) before
+     *       {@code Name.ahk}; {@code _} has no special meaning.</li>
+     * </ul>
+     */
+    static @Nullable Path library(@NotNull String name, @NotNull Path file, @NotNull AhkLanguageLevel level) {
         if (name.isEmpty()) return null;
+        List<Path> directories = libraryDirectories(file, level);
+        if (level == AhkLanguageLevel.V2_1) {
+            for (Path dir : directories) {
+                Path exact = existingFile(dir, name);
+                if (exact != null) return exact;
+                Path ahk = existingFile(dir, name + ".ahk");
+                if (ahk != null) return ahk;
+            }
+            return null;
+        }
         List<String> candidates = new ArrayList<>();
         candidates.add(name);
         int underscore = name.indexOf('_');
         if (underscore > 0) candidates.add(name.substring(0, underscore));
         for (String candidate : candidates) {
-            for (Path dir : libraryDirectories(file)) {
-                try {
-                    Path target = dir.resolve(candidate + ".ahk").normalize();
-                    if (Files.isRegularFile(target)) return target;
-                } catch (InvalidPathException ignored) {
-                    // invalid name: next candidate
-                }
+            for (Path dir : directories) {
+                Path target = existingFile(dir, candidate + ".ahk");
+                if (target != null) return target;
             }
         }
         return null;
     }
 
-    /** Lib folders in search order: local, user, standard (next to AutoHotkey.exe). */
-    public static @NotNull List<Path> libraryDirectories(@NotNull Path file) {
+    /** The file {@code name} in {@code dir} if it exists (not a directory), otherwise {@code null}. */
+    private static @Nullable Path existingFile(@NotNull Path dir, @NotNull String name) {
+        try {
+            Path target = dir.resolve(name).normalize();
+            return Files.isRegularFile(target) ? target : null;
+        } catch (InvalidPathException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Folders for {@code #Include <Name>} in search order: for v2.1 first the directory of the file itself, then
+     * local Lib ({@code A_ScriptDir\Lib}, here the directory of the file), user and standard Lib
+     * ({@link #globalLibraryDirectories(AhkLanguageLevel)}); for v2.1 the folders of {@code AhkLibPath} instead of
+     * user and standard Lib if it is set ({@link #libPathDirectories}).
+     */
+    public static @NotNull List<Path> libraryDirectories(@NotNull Path file, @NotNull AhkLanguageLevel level) {
         List<Path> result = new ArrayList<>();
-        if (file.getParent() != null) result.add(file.getParent().resolve("Lib"));
-        result.addAll(globalLibraryDirectories());
+        if (file.getParent() != null) {
+            if (level == AhkLanguageLevel.V2_1) result.add(file.getParent());
+            result.add(file.getParent().resolve("Lib"));
+        }
+        if (level == AhkLanguageLevel.V2_1 && file.getParent() != null) {
+            result.addAll(libPathDirectories(file.getParent(), file));
+        } else {
+            result.addAll(globalLibraryDirectories(level));
+        }
+        return result;
+    }
+
+    /** Reads environment variables; replaced in tests. */
+    public static java.util.function.Function<String, String> environment = System::getenv;
+
+    /**
+     * The folders that AutoHotkey v2.1 searches after the local ones for {@code #Import} and {@code #Include <Name>}
+     * ("AhkLibPath Environment Variable" in {@code Scripts.htm}): the environment variable {@code AhkLibPath} of the
+     * IDE (a list separated by {@code ;}, with {@code %A_…%} variables, relative items relative to
+     * {@code moduleDirectory}); without it the user and the standard library
+     * ({@link #globalLibraryDirectories(AhkLanguageLevel)}). {@code file} gives the values of {@code A_ScriptDir} and
+     * {@code A_LineFile}. Whether the folders exist is not checked.
+     */
+    public static @NotNull List<Path> libPathDirectories(@NotNull Path moduleDirectory, @NotNull Path file) {
+        String value = environment.apply("AhkLibPath");
+        if (value == null) return globalLibraryDirectories(AhkLanguageLevel.V2_1);
+        List<Path> result = new ArrayList<>();
+        for (String item : value.split(";")) {
+            String expanded = expand(item.trim(), file);
+            if (expanded == null || expanded.isEmpty()) continue;
+            try {
+                Path path = Path.of(expanded);
+                Path dir = (path.isAbsolute() ? path : moduleDirectory.resolve(path)).normalize();
+                if (!result.contains(dir)) result.add(dir);
+            } catch (InvalidPathException ignored) {
+                // not a path: AutoHotkey skips it as well
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Global Lib folders of all language levels without duplicates (for the library "AutoHotkey Lib"). Whether they
+     * exist is not checked.
+     */
+    public static @NotNull List<Path> globalLibraryDirectories() {
+        List<Path> result = new ArrayList<>();
+        for (AhkLanguageLevel level : AhkLanguageLevel.selectable()) {
+            for (Path dir : globalLibraryDirectories(level)) {
+                if (!result.contains(dir)) result.add(dir);
+            }
+        }
         return result;
     }
 
     /**
      * Lib folders that don't depend on the script: user ({@code A_MyDocuments\AutoHotkey\Lib}) and standard (next
-     * to AutoHotkey.exe from the settings, for the launcher {@code UX\..\v2\Lib}). Whether they exist is not
-     * checked.
+     * to the interpreter: for v2.1 the v2.1 interpreter, {@link AhkSettings#findAutoHotkeyV21(int)}; otherwise
+     * AutoHotkey.exe from the settings, for the launcher {@code UX\..\v2\Lib}). Whether they exist is not checked.
      */
-    public static @NotNull List<Path> globalLibraryDirectories() {
+    public static @NotNull List<Path> globalLibraryDirectories(@NotNull AhkLanguageLevel level) {
         List<Path> result = new ArrayList<>();
         Path documents = myDocuments();
         if (documents != null) result.add(documents.resolve("AutoHotkey").resolve("Lib"));
-        String exe = AhkSettings.getInstance().findAutoHotkey();
+        boolean v21 = level == AhkLanguageLevel.V2_1;
+        String exe = v21 ? AhkSettings.getInstance().findAutoHotkeyV21(0) : AhkSettings.getInstance().findAutoHotkey();
         if (exe != null) {
             try {
                 Path exePath = Path.of(exe);
                 Path dir = exePath.getParent();
                 if (dir != null) {
-                    if (AhkSettings.launcherScript(exePath) != null && dir.getParent() != null) {
+                    if (!v21 && AhkSettings.launcherScript(exePath) != null && dir.getParent() != null) {
                         // Launcher (UX\AutoHotkeyUX.exe): the standard library is next to the v2 interpreter
                         result.add(dir.getParent().resolve("v2").resolve("Lib"));
                     } else {
@@ -211,6 +294,14 @@ public final class AhkInclude {
             }
         }
         return result;
+    }
+
+    /** Built-in variable of any language level (the path of an #Include does not depend on the level). */
+    private static boolean isBuiltinVariable(String name) {
+        for (de.kumpewo.autohotkey.parser.AhkLanguageLevel level : de.kumpewo.autohotkey.parser.AhkLanguageLevel.selectable()) {
+            if (AhkNames.get(level).nonMember(name) == AhkColors.AHK_BUILTIN_VARIABLE) return true;
+        }
+        return false;
     }
 
     /**
@@ -225,7 +316,7 @@ public final class AhkInclude {
         while (matcher.find()) {
             String name = matcher.group(1).toLowerCase(Locale.ROOT);
             String value = values.get(name);
-            if (value == null && AhkNames.nonMember(matcher.group(1)) == AhkColors.AHK_BUILTIN_VARIABLE) return null;
+            if (value == null && isBuiltinVariable(matcher.group(1))) return null;
             out.append(text, last, matcher.start()).append(value != null ? value : matcher.group());
             last = matcher.end();
         }

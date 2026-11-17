@@ -24,7 +24,7 @@
 
 <h2 id="Requirements">Requirements</h2>
 <ul>
-  <li>AutoHotkey v2 installed on Windows. The debugger always uses the v2 interpreter (<code>v2\AutoHotkey.exe</code>, or <code>AutoHotkey32.exe</code>/<code>AutoHotkey64.exe</code> with <code>32-bit</code>/<code>64-bit</code> in <code>#Requires</code>), also when the settings name the launcher.</li>
+  <li>AutoHotkey v2 installed on Windows. The debugger always uses the v2 interpreter (<code>v2\AutoHotkey.exe</code>, or <code>AutoHotkey32.exe</code>/<code>AutoHotkey64.exe</code> with <code>32-bit</code>/<code>64-bit</code> in <code>#Requires</code>), also when the settings name the launcher. Files of language level v2.1 use the <a href="settings.htm#ProgramV21">AutoHotkey v2.1 interpreter</a>.</li>
   <li>The script must load without errors. With a syntax error AutoHotkey does not start its debugger: the console shows the error (with a link) and the session ends.</li>
 </ul>
 
@@ -109,7 +109,7 @@ try {
   <li>The <strong>local variables</strong> of the selected frame (including parameters) are listed directly.</li>
   <li>The <strong>global variables</strong> are in the group <em>Global</em>; it is expanded automatically if the frame has no local variables (the top level of the script).</li>
   <li><strong>Built-in</strong> variables, classes and functions (<code>A_Index</code>, <code>A_Args</code>, <code>Gui</code>, <code>MsgBox</code> ...) are in the sub-group <em>Built-in</em> of <em>Global</em>, so that your own globals are easy to find.</li>
-  <li><strong>Objects</strong>, arrays and maps can be expanded. Array elements appear as <code>[1]</code>, <code>[2]</code> ..., map entries with their key, properties with their name; <code>&lt;base&gt;</code> is the prototype the object is based on. Large objects show 100 children at a time; a link at the end loads the next ones.</li>
+  <li><strong>Objects</strong>, arrays and maps can be expanded. Array elements appear as <code>[1]</code>, <code>[2]</code> ..., map entries with their key, properties with their name; <code>&lt;base&gt;</code> is the prototype the object is based on. Large objects show 100 children at a time; a link at the end loads the next ones. With AutoHotkey v2.1 an object also shows the properties it inherits (e.g. <code>Length</code> and <code>Capacity</code> of an array, values of getters) and its prototype as <code>Name.Prototype</code>; the link on a large object (not an array or map) cannot say how many children remain.</li>
   <li>Next to the value the debugger shows its type as reported by AutoHotkey (<code>integer</code>, <code>string</code>, <code>float</code> ...), for an object its class (<code>Array</code>, <code>Map</code>, <code>Cart</code> ...).</li>
 </ul>
 

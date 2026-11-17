@@ -18,7 +18,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Enter in doc comments (Z.22):
+ * Enter in doc comments:
  * <ul>
  *   <li>directly after {@code /**} (nothing else in the line, the comment not yet continued below): closes the
  *       comment; before a function or method with one {@code @param} line per parameter and {@code @returns} if it

@@ -1,0 +1,10 @@
+; Built-in classes of AutoHotkey v2.1: only the differences to names/classes.txt (a name is added, "-Name" removes
+; it). Source: help/v2.1/docs/objlist.htm and structs.htm#numeric-types (v2.1-alpha.39). The class "Module" of
+; module aliases is not a global name and therefore not listed. See AhkResources.java.
+
+Struct
+PropRef
+Int8 Int16 Int32 Int64
+UInt8 UInt16 UInt32
+IntPtr
+Float32 Float64

@@ -30,7 +30,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Rename (Shift+F6, Z.20) of functions, methods, classes, properties, fields and labels (local variables and
+ * Rename (Shift+F6) of functions, methods, classes, properties, fields and labels (local variables and
  * parameters are renamed in place, see AhkRefactoringSupportProvider):
  * <ul>
  *   <li>always with preview: all occurrences appear in the Find tool window, single occurrences or files can be

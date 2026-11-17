@@ -24,7 +24,7 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Local variables and parameters of functions (Z.27), resolved by the rules of AutoHotkey v2 ("Local and Global
+ * Local variables and parameters of functions, resolved by the rules of AutoHotkey v2 ("Local and Global
  * Variables" and "Nested Functions" in {@code Functions.htm}). Used by navigation, Find Usages, Rename, the
  * highlighting of occurrences and completion; only inside functions, global variables are not resolved.
  * <p>
@@ -139,7 +139,7 @@ public final class AhkLocals {
 
     /** The local variable that {@code name} names inside {@code scope}, or {@code null}. */
     public static @Nullable Local resolve(@NotNull String name, @NotNull PsiElement scope) {
-        if (AhkNames.nonMember(name) == AhkColors.AHK_BUILTIN_VARIABLE) return null;   // never local
+        if (AhkNames.of(scope).nonMember(name) == AhkColors.AHK_BUILTIN_VARIABLE) return null;   // never local
         String key = key(name);
         Info own = info(scope);
         PsiElement definition = own.parameters.get(key);
@@ -324,13 +324,22 @@ public final class AhkLocals {
 
     /**
      * Is the name a built-in function or class, or a function or class (outside of classes) of the file or of a file
-     * it includes directly?
+     * it includes directly? In v2.1 files one of the module of {@code context} or one it imports.
      */
     private static boolean isFunctionOrClass(String name, PsiElement context) {
-        var role = AhkNames.nonMember(name);
+        var role = AhkNames.of(context).nonMember(name);
         if (role == AhkColors.AHK_BUILTIN_FUNCTION || role == AhkColors.AHK_BUILTIN_CLASS) return true;
         PsiFile file = context.getContainingFile();
-        return file != null && ownFunctionsAndClasses(file).contains(key(name));
+        if (file == null) return false;
+        if (de.kumpewo.autohotkey.module.AhkModules.isActive(file) && de.kumpewo.autohotkey.module.AhkModules.usesModules(file)) {
+            for (PsiElement target : de.kumpewo.autohotkey.module.AhkModules.resolve(context, name,
+                    de.kumpewo.autohotkey.navigation.AhkDefinitionReference.finder(
+                            de.kumpewo.autohotkey.navigation.AhkDefinitionReference.Kind.FREE, name, null), false).targets()) {
+                if (target instanceof AhkFunc || target instanceof AhkClass) return true;
+            }
+            return false;
+        }
+        return ownFunctionsAndClasses(file).contains(key(name));
     }
 
     /** Names of the functions and classes outside of classes in the file and its direct includes (lower case). */

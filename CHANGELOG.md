@@ -4,6 +4,101 @@
 
 ## [Unreleased]
 
+### Added
+
+- First support for AutoHotkey v2.1 (alpha): each file has a language level, v2.0 or v2.1, from its `#Requires`
+  (a version of 2.1 or later means v2.1); files without `#Requires` use the new setting *Language level*
+  (default v2.0). In v2.1 files the new built-in names of v2.1-alpha.39 are highlighted and completed, with
+  parameter info, and the popup help shows the pages of v2.1-alpha.39.
+- First v2.1 syntax: the operators `!~=`, `??=` and `a?.b` (optional chain) and struct definitions
+  (`struct Name { ... }`); in v2.0 files they are errors "Requires AutoHotkey v2.1".
+- Mandatory parameters after optional ones (`f(a?, b)`) are allowed in v2.1 files; in v2.0 files they are now
+  reported as an error "Parameter default required", as AutoHotkey v2.0 does.
+- Modules: `#Module Name` and `#Import [Export] Name [as Alias] [{ *, Name [as Alias], ... }]` (also across
+  lines inside the braces) are parsed, formatted and checked (where they are allowed, the module name); in v2.0 files
+  they are errors "Requires AutoHotkey v2.1".
+- Module namespaces in v2.1 files: each `#Module` (and `__Main`) has its own functions and classes for navigation,
+  Find Usages, Rename, completion, parameter info and highlighting; `#Import` with module name, alias, list and
+  `{*}` (also passed on with `Export`) makes names visible; `X.Name` goes to what module X offers (also its global
+  variables), `AHK.Name` to the help. Module files are found in the search path of AutoHotkey (folder of the file,
+  `AhkLibPath` or the user and standard library; `Name`, `Name\__Init.ahk`, `Name.ahk`, `"Path:Name"`); Ctrl+B on
+  the module name opens the `#Module` or the file. Find Usages and Rename also search files that import the
+  definition's file; `#Module` names and aliases can be renamed. Completion after `#Import`, in its braces and
+  after `X.`. A built-in function a module defines itself is no longer colored as built-in. Errors "Module not
+  found" and for an import that conflicts with an own definition, a warning for a name the module does not have.
+  The structure view groups the definitions by module; `#Module` sections can be folded.
+- `AhkLibPath` (environment variable of the IDE) is used for `#Include <Name>` in v2.1 files, as in AutoHotkey.
+- Function definition expressions (`x := f(a) { ... }`, `SetTimer(() { ... }, 100)`): parsed and formatted like
+  functions, with navigation, completion, parameter info and local variables (closures); in v2.0 files they are
+  errors "Requires AutoHotkey v2.1".
+- Typed properties in classes and structs (`x : Int32 := 0`, `x : Int32, y : Int32`, `union { ... }`): parsed,
+  formatted and checked; they are fields of the class for navigation, completion, Find Usages and Rename. In v2.0
+  files they are errors "Requires AutoHotkey v2.1".
+- `Throw` as a function in expressions (`x := c ? 1 : throw(Error())`, `f := Throw`); in v2.0 files an error
+  "Requires AutoHotkey v2.1".
+- v2.1 files are run, validated and debugged with the AutoHotkey v2.1 interpreter, never through the launcher
+  (which does not know an alpha that was only unpacked): new setting *AutoHotkey v2.1 interpreter*, empty = the
+  newest installed version 2.1 or later (version folders such as `v2.1-alpha.39`, or listed by the launcher).
+  Shift+F1 in v2.1 files opens the `AutoHotkey.chm` of that interpreter.
+- `#Include <Name>` in v2.1 files is resolved as AutoHotkey v2.1 does it: the directory of the file first, the
+  exact name before `Name.ahk`, no special meaning of `_`, the standard library next to the v2.1 interpreter.
+- Debugger with AutoHotkey v2.1: expanding large arrays, maps and objects loads every child (the v2.1 engine also
+  lists inherited properties and does not count the children).
+- The language level of the current file is shown in the status bar (`AHK v2.1`; click = go to `#Requires` or open
+  the settings) and in grey after AutoHotkey files in the Project view (can be switched off in the settings).
+- *Alt+Enter* offers to insert `#Requires` anywhere in a file without `#Requires`, not only in the first line. The
+  line matches the language level: with the default level v2.1 it is the version of the v2.1 interpreter
+  (`#Requires AutoHotkey v2.1-alpha.39`, otherwise `v2.1-`).
+- *Help > AutoHotkey v2.0 Help* and *Help > AutoHotkey v2.1 Help* (formerly *AutoHotkey Help*) open the help of
+  each version; without an installed `AutoHotkey.chm` they open the copy of the help that ships with the plugin in
+  the browser.
+- *Code > Deploy to Local Target...*: copies a tool to a fixed folder as described by a `settings.ahk-plugin.ini`
+  next to the script (`[Install]`, `[Overwrite]`, `[KeepExisting]`; targets with `%DESTINATION%` and environment
+  variables, wildcards, copying with administrator rights), optionally after compiling it. Everything is checked and
+  confirmed before anything happens.
+- *Code > Set Version...*: changes the version in the line `;@Ahk2Exe-SetVersion` of the script (next patch, minor,
+  major or any version), commits only this file and sets the tag `<TagPrefix>/v<version>` (prefix from `[Version]`
+  of `settings.ahk-plugin.ini`); commit and tag are optional, Git is not required. New manual page "Deploying tools
+  and setting versions".
+- *Code > Create settings.ahk-plugin.ini*: writes a documented default file with all options commented out.
+
+### Changed
+
+- The head of compiler directives (*Alt+Enter > Add Ahk2Exe compiler directives*) now sets the version with
+  `;@Ahk2Exe-SetVersion` (the line that *Set Version...* changes) and writes product name, description and
+  copyright directly, aligned and without quotes (Ahk2Exe would keep them in the executable), instead of script
+  variables read with `A_PriorLine`.
+- Manual: new chapter "AutoHotkey v2.1 (alpha)" with everything about v2.1 (language level, new syntax, validation
+  with the alpha, known limitations), modules as its sub-page, and a notice on the start page that v2.0 is fully
+  supported while v2.1 support is in development.
+
+### Fixed
+
+- Find Usages and Rename of a field now also work at its definition (`count := 0`, a typed property `left : Int32`),
+  not only at a use such as `this.left`.
+- The structure view shows the fields (typed ones with their type) and properties of a class.
+- `struct` is no longer treated as a keyword: in AutoHotkey v2.0 it is an ordinary name and does not define a class.
+
+Forms from the AutoHotkey help examples that AutoHotkey accepts, but the plugin marked as errors:
+
+- Continuation sections outside a string (`MsgBox(⏎(⏎"a: " x "⏎b"⏎))`, `Var :=⏎(⏎…⏎)`, options like
+  `( LTrim Join`), with strings spanning lines; a continuation section as the replacement text of a hotstring.
+  *Reformat Code* leaves continuation sections unchanged.
+- `this` as a parameter name (`(this) => …`, `f(this) { }`, `this => …`).
+- Member names starting with a digit (`m.0`, `obj.1a`).
+- Function call statements whose first argument starts with `!`, `~`, `&`, `++`/`--` or an object literal
+  (`SetCapsLockState !x`, `ToolTip ++n`, `WinActivate {Hwnd: id}`, `WinGetClientPos &X, &Y,,, "A"`).
+- Dynamic property names in object literals (`{%name%: value}`).
+- `*/` in the middle of a line no longer ends a block comment (only at the start or end of a line).
+- `static` alone as the first statement of a function (assume-static).
+- Code after `{` when the brace starts its line or follows `else`/`try`/`finally` (`if x⏎{ MsgBox "a"`), and code
+  after a closing `}` on the same line.
+- A ternary whose `:` ends the line, with the last operand on a following line (`x := a ?⏎b :⏎c`).
+- A line starting with `.Name` continues a method chain also outside parentheses
+  (`wmi.ExecQuery(…)⏎._NewEnum()`).
+- Hotkeys for a quote key (`^+"::`, `'::`).
+- Named fat arrow functions in expressions (`sumfn := Sum(a, b) => a + b`); they are parsed as functions.
+
 ## [1.1.0] - 2026-11-15
 
 ### Added

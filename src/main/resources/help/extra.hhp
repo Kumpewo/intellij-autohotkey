@@ -20,6 +20,8 @@ extra\getting-started.htm
 extra\editor.htm
 extra\completion.htm
 extra\navigation.htm
+extra\modules.htm
+extra\v21.htm
 extra\help.htm
 extra\doc-comments.htm
 extra\types.htm
@@ -29,6 +31,7 @@ extra\settings.htm
 extra\running.htm
 extra\validate.htm
 extra\compile.htm
+extra\installer.htm
 extra\debugger.htm
 extra\pragmas.htm
 extra\limitations.htm

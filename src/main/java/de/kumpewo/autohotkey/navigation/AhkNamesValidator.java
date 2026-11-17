@@ -10,7 +10,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.regex.Pattern;
 
 /**
- * Checks new names in the Rename dialog (lang.namesValidator, Z.20): a valid AutoHotkey name (letters, digits,
+ * Checks new names in the Rename dialog (lang.namesValidator): a valid AutoHotkey name (letters, digits,
  * underscore and characters from U+0080, not starting with a digit) that is no reserved word of the lexer
  * ({@code if}, {@code class}, {@code this}, {@code and} ...).
  */

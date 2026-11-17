@@ -36,7 +36,7 @@ public class AhkLabelReference extends PsiReferenceBase<PsiElement> {
         return null;
     }
 
-    /** Rename (Z.20): replaces the label name (also inside quotes: goto "Target"). */
+    /** Rename: replaces the label name (also inside quotes: goto "Target"). */
     @Override
     public PsiElement handleElementRename(@NotNull String newElementName) {
         return de.kumpewo.autohotkey.psi.AhkRenames.replaceRange(myElement, getRangeInElement(), newElementName);

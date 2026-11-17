@@ -16,21 +16,31 @@
 <ul>
   <li><strong>The end of a line ends a statement.</strong> A statement continues on the next line only
     <ul>
-      <li>after an operator at the end of the line (<code>x := a +</code>);</li>
+      <li>after an operator at the end of the line (<code>x := a +</code>), also after the <code>:</code> of a ternary (<code>x := a ?</code>, next line <code>b :</code>, next line <code>c</code>);</li>
       <li>before a line that starts with <code>and</code>, <code>or</code>, <code>is</code>, <code>in</code>, <code>contains</code>, <code>&amp;&amp;</code>, <code>||</code>, <code>??</code>, <code>?</code>, <code>:</code>, <code>.</code> (with a space after it) or <code>,</code>;</li>
+      <li>before a line that starts with the dot of a method chain (<code>.Name</code>):
+<pre>rows := db.Query("SELECT *")
+    .Filter(IsActive)
+    .ToArray()</pre></li>
       <li>inside parentheses <code>( )</code>, also before a line that starts with any binary operator (<code>+</code>, <code>*</code>, <code>=</code>, <code>&lt;</code>, <code>|</code>, <code>:=</code> ...) or with the dot of a method call:
 <pre>total := (price
         * quantity
         + shipping)
 okButton := (win
         .AddButton("Default", "OK"))</pre></li>
-      <li>in continuation sections (a string open at the end of a line, then <code>(</code> ... <code>)"</code>).</li>
+      <li>in continuation sections: a line that starts with <code>(</code> (without another parenthesis on it; options like <code>LTrim Join</code> are allowed) continues the previous line up to a line that starts with <code>)</code>, inside or outside a string. Strings may span lines there:
+<pre>MsgBox(
+(
+    "Left: " x "
+    Top: " y
+))</pre>
+      <em>Reformat Code</em> never changes a continuation section, because its indentation can be part of a string. A hotstring without text followed by a continuation section takes the section as its replacement text.</li>
     </ul>
     Empty lines and comment lines between continued lines are allowed.</li>
-  <li>After the opening <code>{</code> of a block nothing may follow on the same line except a comment ("A line break must follow '{'"). One-line object literals like <code>{x: 1}</code> are fine.</li>
-  <li><strong>Block comments</strong> <code>/* ... */</code> are only recognized at the start of a line (also indented). Elsewhere they are an error, because AutoHotkey does not recognize them there.</li>
+  <li>After the opening <code>{</code> of a block nothing may follow on the same line except a comment ("A line break must follow '{'"), unless the <code>{</code> starts its line or follows <code>else</code>, <code>try</code> or <code>finally</code>. One-line object literals like <code>{x: 1}</code> are fine, and so is code after a closing <code>}</code> on the same line.</li>
+  <li><strong>Block comments</strong> <code>/* ... */</code> are only recognized at the start of a line (also indented). Elsewhere they are an error, because AutoHotkey does not recognize them there. <code>*/</code> ends the comment only at the start or at the end of a line.</li>
   <li><code>else</code> followed by a statement on the same line is accepted, but gets a warning, because it is hard to read.</li>
-  <li><code>global</code> without a variable name is only allowed as the first statement of a function, method, hotkey or hotstring block; <code>local</code> and <code>static</code> always need a name.</li>
+  <li><code>global</code> or <code>static</code> without a variable name (assume-global, assume-static) is only allowed as the first statement of a function, method, hotkey or hotstring block; <code>local</code> always needs a name.</li>
   <li>A label <code>Name:</code> must stand alone on its line.</li>
   <li>Before the first <code>case</code> of a <code>switch</code> only <code>case</code> or <code>default</code> may follow.</li>
   <li>A keyword used as a name after the dot (<code>obj.if</code>) is an error.</li>
@@ -78,7 +88,7 @@ SetTimer () => MsgBox("x"), 100</pre>
 
 <h2 id="Structure">Structure, breadcrumbs, sticky lines</h2>
 <ul>
-  <li>The <strong>structure view</strong> (<kbd>Alt</kbd>+<kbd>7</kbd>, or <kbd>Ctrl</kbd>+<kbd>F12</kbd> as a popup) lists hotkeys and hotstrings, classes with their methods and properties, functions and labels.</li>
+  <li>The <strong>structure view</strong> (<kbd>Alt</kbd>+<kbd>7</kbd>, or <kbd>Ctrl</kbd>+<kbd>F12</kbd> as a popup) lists hotkeys and hotstrings, classes with their fields (<code>x := 0</code>, typed properties with their type, in the order of the code), properties and methods, functions and labels.</li>
   <li><strong>Breadcrumbs</strong> at the bottom of the editor and <strong>sticky lines</strong> at its top show the enclosing class, function, hotkey and control structures (<code>if</code>, <code>loop</code>, <code>switch</code>, <code>case</code> ...).</li>
 </ul>
 

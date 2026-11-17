@@ -30,10 +30,24 @@ import de.kumpewo.autohotkey.psi.AhkTypes;
       if (i < zzEndRead) {
           char c = zzBuffer.charAt(i);
           if (c == '\r' || c == '\n' || (c == ';' && i > start)) {
-              yybegin(IN_CONTINUATION);
+              yybegin(yystate() == IN_CS ? IN_CS_CONTINUATION : IN_CONTINUATION);
           }
       }
       return type;
+  }
+
+  /** True if only spaces/tabs are between the start of the line (or of the text) and the current token. */
+  private boolean atLineStart() {
+      int i = zzStartRead - 1;
+      while (i >= 0 && (zzBuffer.charAt(i) == ' ' || zzBuffer.charAt(i) == '\t')) i--;
+      return i < 0 || zzBuffer.charAt(i) == '\n' || zzBuffer.charAt(i) == '\r';
+  }
+
+  /** True if the current token is followed by a line break or the end of the text. */
+  private boolean atLineEnd() {
+      if (zzMarkedPos >= zzEndRead) return true;
+      char c = zzBuffer.charAt(zzMarkedPos);
+      return c == '\r' || c == '\n';
   }
 
   /**
@@ -79,12 +93,34 @@ CS_TEXT             = [ \t]* ( [^ \t)\r\n] [^\r\n]* )? {EOL}
 CS_DOUBLE           = \" ( [^\"`\r\n] | "`" [^\r\n] )* {EOL} {CS_SKIP}* {CS_OPEN} {CS_TEXT}* [ \t]* ")" [^\"\r\n]* \"
 CS_SINGLE           = '  ( [^'`\r\n]  | "`" [^\r\n] )* {EOL} {CS_SKIP}* {CS_OPEN} {CS_TEXT}* [ \t]* ")" [^'\r\n]* '
 
+// Continuation section outside a string (code): a line that starts with "(" and has no other parenthesis
+// (options like "LTrim Join" and a comment may follow) continues the previous line up to a line starting with ")".
+//   MsgBox(          Var :=           MsgBox
+//   (                (                (
+//       "a: " x "        "text           "line 1
+//       b"               more"            line 2"
+//   ))               )                )
+// "(" and ")" stay L_PAREN/R_PAREN (the content is parsed as a parenthesized expression), the options are a
+// CONTINUATION_OPTIONS token (skipped like a comment). Inside the section (IN_CS) a string may span lines, but
+// never past a line that starts with ")". No "::" in the options (hotkey "(::").
+CS_OPTS             = ( [^()\r\n;:] | ":" [^:()\r\n;] )*
+CS_REST             = {CS_OPTS} ( [ \t]* ";" [^\r\n]* )? {EOL}
+CS_OPEN_LINE        = [ \t]* "(" {CS_REST}
+CS_BRK              = ( {EOL} [ \t]* )+
+CS_STRING_DOUBLE    = \" ( [^\"`\r\n] | "`" [^\r\n] | {CS_BRK} ( [^ \t)\"`\r\n] | "`" [^\r\n] ) )* {CS_BRK}? \"
+CS_STRING_SINGLE    = '  ( [^'`\r\n]  | "`" [^\r\n] | {CS_BRK} ( [^ \t)'`\r\n]  | "`" [^\r\n] ) )* {CS_BRK}? '
+// Continuation section as the replacement text of a hotstring (::btw::<line break>( ... )): raw text, one token.
+HS_SECTION          = "(" [^\r\n]* {EOL} {CS_TEXT}* [ \t]* ")" [^\r\n]*
+
 // Hotkey text up to the FIRST "::", without quotes (otherwise strings containing "::" eat the line).
 // A ";" with whitespace before it (or at the start of the line) starts a comment and never belongs to the hotkey:
 // "f() { ; ::" is not a hotkey. Without whitespace before it ";" is a normal character (`;:: or a;::).
 HK_CHAR             = [^:\r\n\"' \t;]
 HK_UNIT             = {HK_CHAR} ";"* | [ \t]+ | ":" ( [^:\r\n\"' \t] ";"* | [ \t]+ )
 HOTKEY_TEXT         = {HK_UNIT}+
+// Hotkey for a quote key: modifiers, then " or ' alone before "::" (^+"::, '::). A quote followed by more key text
+// ("a::) is not a hotkey in AutoHotkey 2.0.31 (it reports a missing quote).
+HOTKEY_QUOTE        = [#!\^+<>*~$]* [\"'] "::"
 
 // YYINITIAL means "start of the text" and "start of a line" here.
 // Hotstring head: :options:abbreviation::   (options and abbreviation may be empty / contain single ':')
@@ -96,7 +132,8 @@ HOTSTRING_HEAD_X    = ":" [^:\r\n]* [xX] [^:\r\n]* ":" ( [^:\r\n] | ":" [^:\r\n]
 // start of a hotkey ("," only without a following ":", otherwise it is the hotkey ,::)
 // (+a:: ^a:: !a:: *a:: ~a:: ... are hotkeys).
 // ":" only with a following space (ternary); a hotstring never starts with ": ".
-CONT_START          = [ \t]* ( ( "and" | "or" | "is" | "in" | "contains" ) [^a-zA-Z0-9_] | "&&" | "||" | "??" | "?" [^:] | ":" [ \t] | "." [ \t] | "," [^:] )
+// "." directly followed by a name or "%" is member access continuing a method chain (obj.M()<line break>.N()).
+CONT_START          = [ \t]* ( ( "and" | "or" | "is" | "in" | "contains" ) [^a-zA-Z0-9_] | "&&" | "||" | "??" | "?" [^:] | ":" [ \t] | "." [ \t] | "." [a-zA-Z_%\u0080-\uFFFF] | "," [^:] )
 
 // Empty and comment lines: meaningless for AHK, also between a line and its continuation line.
 // This includes block comments at the start of a line (also indented and multi-line), after "*/" only whitespace.
@@ -104,6 +141,9 @@ SKIP_LINE           = [ \t]* ( ";" [^\r\n]* | "/*" ~"*/" [ \t]* )? {EOL}
 
 %states YYINITIAL, IN_LINE, IN_COMMENT, IN_BAD_COMMENT, IN_DIRECTIVE, IN_HOTSTRING_TEXT, IN_CONTINUATION, IN_CONCAT_DOT
 %states IN_SKIP_LINES, IN_SKIP_COMMENT, IN_AFTER_HOTKEY
+// Continuation section outside a string: rest of the opening line, content, start of a content line,
+// " . " and operator at the end of a line inside the section; hotstring text as a section.
+%states IN_CS_OPEN, IN_CS, IN_CS_LINESTART, IN_CS_CONCAT_DOT, IN_CS_CONTINUATION, IN_HS_SECTION
 
 %%
 
@@ -152,9 +192,16 @@ SKIP_LINE           = [ \t]* ( ";" [^\r\n]* | "/*" ~"*/" [ \t]* )? {EOL}
           return AhkTypes.HOTKEY;
     }
 
+    {HOTKEY_QUOTE} {
+          yybegin(IN_AFTER_HOTKEY);
+          return AhkTypes.HOTKEY;
+    }
+
     // For #Space:: HOTKEY is longer and wins, for #Include it stays a directive.
+    // v2.1: the arguments of #Import are normal tokens (names, strings, "as", braces across lines), parsed by the
+    // grammar (import_spec); all other directives take the rest of the line as DIRECTIVE_ARGS.
     "#" [a-zA-Z_][a-zA-Z0-9_]* {
-          yybegin(IN_DIRECTIVE);
+          yybegin("#import".contentEquals(yytext().toString().toLowerCase()) ? IN_LINE : IN_DIRECTIVE);
           return AhkTypes.DIRECTIVE_NAME;
       }
 
@@ -164,13 +211,68 @@ SKIP_LINE           = [ \t]* ( ";" [^\r\n]* | "/*" ~"*/" [ \t]* )? {EOL}
       }
 }
 
-// Line break before an operator: whitespace, not an end of statement (the parser does not see it).
-// Empty and comment lines may be in between; IN_SKIP_LINES reads them.
+// Line break before an operator or before a continuation section: whitespace, not an end of statement (the
+// parser does not see it). Empty and comment lines may be in between; IN_SKIP_LINES reads them.
 <YYINITIAL, IN_LINE> {
     {CRLF} / {SKIP_LINE}* {CONT_START}  {
               yybegin(IN_SKIP_LINES);
               return com.intellij.psi.TokenType.WHITE_SPACE;
           }
+    {CRLF} / {SKIP_LINE}* {CS_OPEN_LINE}  {
+              yybegin(IN_SKIP_LINES);
+              return com.intellij.psi.TokenType.WHITE_SPACE;
+          }
+}
+
+// Hotstring without text on its line followed by a continuation section: the section is the replacement text.
+<IN_HOTSTRING_TEXT> {
+    {CRLF} / {SKIP_LINE}* [ \t]* {HS_SECTION}  {
+              yybegin(IN_HS_SECTION);
+              return com.intellij.psi.TokenType.WHITE_SPACE;
+          }
+}
+<IN_HS_SECTION> {
+    [ \t]* ";" [^\r\n]*   { return AhkTypes.LINE_COMMENT; }
+    [ \t]* {CRLF}         { return com.intellij.psi.TokenType.WHITE_SPACE; }
+    [ \t]+ / "("          { return com.intellij.psi.TokenType.WHITE_SPACE; }
+    {HS_SECTION}          { yybegin(IN_LINE); return AhkTypes.HOTSTRING_TEXT; }
+    [^]                   { yybegin(IN_LINE); yypushback(1); }
+}
+
+// Continuation section outside a string (see CS_OPEN_LINE): rest of the opening line.
+<IN_CS_OPEN> {
+    {WHITE_SPACE}                               { return com.intellij.psi.TokenType.WHITE_SPACE; }
+    ";" [^\r\n]*                                { return AhkTypes.LINE_COMMENT; }
+    [^ \t;\r\n]+ ( [ \t]+ [^ \t;\r\n]+ )*       { return AhkTypes.CONTINUATION_OPTIONS; }
+    {CRLF}                                      { yybegin(IN_CS_LINESTART); return AhkTypes.CRLF; }
+    [^]                                         { yybegin(IN_CS); yypushback(1); }
+}
+// Start of a content line: ")" ends the section (the rest of the line is normal code again).
+<IN_CS_LINESTART> {
+    [ \t]+ / ")"          { return com.intellij.psi.TokenType.WHITE_SPACE; }
+    ")"                   { yybegin(IN_LINE); return AhkTypes.R_PAREN; }
+    [ \t]* ";" [^\r\n]*   { return AhkTypes.LINE_COMMENT; }
+    "." / [ \t]           { yybegin(IN_CS); return op(AhkTypes.CONCAT_DOT); }
+    [^]                   { yybegin(IN_CS); yypushback(1); }
+}
+// Content of the section: like IN_LINE (shared rules below), but a line break stays inside the section and a
+// string may span lines.
+<IN_CS> {
+    {CRLF} / {SKIP_LINE}* {CONT_START}      { yybegin(IN_CS_LINESTART); return com.intellij.psi.TokenType.WHITE_SPACE; }
+    {CRLF}                                  { yybegin(IN_CS_LINESTART); return AhkTypes.CRLF; }
+    {WHITE_SPACE} / "." [ \t\r\n]           { yybegin(IN_CS_CONCAT_DOT); return com.intellij.psi.TokenType.WHITE_SPACE; }
+    {CS_STRING_DOUBLE} | {CS_STRING_SINGLE} { return AhkTypes.STRING; }
+}
+<IN_CS_CONCAT_DOT> {
+    "."      { yybegin(IN_CS); return op(AhkTypes.CONCAT_DOT); }
+    [^]      { yybegin(IN_CS); yypushback(1); }
+}
+// Operator at the end of a line inside the section: the line break is whitespace.
+<IN_CS_CONTINUATION> {
+    [ \t]+ ";" [^\r\n]*  { return AhkTypes.LINE_COMMENT; }
+    {WHITE_SPACE}         { return com.intellij.psi.TokenType.WHITE_SPACE; }
+    {CRLF}                { yybegin(IN_CS_LINESTART); return com.intellij.psi.TokenType.WHITE_SPACE; }
+    [^]                   { yybegin(IN_CS); yypushback(1); }
 }
 
 // Empty and comment lines inside a continued line (after an operator at the end of a line or before
@@ -184,12 +286,24 @@ SKIP_LINE           = [ \t]* ( ";" [^\r\n]* | "/*" ~"*/" [ \t]* )? {EOL}
     "/*"                  { yybegin(IN_SKIP_COMMENT); return AhkTypes.BLOCK_COMMENT; }
     // ". " at column 0 of a continuation line is a concatenation (CONT_START), although no whitespace precedes it
     "." / [ \t]           { yybegin(IN_LINE); return op(AhkTypes.CONCAT_DOT); }
+    // Opening line of a continuation section outside a string (CS_OPEN_LINE)
+    [ \t]+ / "(" {CS_REST}  { return com.intellij.psi.TokenType.WHITE_SPACE; }
+    "(" / {CS_REST}         { yybegin(IN_CS_OPEN); return AhkTypes.L_PAREN; }
     [^]                   { yybegin(IN_LINE); yypushback(1); }
 }
+// Same end rule as IN_COMMENT (start or end of a line).
 <IN_SKIP_COMMENT> {
-    "*/"    { yybegin(IN_SKIP_LINES); return AhkTypes.BLOCK_COMMENT; }
-    [^*]+   { return AhkTypes.BLOCK_COMMENT; }
-    "*"     { return AhkTypes.BLOCK_COMMENT; }
+    "*/" [ \t]*  {
+        if (atLineEnd() || atLineStart()) {
+            yybegin(IN_SKIP_LINES);
+            yypushback(yylength() - 2);
+        } else {
+            yypushback(yylength() - 1);
+        }
+        return AhkTypes.BLOCK_COMMENT;
+    }
+    [^*]+        { return AhkTypes.BLOCK_COMMENT; }
+    "*"          { return AhkTypes.BLOCK_COMMENT; }
 }
 
 // Directly after "F1::": "a::;" (followed only by whitespace or " ;comment") is a remapping to the key ";"
@@ -215,6 +329,8 @@ SKIP_LINE           = [ \t]* ( ";" [^\r\n]* | "/*" ~"*/" [ \t]* )? {EOL}
     {WHITE_SPACE} / "." [ \t\r\n]  { yybegin(IN_CONCAT_DOT); return com.intellij.psi.TokenType.WHITE_SPACE; }
     // Block comment in the middle of a line: AHK does not recognize it, hence BAD_COMMENT (error in AhkBadCommentAnnotator).
     // Must come before the general WHITE_SPACE rule (same length -> first rule wins).
+}
+<IN_LINE, IN_CS> {
     {WHITE_SPACE} / "/*"           { yybegin(IN_BAD_COMMENT); return com.intellij.psi.TokenType.WHITE_SPACE; }
 }
 // One token up to and including "*/", also across lines; without "*/" up to the end of the file.
@@ -252,7 +368,7 @@ SKIP_LINE           = [ \t]* ( ";" [^\r\n]* | "/*" ~"*/" [ \t]* )? {EOL}
           }
 }
 
-<YYINITIAL, IN_LINE> {
+<YYINITIAL, IN_LINE, IN_CS> {
     {WHITE_SPACE}     { return com.intellij.psi.TokenType.WHITE_SPACE; }
 }
 
@@ -262,7 +378,7 @@ SKIP_LINE           = [ \t]* ( ";" [^\r\n]* | "/*" ~"*/" [ \t]* )? {EOL}
     [^\r\n;]+         { return AhkTypes.DIRECTIVE_ARGS; }
 }
 
-<IN_LINE> {
+<IN_LINE, IN_CS> {
     [ \t]+ ";" [^\r\n]*            { return AhkTypes.LINE_COMMENT; }
 
     "\f"                            { return com.intellij.psi.TokenType.BAD_CHARACTER; }
@@ -288,6 +404,8 @@ SKIP_LINE           = [ \t]* ( ";" [^\r\n]* | "/*" ~"*/" [ \t]* )? {EOL}
     "=="          { return op(AhkTypes.EQ_EQ); }
     "="           { return op(AhkTypes.EQ); }
     "!=" "="?     { return op(AhkTypes.NOT_EQ); }
+    // v2.1 (the parser reports it as an error in v2.0); "!~=" is never valid in v2.0 either ("!" is only unary)
+    "!~="         { return op(AhkTypes.REGEX_NOT_MATCH); }
     "<="          { return op(AhkTypes.LE); }
     ">="          { return op(AhkTypes.GE); }
     "<"           { return op(AhkTypes.LT); }
@@ -334,7 +452,9 @@ SKIP_LINE           = [ \t]* ( ";" [^\r\n]* | "/*" ~"*/" [ \t]* )? {EOL}
     "goto"                                   { return AhkTypes.KEYWORD_GOTO; }
     "switch"                                 { return AhkTypes.KEYWORD_SWITCH; }
     "case"                                   { return AhkTypes.KEYWORD_CASE; }
-    "class" | "struct"                       { return AhkTypes.KEYWORD_CLASS; }
+    // "struct" deliberately not: in v2.0 it is a normal name (it does not work like "class"), in v2.1 the base class
+    // Struct; only at the start of a definition in v2.1 the parser turns it into KEYWORD_STRUCT (AhkParserUtil)
+    "class"                                  { return AhkTypes.KEYWORD_CLASS; }
     "extends"                                { return AhkTypes.KEYWORD_EXTENDS; }
 
     {NUMBER}                 { return AhkTypes.NUMBER; }
@@ -351,13 +471,21 @@ SKIP_LINE           = [ \t]* ( ";" [^\r\n]* | "/*" ~"*/" [ \t]* )? {EOL}
     .                        { return com.intellij.psi.TokenType.BAD_CHARACTER; }
 }
 
+// Block comment: "*/" ends it only at the start of a line (after whitespace; code may follow) or at the end of a
+// line (only whitespace after it). Elsewhere "*/" is part of the comment ("x */ y" in the middle of a line).
+// The tokens are the same as without this rule ([^*]+ and "*"), the formatter relies on them (doc comments).
 <IN_COMMENT> {
-    "*/" {
-        yybegin(IN_LINE);
+    "*/" [ \t]*  {
+        if (atLineEnd() || atLineStart()) {
+            yybegin(IN_LINE);
+            yypushback(yylength() - 2);
+        } else {
+            yypushback(yylength() - 1);
+        }
         return AhkTypes.BLOCK_COMMENT;
     }
-    [^*]+  { return AhkTypes.BLOCK_COMMENT; }
-    "*"    { return AhkTypes.BLOCK_COMMENT; }
+    [^*]+        { return AhkTypes.BLOCK_COMMENT; }
+    "*"          { return AhkTypes.BLOCK_COMMENT; }
 }
 
 [^] { return com.intellij.psi.TokenType.BAD_CHARACTER; }

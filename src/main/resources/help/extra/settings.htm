@@ -13,7 +13,7 @@
 <p>The plugin's settings are spread over the usual places of the IDE (<em>File &gt; Settings</em>, <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>S</kbd>):</p>
 <table class="info">
   <tr><th>Where</th><th>What</th><th>Applies to</th></tr>
-  <tr><td nowrap="nowrap"><a href="#AutoHotkey">Languages &amp; Frameworks &gt; AutoHotkey</a></td><td>AutoHotkey program, external help, automatic validation, Ahk2Exe, compression</td><td>all projects</td></tr>
+  <tr><td nowrap="nowrap"><a href="#AutoHotkey">Languages &amp; Frameworks &gt; AutoHotkey</a></td><td>AutoHotkey program, AutoHotkey v2.1 interpreter, external help, automatic validation, Ahk2Exe, compression, language level</td><td>all projects</td></tr>
   <tr><td nowrap="nowrap"><a href="#Colors">Editor &gt; Color Scheme &gt; AutoHotkey</a></td><td>colors</td><td>the color scheme</td></tr>
   <tr><td nowrap="nowrap"><a href="formatting.htm#Options">Editor &gt; Code Style &gt; AutoHotkey</a></td><td>indent, spaces, blank lines, tab <em>Case</em></td><td>the code style scheme (IDE or project)</td></tr>
   <tr><td nowrap="nowrap"><a href="templates.htm">Editor &gt; Live Templates &gt; AutoHotkey</a></td><td>live templates</td><td>all projects</td></tr>
@@ -38,8 +38,17 @@
   <li>For the launcher the plugin adds the script <code>launcher.ahk</code> next to it, as the AutoHotkey documentation requires.</li>
   <li>If the program is the launcher and the script requires AutoHotkey 2.0 (<code>#Requires AutoHotkey v2.0</code>), the plugin starts the interpreter <code>v2\AutoHotkey.exe</code> directly (<code>AutoHotkey32.exe</code>/<code>AutoHotkey64.exe</code> for <code>32-bit</code>/<code>64-bit</code> in the <code>#Requires</code> line). See <a href="running.htm#Program">Running scripts</a>.</li>
   <li>The debugger never uses the launcher, always the v2 interpreter.</li>
+  <li>Files of language level v2.1 use the <a href="#ProgramV21">AutoHotkey v2.1 interpreter</a> instead.</li>
   <li>The library folder <code>Lib</code> of the installation (<a href="navigation.htm#Library">AutoHotkey Lib</a>) and <code>AutoHotkey.chm</code> for the external help are searched next to this program.</li>
 </ul>
+
+<h3 id="ProgramV21">AutoHotkey v2.1 interpreter</h3>
+<p>The interpreter for files of language level v2.1 (see <a href="v21.htm#Levels">AutoHotkey v2.1 (alpha)</a>): it runs, validates and debugs them, always directly, never via the launcher, and its <code>AutoHotkey.chm</code> is the external help for them. Leave it empty for the newest installed version 2.1 or later. The plugin looks in the installation folders named above (and in the folder of the launcher from the field above) for</p>
+<ul>
+  <li>version folders such as <code>v2.1-alpha.39</code>, named by their version, with <code>AutoHotkey64.exe</code> or <code>AutoHotkey32.exe</code>; an alpha that was only unpacked there is found as well;</li>
+  <li>the interpreters listed by the launcher in <code>UX\installed-files.csv</code>.</li>
+</ul>
+<p>With <code>32-bit</code>/<code>64-bit</code> in the <code>#Requires</code> line the plugin takes <code>AutoHotkey32.exe</code>/<code>AutoHotkey64.exe</code> from the same folder, also next to an entered path.</p>
 
 <h3 id="ExternalHelp">External help</h3>
 <p>The command line for <kbd>Shift</kbd>+<kbd>F1</kbd> on AutoHotkey topics. <code>%s</code> is replaced by the key of the help page, a path inside the AutoHotkey help, optionally with an anchor: <code>/docs/lib/MsgBox.htm</code>, <code>/docs/lib/File.htm#Close</code>. The line is split at spaces; quotes keep a part together. Leave it empty for</p>
@@ -71,6 +80,10 @@
   <li><em>UPX</em>: compresses with UPX; <code>upx.exe</code> must be in the folder of Ahk2Exe. Smaller files, but some virus scanners distrust compressed executables.</li>
 </ul>
 <p>Details in <a href="compile.htm">Compiling with Ahk2Exe</a>.</p>
+
+<h3 id="LanguageLevel">Language level</h3>
+<p>The language level of files without <code>#Requires AutoHotkey</code>: <em>AutoHotkey v2.0</em> (default) or <em>AutoHotkey v2.1 (alpha)</em>. A file with <code>#Requires AutoHotkey</code> always uses the version it asks for (see <a href="v21.htm#Levels">AutoHotkey v2.1 (alpha)</a>). After a change the open files are parsed and highlighted again.</p>
+<p><em>Show the language level (v2.0, v2.1) after AutoHotkey files in the Project view</em> (on by default) adds the level of each AutoHotkey file in grey after its name in the Project view.</p>
 
 <h3 id="ManualLink">Open the plugin manual</h3>
 <p>The link at the bottom of the page opens this manual.</p>

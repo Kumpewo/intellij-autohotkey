@@ -1,0 +1,68 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>Modules | AutoHotkey v2 Plugin</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../styles/theme.css" rel="stylesheet" />
+</head>
+<body>
+
+<h1>Modules (AutoHotkey v2.1)</h1>
+
+<p class="warning"><strong>Alpha:</strong> modules belong to AutoHotkey v2.1, which is still an alpha. The plugin follows the specification of v2.1-alpha.39 as closely as it can, but it is likely to change; see <a href="v21.htm">AutoHotkey v2.1 (alpha)</a>.</p>
+
+<p>AutoHotkey v2.1 splits a script into <em>modules</em>: each module has its own global variables, functions and classes. <code>#Module Name</code> starts a module, <code>#Import</code> makes another module or some of its names usable. The plugin evaluates modules in files with the <a href="v21.htm#Levels">language level</a> v2.1; in v2.0 files <code>#Module</code> and <code>#Import</code> are errors and the file and its included files are one namespace.</p>
+
+<pre>#Requires AutoHotkey v2.1-alpha.39
+#Import Tools                  ; the module Tools (below or Tools.ahk)
+#Import Tools {Clamp as Fit}   ; one function under another name
+#Import Shapes {*}             ; everything Shapes offers
+MsgBox Tools.Clamp(5, 1, 3) " " Fit(0, 1, 3) " " Area(2)
+
+#Module Tools
+Clamp(v, lo, hi) => Min(Max(v, lo), hi)
+
+#Module Shapes
+Area(r) => 3.14159 * r * r</pre>
+
+<h2 id="Namespaces">Namespaces</h2>
+<p>The code up to the first <code>#Module</code> is the module <code>__Main</code>; each <code>#Module Name</code> starts the module <code>Name</code> (or reopens it) up to the next <code>#Module</code> or the end of the file. A file included with <code>#Include</code> belongs to the module of the <code>#Include</code> line. A free-standing name (<code>Clamp()</code>, <code>MyClass</code>, <code>extends Base</code>) refers, in this order, to</p>
+<ol>
+  <li>a function or class of the own module,</li>
+  <li>a name the module imports explicitly: <code>#Import X</code> gives <code>X</code> (the module), <code>#Import X as Y</code> gives <code>Y</code>, <code>#Import X {F, G as H}</code> gives <code>F</code> and <code>H</code>,</li>
+  <li>a name of a wildcard import <code>#Import X {*}</code>: what X defines and does not start with <code>_</code>, plus what X imports with <code>#Import Export ...</code>; the last wildcard import wins.</li>
+</ol>
+<p>After a module (<code>Tools.Clamp</code>, <code>Y.MyClass</code>, <code>extends X.Base</code>) a name is what the module defines or imports, also names starting with <code>_</code>. Global variables of a module are reached only through an import (<code>X.Counter</code>, <code>#Import X {Counter}</code>): <kbd>Ctrl</kbd>+<kbd>B</kbd> goes to the first assignment or <code>global</code> declaration. Free-standing global variables still have no navigation. <code>#Import AHK</code> gives the built-in module: <code>AHK.MsgBox</code> goes to the help of <code>MsgBox</code>.</p>
+
+<h2 id="Files">Module files</h2>
+<p>A module that is not a <code>#Module</code> of the file or of a file it includes is loaded from a file. As in AutoHotkey the plugin searches the folder of the file with the <code>#Import</code>, the folder of the module's file, then the folders of the environment variable <code>AhkLibPath</code> (separated by <code>;</code>, as the IDE sees it) or, without it, the user library (<code>Documents\AutoHotkey\Lib</code>) and the standard library (<code>Lib</code> next to the v2.1 interpreter). In each folder it tries <code>Name</code>, <code>Name\__Init.ahk</code> and <code>Name.ahk</code>. <code>#Import "Path:Name"</code> uses the <code>#Module Name</code> of that file. The plugin does not know the main script, so the folder of the file counts as <code>A_ScriptDir</code>. <code>AhkLibPath</code> also applies to <code>#Include &lt;Name&gt;</code> in v2.1 files.</p>
+<p><kbd>Ctrl</kbd>+<kbd>B</kbd> on the module name of an <code>#Import</code> opens the <code>#Module</code> or the module file; on a name in the braces it goes to the definition in the module.</p>
+
+<h2 id="Editor">In the editor</h2>
+<ul>
+  <li><strong>Completion</strong> offers the functions and classes of the own module and the imported names; after <code>X.</code> only what module X offers, after <code>AHK.</code> the built-in names. After <code>#Import</code> it offers the module names (<code>AHK</code>, the modules of the file and its includes, module files of the search path), in the braces the names of that module.</li>
+  <li><strong>Parameter info</strong> shows the imported function, also for <code>X.F(</code>.</li>
+  <li><strong>Find Usages and Rename</strong> also search the files that import the file of the definition. A <code>#Module</code> and an alias after <code>as</code> can be renamed (with their uses); renaming an exported function also changes <code>X.F</code> and <code>{F}</code> in importing files, an alias stays. A module file is not renamed with its imports.</li>
+  <li><strong>Highlighting</strong>: a built-in function or class that the module defines itself or imports (for example an own <code>MsgBox</code>) is not colored as built-in in that module; <code>AHK.MsgBox</code> keeps the built-in color.</li>
+  <li><strong>Structure view and folding</strong>: a file with <code>#Module</code> shows the definitions of <code>__Main</code> first, then one node per module; each module section can be folded.</li>
+</ul>
+
+<h2 id="Checks">Checks</h2>
+<ul>
+  <li>Error <em>Module not found</em>: the module is neither a <code>#Module</code> of the file and its includes nor a file in the search path (as AutoHotkey reports when it loads the script).</li>
+  <li>Error when a name that an <code>#Import</code> at the top level adds (the module name, the alias, a name in the braces) is also a function, class or global variable of the module; AutoHotkey refuses to load such a script.</li>
+  <li>Warning when a name in the braces is not in the module. AutoHotkey accepts this, the name simply stays unset.</li>
+</ul>
+
+<h2 id="Limits">Limitations</h2>
+<ul>
+  <li><code>#Warn</code> per module and embedded modules (<code>#Import "*Resource"</code>) are not evaluated.</li>
+  <li>In the <a href="debugger.htm">debugger</a> the <em>Global</em> node always shows the globals of the module of the innermost frame, also when an outer frame of another module is selected; the AutoHotkey engine answers that way.</li>
+</ul>
+
+<h2 id="Related">Related</h2>
+<p><a href="index.htm">Plugin manual</a>, <a href="v21.htm#Levels">AutoHotkey v2.1 (alpha)</a>, <a href="navigation.htm">Navigation</a>, <a href="completion.htm">Completion</a></p>
+
+</body>
+</html>

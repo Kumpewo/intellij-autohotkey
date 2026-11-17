@@ -1,0 +1,110 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>#Warn - Syntax &amp; Usage | AutoHotkey v2</title>
+<meta name="description" content="The #Warn directive enables or disables warnings for specific conditions which may indicate an error, such as a typo or missing &quot;global&quot; declaration." />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../static/theme.css" rel="stylesheet" />
+<link href="../static/dark.css" rel="stylesheet" media="(prefers-color-scheme: dark)" id="dark_css" />
+<script src="../static/content.js" id="content_js"></script>
+</head>
+<body><script>site.init();</script>
+
+<h1>#Warn</h1>
+
+<p>Enables or disables warnings for specific conditions which may indicate an error, such as a typo or missing "global" declaration.</p>
+
+<pre class="Syntax"><span class="func">#Warn</span> <span class="optional">WarningType, WarningMode</span></pre>
+
+<h2 id="Parameters">Parameters</h2>
+<dl>
+
+  <dt>WarningType</dt>
+  <dd>
+    <p>Type: <a href="../Concepts.htm#strings">String</a></p>
+
+    <p><span class="ver">[v2.1-alpha.12+]</span>: If omitted, the program-wide default warning mode is changed. This is used by any warning types which are enabled by default or set to <em>On</em>.</p>
+    <p><span class="ver">[v2.0]</span>: If omitted, it defaults to <em>All</em>. The comma must be present.</p>
+    <p>Otherwise, specify the type of warning to enable or disable.</p>
+    <p id="VarUnset"><strong>VarUnset:</strong> Before the script starts to run, display a warning for the first reference to each variable which is never used in any of the following ways:</p>
+    <ul>
+      <li>As the target of a direct, non-dynamic assignment such as <code>MyVar := ""</code>.</li>
+      <li>Used with the <a href="../Variables.htm#ref">reference operator</a> (e.g. <code>&amp;MyVar</code>).</li>
+      <li>Passed directly to <a href="IsSet.htm">IsSet</a> (e.g. <code>IsSet(MyVar)</code>).</li>
+    </ul>
+    <p id="LocalSameAsGlobal"><strong>LocalSameAsGlobal:</strong> Before the script starts to run, display a warning for each <em>undeclared</em> local variable which has the same name as a global variable. This is intended to prevent errors caused by forgetting to declare a global variable inside a function before attempting to assign to it. If the variable really was intended to be local, a declaration such as <code>local x</code> or <code>static y</code> can be used to suppress the warning.</p>
+    <p>This warning is disabled by default.</p>
+    <pre>#Warn
+g := 1
+ShowG() {       <em>; The warning is displayed even if the function is never called.</em>
+    <em>;global g   ; &lt;-- This is required to assign to the global variable.</em>
+    g := 2
+}
+ShowG
+MsgBox g        <em>; Without the declaration, the above assigned to a local "g".</em></pre>
+    <p id="Unreachable"><strong>Unreachable:</strong> Before the script starts to run, show a warning for each line that immediately follows a <code>Return</code>, <code>Break</code>, <code>Continue</code>, <code>Throw</code> or <code>Goto</code> at the same nesting level, unless that line is the target of a label. Any such line would never be executed.</p>
+    <p>If the code is intended to be unreachable - such as if a <code>return</code> has been used to temporarily disable a block of code, or a hotkey or hotstring has been temporarily disabled by commenting it out - consider commenting out the unreachable code as well. Alternatively, the warning can be suppressed by defining a <a href="../misc/Labels.htm">label</a> above the first unreachable line.</p>
+    <p><strong>All:</strong> Apply the given <em>WarningMode</em> to all supported warning types.</p>
+  </dd>
+
+  <dt>WarningMode</dt>
+  <dd>
+    <p>Type: <a href="../Concepts.htm#strings">String</a></p>
+
+    <p>If omitted, it defaults to <em>On</em>. Otherwise, specify a value indicating how warnings should be delivered.</p>
+    <p><strong>MsgBox:</strong> Show a message box describing the warning. Note that once the message box is dismissed, the script will continue as usual.</p>
+    <p><strong>StdOut:</strong> Send a description of the warning to <em>stdout</em> (the program's standard output stream), along with the filename and line number. This allows fancy editors such as SciTE to capture warnings without disrupting the script - the user can later jump to each offending line via the editor's output pane.</p>
+    <p><strong>OutputDebug:</strong> Send a description of the warning to the debugger for display. If a debugger is not active, this will have no effect. For more details, see <a href="OutputDebug.htm">OutputDebug</a>.</p>
+    <p><strong>On</strong> <span class="ver">[v2.1-alpha.12+]</span>: Enables the given <em>WarningType</em> using the program-wide default mode, which defaults to <em>MsgBox</em>. A separate <code>#Warn <i>WarningMode</i></code> directive can be used to change the default mode.</p>
+    <p><strong>Off:</strong> Disable warnings of the given <em>WarningType</em>.</p>
+  </dd>
+
+</dl>
+<h2 id="UTF8">UTF-8 <span class="ver">[v2.1-alpha.13+]</span></h2>
+<p>A warning is shown if a script file being read as UTF-8 contains one or more bytes which are not part of a valid UTF-8 byte sequence. These bytes cannot be decoded to a character, so are replaced with '&#65533;'. This usually indicates that the script file was not saved as UTF-8. By default, AutoHotkey expects files which contain non-ASCII characters to be encoded as UTF-8. To resolve the issue, save the file as UTF-8 or remove any invalid byte sequences.</p>
+<p>This warning uses the default output mode, and cannot be disabled except by setting the default mode to Off.</p>
+
+<h2 id="Remarks">Remarks</h2>
+	<p>If this directive is unspecified in the script, all warnings are enabled and use the MsgBox mode, except for LocalSameAsGlobal, which is disabled.</p>
+<p><span class="ver">[v2.1-alpha.12+]</span>: Each <a href="../Modules.htm">module</a> has its own warning settings. Modules defined with <a href="_Module.htm">#Module</a> default to the same settings as the previous module. For the default module and modules loaded by <a href="_Import.htm">#Import</a>, VarUnset and Unreachable default to On and LocalSameAsGlobal defaults to Off.</p>
+<p><span class="ver">[v2.1-alpha.12+]</span>: A program-wide default mode can be set by using <code>#Warn <i>WarningMode</i></code>, with any mode except On. The last such directive affects all warnings which are enabled by default, and all warnings for which <em>WarningMode</em> was set to On. <code>#Warn Off</code> causes those warnings to be ignored. The following special cases also exist:</p>
+<ul>
+  <li><code>#Warn</code>: Turns on VarUnset and Unreachable and turns off LocalSameAsGlobal for the current module.</li>
+  <li><code>#Warn On</code>: Turns on VarUnset and Unreachable for the current module.</li>
+</ul>
+<p>The checks which produce VarUnset, LocalSameAsGlobal and Unreachable warnings are performed after all directives have been parsed, but before the script executes. Therefore, the location within a module is not significant (and, like other directives, #Warn cannot be executed conditionally).</p>
+<p>However, the ordering of multiple #Warn directives is significant when <em>WarningType</em> is specified: the last occurrence that sets a given warning determines the mode for that warning.  So, for example, the two statements below have the combined effect of enabling all warnings except LocalSameAsGlobal (which is also the default configuration):</p>
+<pre>#Warn All
+#Warn LocalSameAsGlobal, Off
+</pre>
+<h2 id="Related">Related</h2>
+<p><a href="../Functions.htm#Local">Local and Global Variables</a>, <a href="../Modules.htm">Modules</a></p>
+<h2 id="Examples">Examples</h2>
+<div class="ex" id="ExAllOff">
+<p><a class="ex_number" href="#ExAllOff"></a> Disables all warnings for the current module. Not recommended.</p>
+<pre>#Warn All, Off</pre>
+</div>
+
+<div class="ex" id="ExAll">
+<p><a class="ex_number" href="#ExAll"></a> Enables every type of warning for the current module. <span class="ver">[v2.1-alpha.12+]</span>: Uses the program-wide default mode.</p>
+<pre>#Warn All</pre>
+</div>
+
+<div class="ex" id="ExOmitted">
+<p><a class="ex_number" href="#ExOmitted"></a> For v2.1, sets only the default warnings to be enabled with the program-wide default mode. For v2.0, enables all warnings and sets mode to MsgBox.</p>
+<pre>#Warn</pre>
+</div>
+
+<div class="ex" id="ExLSAGOutputDebug">
+<p><a class="ex_number" href="#ExLSAGOutputDebug"></a> Sends a warning to OutputDebug for each undeclared local variable which has the same name as a global variable.</p>
+<pre>#Warn LocalSameAsGlobal, OutputDebug</pre>
+</div>
+
+<div class="ex" id="ExDefaultStdOut">
+<p><a class="ex_number" href="#ExDefaultStdOut"></a> <span class="ver">[v2.1-alpha.12+]</span>: Causes warnings to be delivered via StdOut, unless a mode has been specified for the warning.</p>
+<pre>#Warn StdOut</pre>
+</div>
+
+</body>
+</html>

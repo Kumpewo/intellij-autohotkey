@@ -22,11 +22,14 @@
 <h2 id="Requires">#Requires</h2>
 <p>Every script should start with <code>#Requires AutoHotkey v2.0</code>. The plugin uses this line to</p>
 <ul>
-  <li>recognize the language version: a file with <code>#Requires AutoHotkey v1.1</code> (or any other version below 2) is not parsed; there is only a warning at the <code>#Requires</code> line;</li>
+  <li>recognize the language version: a file with <code>#Requires AutoHotkey v1.1</code> (or any other version below 2) is not parsed; there is only a warning at the <code>#Requires</code> line; a version of 2.1 or later sets the <a href="#Levels">language level</a> v2.1;</li>
   <li>choose the interpreter when running a script through the AutoHotkey launcher (see <a href="running.htm#Program">Running scripts</a>).</li>
 </ul>
-<p>Without the line the plugin shows a weak warning "#Requires AutoHotkey v2 is missing" on the first line. Press <kbd>Alt</kbd>+<kbd>Enter</kbd> there and choose <em>Insert '#Requires AutoHotkey v2.0'</em>.</p>
+<p>Without the line the plugin shows a weak warning "#Requires AutoHotkey v2 is missing" on the first line. Press <kbd>Alt</kbd>+<kbd>Enter</kbd> there and choose <em>Insert '#Requires AutoHotkey v2.0'</em>. <kbd>Alt</kbd>+<kbd>Enter</kbd> offers the same anywhere else in a file without <code>#Requires</code>. The line matches the <a href="#Levels">language level</a> of the file: with the default level v2.1 it is <code>#Requires AutoHotkey v2.1-alpha.39</code> (the version of the AutoHotkey v2.1 interpreter, otherwise <code>v2.1-</code>; <code>v2.1</code> alone would not accept an alpha version).</p>
 <p>If AutoHotkey is installed, the plugin also lets the syntax detection of the AutoHotkey launcher look at such a file, in the background, about a second after the last change. If it finds AutoHotkey v1 code (for example <code>MsgBox, Hello</code> or <code>x = abc</code>), the hint becomes a warning "#Requires is missing; this looks like AutoHotkey v1 code (v1-cmd v1-ass)", and <kbd>Alt</kbd>+<kbd>Enter</kbd> offers <em>Insert '#Requires AutoHotkey v1.1'</em> first. The detection only recognizes typical constructs; ordinary v2 code usually gives no clear result and keeps the v2 hint.</p>
+
+<h2 id="Levels">AutoHotkey v2.0 and v2.1</h2>
+<p>AutoHotkey <strong>v2.0</strong> is fully supported. AutoHotkey <strong>v2.1</strong> is still an alpha version, and so is the plugin's support for it. Each file has a language level, v2.0 or v2.1, which comes from its <code>#Requires</code> line, otherwise from the <a href="settings.htm#LanguageLevel">settings</a> (default v2.0). Everything about v2.1 is in the chapter <a href="v21.htm">AutoHotkey v2.1 (alpha)</a>.</p>
 
 <h2 id="FirstSteps">First steps</h2>
 <div class="ex" id="ExFirst">

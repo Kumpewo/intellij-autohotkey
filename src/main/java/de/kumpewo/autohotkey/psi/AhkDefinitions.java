@@ -38,20 +38,30 @@ public final class AhkDefinitions {
 
     /**
      * Fields of the class: statements directly in its body that assign to a name ({@code count := 0},
-     * {@code a := 1, b := 2}) or declare one with {@code static} ({@code static count := 0}); not in methods or
-     * nested classes. In the order of the code.
+     * {@code a := 1, b := 2}), declare one with {@code static} ({@code static count := 0}) or declare a typed property
+     * (v2.1, {@code x : Int32}, also inside a {@code union} block); not in methods or nested classes. In the order of
+     * the code.
      */
     public static @NotNull List<Field> fields(@NotNull AhkClass cls) {
         List<Field> result = new ArrayList<>();
         ASTNode block = cls.getNode().findChildByType(AhkTypes.BLOCK);
-        if (block == null) return result;
+        if (block != null) addFields(block, result);
+        return result;
+    }
+
+    /** Adds the fields declared by the statements directly in the block (a class body or a union block). */
+    private static void addFields(@NotNull ASTNode block, @NotNull List<Field> result) {
         for (ASTNode statement = block.getFirstChildNode(); statement != null; statement = statement.getTreeNext()) {
             IElementType type = statement.getElementType();
-            if (type == AhkTypes.EXPR_STMT) {
-                for (ASTNode assign = statement.getFirstChildNode(); assign != null; assign = assign.getTreeNext()) {
-                    PsiElement name = assignedName(assign);
+            if (type == AhkTypes.EXPR_STMT || type == AhkTypes.TYPED_DECL_STMT) {
+                for (ASTNode item = statement.getFirstChildNode(); item != null; item = item.getTreeNext()) {
+                    PsiElement name = item.getElementType() == AhkTypes.TYPED_PROPERTY
+                            ? identifier(item) : assignedName(item);
                     if (name != null) result.add(new Field(name, false));
                 }
+            } else if (type == AhkTypes.UNION_BLOCK) {
+                ASTNode union = statement.findChildByType(AhkTypes.BLOCK);
+                if (union != null) addFields(union, result);
             } else if (type == AhkTypes.DECL_STMT) {
                 ASTNode keyword = statement.getFirstChildNode();
                 if (keyword == null || !"static".equalsIgnoreCase(keyword.getText())) continue;
@@ -61,17 +71,27 @@ public final class AhkDefinitions {
                 }
             }
         }
-        return result;
+    }
+
+    /** The name of a typed property ({@code x} in {@code x : Int32}). */
+    private static @Nullable PsiElement identifier(ASTNode typedProperty) {
+        ASTNode id = typedProperty.findChildByType(AhkTypes.IDENTIFIER);
+        return id == null ? null : id.getPsi();
     }
 
     /** Is the identifier the name of a field ({@link #fields})? */
     public static boolean isFieldName(@NotNull PsiElement identifier) {
+        return field(identifier) != null;
+    }
+
+    /** The field whose name in its defining statement is this identifier ({@link #fields}), or {@code null}. */
+    public static @Nullable Field field(@NotNull PsiElement identifier) {
         AhkClass cls = PsiTreeUtil.getParentOfType(identifier, AhkClass.class, AhkFunc.class) instanceof AhkClass c ? c : null;
-        if (cls == null) return false;
+        if (cls == null) return null;
         for (Field field : fields(cls)) {
-            if (field.identifier() == identifier) return true;
+            if (field.identifier() == identifier) return field;
         }
-        return false;
+        return null;
     }
 
     /** {@code name := …}: the identifier of the assigned name, otherwise {@code null}. */
@@ -83,10 +103,19 @@ public final class AhkDefinitions {
         return id == null ? null : id.getPsi();
     }
 
-    /** Directly enclosing class (of a method, property or nested class), or {@code null}. */
+    /**
+     * Directly enclosing class (of a method, property or nested class), or {@code null}. A function definition
+     * expression is never a method, also not in the initializer of a field ({@code p := () { ... }}).
+     */
     public static @Nullable AhkClass ownerClass(@NotNull PsiElement definition) {
+        if (isFunctionExpression(definition)) return null;
         PsiElement owner = PsiTreeUtil.getParentOfType(definition, AhkClass.class, AhkFunc.class);
         return owner instanceof AhkClass cls ? cls : null;
+    }
+
+    /** The function of a function definition expression (v2.1, {@code x := f() { ... }}), possibly without a name. */
+    public static boolean isFunctionExpression(@Nullable PsiElement definition) {
+        return definition instanceof AhkFunc && definition.getParent() instanceof AhkFuncExpr;
     }
 
     /**

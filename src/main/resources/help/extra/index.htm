@@ -12,6 +12,8 @@
 
 <p>This plugin adds support for <a href="https://www.autohotkey.com/">AutoHotkey</a> v2 scripts (<code>.ahk</code> files) to IntelliJ IDEA and the other IDEs based on the IntelliJ platform. It understands the language, helps while writing, and runs, validates, compiles and debugs scripts with the AutoHotkey installation on your computer.</p>
 
+<p class="note"><strong>AutoHotkey v2.0 and v2.1:</strong> AutoHotkey <strong>v2.0</strong> is fully supported. Support for AutoHotkey <strong>v2.1</strong> is in development: v2.1 itself is still an alpha whose specification changes, and the plugin follows the current alpha (v2.1-alpha.39) as well as it can. Validation of v2.1 files uses the installed alpha and may report unexpected errors or differences from the plugin. Details and limitations: <a href="v21.htm">AutoHotkey v2.1 (alpha)</a>.</p>
+
 <p>Only AutoHotkey v2 is supported. Files that require another version (<code>#Requires AutoHotkey v1.1</code>) are opened as text without errors and without formatting.</p>
 
 <p>Keyboard shortcuts in this manual are those of the default Windows keymap of IntelliJ IDEA. Open this manual from the IDE with <em>Help &gt; AutoHotkey Plugin Manual</em> or with the link at the bottom of <em>Settings &gt; Languages &amp; Frameworks &gt; AutoHotkey</em>.</p>
@@ -33,6 +35,10 @@
   <tr>
     <td nowrap="nowrap"><a href="navigation.htm">Navigation</a></td>
     <td>Go to declaration for functions, classes, members, labels and <code>#Include</code> files, including the AutoHotkey library folders; Find Usages and Rename with preview; Go to Symbol and Go to Class over the whole project.</td>
+  </tr>
+  <tr>
+    <td nowrap="nowrap"><a href="v21.htm">AutoHotkey v2.1 (alpha)</a></td>
+    <td>Language level per file, the built-in names, help and new syntax of v2.1-alpha.39, and <a href="modules.htm">modules</a> (namespaces of <code>#Module</code>, <code>#Import</code>, module files); in development, like v2.1 itself.</td>
   </tr>
   <tr>
     <td nowrap="nowrap"><a href="help.htm">Help</a></td>
@@ -67,6 +73,10 @@
     <td>Compiles a script into an executable with Ahk2Exe, inserts a head of compiler directives; run configurations can compile first and run the executable in a real console.</td>
   </tr>
   <tr>
+    <td nowrap="nowrap"><a href="installer.htm">Deploy and versions</a></td>
+    <td>Copies a tool to a fixed folder as described by a <code>settings.ahk-plugin.ini</code> next to the script, optionally after compiling it; sets the version in <code>;@Ahk2Exe-SetVersion</code> with commit and version tag.</td>
+  </tr>
+  <tr>
     <td nowrap="nowrap"><a href="debugger.htm">Debugger</a></td>
     <td>Breakpoints, stepping, call stack, variables, watches, inline values, exception breakpoints, attaching to running scripts.</td>
   </tr>
@@ -87,7 +97,13 @@
   <li><a href="running.htm">Running scripts</a></li>
   <li><a href="validate.htm">Validating with AutoHotkey</a></li>
   <li><a href="compile.htm">Compiling with Ahk2Exe</a></li>
+  <li><a href="installer.htm">Deploying tools and setting versions</a></li>
   <li><a href="debugger.htm">Debugger</a></li>
+  <li><a href="v21.htm">AutoHotkey v2.1 (alpha)</a>
+    <ul>
+      <li><a href="modules.htm">Modules</a></li>
+    </ul>
+  </li>
   <li><a href="pragmas.htm">Pragmas</a>
     <ul>
       <li><a href="declare-type.htm">;@declare-type</a></li>
@@ -101,7 +117,7 @@
 <h2 id="Versions">Versions of the AutoHotkey help</h2>
 <p>The plugin uses two copies of the AutoHotkey help:</p>
 <ul>
-  <li>The <strong>popups</strong> (<kbd>Ctrl</kbd>+<kbd>Q</kbd>, mouse hover) show pages that are part of the plugin. They are currently those of AutoHotkey <strong>v2.0.31</strong>, independent of the AutoHotkey version installed on your computer.</li>
+  <li>The <strong>popups</strong> (<kbd>Ctrl</kbd>+<kbd>Q</kbd>, mouse hover) show pages that are part of the plugin. They are currently those of AutoHotkey <strong>v2.0.31</strong> (in files with the <a href="v21.htm#Levels">language level</a> v2.1: <strong>v2.1-alpha.39</strong>), independent of the AutoHotkey version installed on your computer.</li>
   <li>The <strong>external help</strong> (<kbd>Shift</kbd>+<kbd>F1</kbd>) opens <code>AutoHotkey.chm</code> of your AutoHotkey installation and therefore matches the installed version.</li>
 </ul>
 <p>If the two differ (for example a function that is new in a later version), the external help is the one that is right for your installation.</p>

@@ -2,7 +2,7 @@ package de.kumpewo.autohotkey.formatter;
 
 import java.util.List;
 
-/** Test access to the package-private tab "Doc Comments" (Z.23). */
+/** Test access to the package-private tab "Doc Comments". */
 public final class AhkDocCommentCodeStylePanelAccess {
 
     private AhkDocCommentCodeStylePanelAccess() {

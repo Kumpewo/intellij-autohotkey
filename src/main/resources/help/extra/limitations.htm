@@ -15,8 +15,10 @@
   <li>Calls without parentheses whose first argument starts with <code>(</code> (<code>SetTimer () =&gt; stmt, 100</code>) are not supported. Use <a href="ignore-next-line.htm">;@ignore-next-line</a> or write the call with parentheses: <code>SetTimer(() =&gt; stmt, 100)</code>.</li>
   <li>Inside parentheses, a next line that starts with a fat arrow function (<code>x := (a</code> / <code>() =&gt; 1)</code>) is not recognized as a concatenation. (A next line starting with <code>!</code>, <code>not</code>, <code>~</code>, <code>++</code> or <code>{...}</code> is an error in AutoHotkey as well.)</li>
   <li>The command form of a method call (<code>obj.Method "x", 1</code>) is read as a concatenation; it works in AutoHotkey but has no parameter info. Prefer <code>obj.Method("x", 1)</code>.</li>
+  <li>A property block with its accessor on the same line (<code>Prop { get =&gt; 1 }</code>) is accepted, although AutoHotkey reports an error there; write the accessor on its own line.</li>
   <li>A command with an omitted <em>first</em> argument (<code>Foo , x</code>) is not supported.</li>
   <li>Line breaks inside <code>[ ]</code> and <code>{ }</code> never continue an implicit concatenation; this is deliberate, so that a forgotten comma stays an error.</li>
+  <li>AutoHotkey v2.1 is an alpha, and so is its support in the plugin; its own limitations are listed in <a href="v21.htm#Limits">AutoHotkey v2.1 (alpha)</a>.</li>
 </ul>
 <p>If <a href="validate.htm">validation</a> shows that AutoHotkey accepts such code, the errors are marked as "Syntax error (AutoHotkey accepts this code)".</p>
 
@@ -75,7 +77,7 @@ CallF(yobj)</pre>
   <li>Running, validating, compiling and debugging need Windows and an installed AutoHotkey v2.</li>
   <li>Runtime errors are shown by AutoHotkey in its own dialog, not in the console.</li>
   <li>The debugger evaluates only variable and member paths, no expressions (see <a href="debugger.htm#Limits">Debugger</a>).</li>
-  <li>The popup help shows the pages of AutoHotkey v2.0.31, the external help those of the installed version (see <a href="index.htm#Versions">Versions</a>).</li>
+  <li>The popup help shows the pages of AutoHotkey v2.0.31 (v2.1 files: v2.1-alpha.39), the external help those of the installed version (see <a href="index.htm#Versions">Versions</a>).</li>
 </ul>
 
 <h2 id="Related">Related</h2>

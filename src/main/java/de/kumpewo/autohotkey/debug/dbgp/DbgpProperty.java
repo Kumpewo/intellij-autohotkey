@@ -19,7 +19,8 @@ import java.util.List;
  * @param facet       e.g. {@code Builtin}, otherwise empty
  * @param address     identity of an object, otherwise empty
  * @param hasChildren true if the value can be expanded
- * @param numChildren number of children as reported by the engine
+ * @param numChildren number of children as reported by the engine, {@code -1} if the engine does not report it
+ *                    (AutoHotkey v2.1)
  * @param page        page of the included children
  * @param pageSize    children per page
  * @param size        length of the full value (the value itself may be shortened, see property_get {@code -m})
@@ -36,7 +37,7 @@ public record DbgpProperty(@NotNull String name, @NotNull String fullName, @NotN
         return new DbgpProperty(DbgpPacket.attr(element, "name"), DbgpPacket.attr(element, "fullname"),
                 DbgpPacket.attr(element, "type"), DbgpPacket.attr(element, "classname"),
                 DbgpPacket.attr(element, "facet"), DbgpPacket.attr(element, "address"),
-                "1".equals(DbgpPacket.attr(element, "children")), DbgpPacket.intAttr(element, "numchildren", 0),
+                "1".equals(DbgpPacket.attr(element, "children")), DbgpPacket.intAttr(element, "numchildren", -1),
                 DbgpPacket.intAttr(element, "page", 0), DbgpPacket.intAttr(element, "pagesize", 0),
                 DbgpPacket.intAttr(element, "size", 0),
                 "object".equals(DbgpPacket.attr(element, "type")) ? "" : DbgpPacket.decode(element),

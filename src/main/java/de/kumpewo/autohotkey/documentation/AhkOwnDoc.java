@@ -29,7 +29,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Quick documentation of own functions, methods and classes (Z.22): signature, file and the doc comment
+ * Quick documentation of own functions, methods and classes: signature, file and the doc comment
  * ({@link AhkDocComment}). The definitions are found by name like Ctrl+B ({@link AhkDefinitionReference}); an own
  * definition takes precedence over the built-in help. Several matching definitions give an overview page with one
  * link each ({@code psi_element://ahkdef:offset:url}).
@@ -263,15 +263,16 @@ public final class AhkOwnDoc {
         if (file == null) return null;
         PsiElement own = ownDefinition(file, name);
         if (own != null) return link(own);
+        de.kumpewo.autohotkey.parser.AhkLanguageLevel level = de.kumpewo.autohotkey.parser.AhkLanguageLevel.of(file);
         // the whole name without a class (MsgBox, nested classes such as Gui.Button)
-        for (AhkHelpRepository.Topic topic : AhkHelpRepository.topics(name)) {
+        for (AhkHelpRepository.Topic topic : AhkHelpRepository.topics(level, name)) {
             if (topic.className() == null) return topic.link();
         }
         // Class.Member: the entry of the word with this class (Gui.Add)
         int dot = name.lastIndexOf('.');
         if (dot < 0) return null;
         String owner = name.substring(0, dot);
-        for (AhkHelpRepository.Topic topic : AhkHelpRepository.topics(name.substring(dot + 1))) {
+        for (AhkHelpRepository.Topic topic : AhkHelpRepository.topics(level, name.substring(dot + 1))) {
             if (owner.equalsIgnoreCase(topic.className())) return topic.link();
         }
         return null;

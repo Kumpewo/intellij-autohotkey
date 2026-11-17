@@ -26,6 +26,32 @@ Shared knowledge is concentrated in a few places so that highlighting, completio
 - **Roles of names** are decided in `AhkAnnotator` (`isName`, `keywordColor`, `identifierColor`). The case
   adjustment of the formatter uses the same functions.
 - **Built-in names** come from the lists in `src/main/resources/names/`, loaded by `AhkNames`.
+- **Language level** (`parser/AhkLanguageLevel`: AutoHotkey v2.0 or v2.1) of a file comes from its `#Requires`,
+  otherwise from the settings. Name lists, signatures, values, options and help are loaded per level
+  (`AhkNames.of(element)`, `AhkCommandInfo`, `AhkHelpRepository`); the data sets of v2.1 lie in the subfolders
+  `v2.1/` (see [Resources](#resources)). The parser reads the level once at the start of the file
+  (`AhkParserUtil.otherVersion`); syntax of v2.1 goes through `<<requiresV21 …>>` in `Ahk.bnf`
+  (`AhkParserUtil.requiresV21`): parsed at every level, but an error "Requires AutoHotkey v2.1" in v2.0, so the
+  tree stays the same. `struct` stays an `IDENTIFIER` in the lexer (no level there); in v2.1
+  `AhkParserUtil.structKeyword` remaps it to `KEYWORD_STRUCT` at the start of a definition (`struct Name`).
+- **Function definition expressions** (v2.1, `x := f() { ... }`): the element `FUNC_EXPR` holds a normal `FUNC`
+  (the fake rule `func` in `Ahk.bnf` defines the PSI of all functions, `func_def` = statement, `func_literal` = in an
+  expression, name optional), so navigation, locals (`AhkLocals`: the function is a scope), parameter info and the
+  formatter treat it like any function; `AhkDefinitions.isFunctionExpression` tells them apart (never a method,
+  `ownerClass` is `null`). `AhkParserUtil.funcExprStart` decides by raw lookahead (name directly before `(`,
+  matching `)`, then `{`; line breaks before `{` only inside brackets, `enclosed`/`inParens`; not in the head of a
+  control statement, `controlHead`, unless enclosed there), `funcBody` parses the body in a fresh state (no
+  parentheses, deref or head around it). `AhkFuncExprAnnotator` reports it outside v2.1 and as a whole statement.
+- **Typed properties** (v2.1, `x : Int32 := 0`, `union { ... }`): only in the body of a class, which the grammar
+  parses with its own rule `class_block` (element type `BLOCK` as every block, with the items `typed_decl_stmt` and
+  `union_block` in addition). `typed_decl_stmt` holds `TYPED_PROPERTY` elements and normal expressions (mixed
+  lines `x : Int32, y := 2`); `AhkParserUtil.typedDeclStart` decides by lookahead (name and `:` at the start or
+  after a comma outside brackets, not at the end of the line, which is a label). The type (`TYPE_SPEC`) is parsed
+  by `AhkParserUtil.typeExpr` as `expr` with the priority of the postfix operators (only calls, index and member
+  access), so `:= initializer` is not swallowed. `AhkParserUtil.unionKeyword` remaps `union` to `KEYWORD_UNION`
+  only if its block starts with a typed property (otherwise a property named `union`). `AhkDefinitions.fields`
+  returns typed properties as fields (also inside union blocks). `AhkTypedPropertyAnnotator` reports v2.0 and the
+  content and place of union blocks.
 - **Included files** are resolved by `AhkInclude.includedFiles`; navigation, completion, parameter info and type
   declarations all look at the file itself and its *directly* included files.
 - **Declared types** come from `AhkTypeDeclarations` (also for parameter info and help variants).
@@ -40,7 +66,10 @@ Shared knowledge is concentrated in a few places so that highlighting, completio
 | `parser/AhkLexerAdapter` | wraps the generated JFlex lexer |
 | `src/main/grammar/Ahk.bnf` | grammar: statements, expressions (Pratt), classes, switch, directives |
 | `parser/AhkParserUtil` | external predicates and rules used by the grammar |
-| `parser/AhkVersion` | evaluates `#Requires AutoHotkey ...` |
+| `parser/AhkVersion` | evaluates `#Requires AutoHotkey ...`: language level it asks for, requirement for the interpreter |
+| `parser/AhkLanguageLevel` | language level of a file (`OTHER` = v1, `V2_0`, `V2_1`), cached; `findRequires` = the deciding `#Requires`; `AhkParserUtil.languageLevel` for the parser |
+| `level/` | shows the language level: `AhkLevelInfo` (level + line of the deciding `#Requires`), status bar widget `AhkLevelWidgetFactory`/`AhkLevelWidget` (`EditorBasedWidget`, updated on editor selection and PSI changes in a non-blocking read action; click = go to `#Requires` or open the settings), `AhkLevelDecorator` (`projectViewNodeDecorator`: location string `v2.1` after `.ahk` files, setting `showLevelInProjectView`) |
+| `AhkResources` | loads data sets per language level: v2.0 file plus difference of the level, or a complete copy |
 | `parser/AhkParserDefinition` | connects lexer, parser and PSI |
 | `psi/AhkTypes` (generated), `psi/AhkElementType`, `psi/AhkTokenType` | element and token types |
 | `psi/*Mixin`, `psi/AhkDefinitions`, `psi/AhkNamedElement` | hand-written behavior of PSI elements |
@@ -56,6 +85,15 @@ operator at the end of a line, and before a line that starts with an operator, t
 whitespace and the parser never sees it. Using states instead of fields lets the editor restart the lexer at
 any position.
 
+Continuation sections outside a string (`IN_CS_OPEN`, `IN_CS`, `IN_CS_LINESTART` ...): the line break before a
+line that starts with `(` (no other parenthesis on it) is whitespace; `(` and `)` stay `L_PAREN`/`R_PAREN`, so the
+section is parsed as a `PAREN_EXPR`; its options are a `CONTINUATION_OPTIONS` token (in `AhkTokenSets.COMMENTS`);
+inside it a string may span lines up to a line starting with `)`. `AhkParserUtil.spacedWithoutLineBreak` accepts the
+line break before such a `(` (`MsgBox⏎(…)` is a concatenation like `MsgBox (…)`). The formatter treats the section
+as a leaf with read-only spacing before it (`AhkBlock.isContinuationSection`): its text never changes. Block
+comments end at `*/` only at the start or end of a line (`atLineStart`/`atLineEnd` in `Ahk.flex`, same tokens as
+before for the formatter of doc comments).
+
 ### Expressions and statements
 
 Expressions form a Pratt hierarchy (`expr` in `Ahk.bnf`); each operator is its own PSI element (`AddExpr`,
@@ -65,6 +103,17 @@ loop spin forever.
 
 There is no symbol table: `f (x)` is always a concatenation and `f(x)` a call; a command without parentheses
 (`MsgBox "x"`) is recognized by the token after the name.
+
+Every function definition is one element type `FUNC` (`fake func` in `Ahk.bnf`): a function or method as a statement
+(`func_def`) and a named fat arrow function inside an expression (`arrow_func` in `ARROW_FUNC_EXPR`,
+`sumfn := Sum(a, b) => a + b`). `AhkParserUtil.arrowFuncStart` checks by a linear scan of the raw tokens that `=>`
+follows the matching `)`, so an ordinary call is not parsed twice.
+
+Line continuation is mostly the lexer's job (above); two cases are left to the grammar or need a special lexer rule:
+the `:` of a ternary at the end of a line (`ternary_expr` allows `CRLF*` after `COLON`, because a `:` at the end of a
+line is also a label or a `case`), and a line starting with `.Name` (in `CONT_START`: member access continuing a
+method chain, unlike `. ` which is a concatenation). Hotkeys for a quote key (`^+"::`) have their own lexer rule
+(`HOTKEY_QUOTE`), because the general hotkey text excludes quotes.
 
 Control structures have a head expression and a `BODY` element (block or a single statement on the next line);
 `else` is its own element `ELSE_BRANCH`. The formatter relies on `BODY` for indentation.
@@ -95,11 +144,22 @@ The generated PSI classes extend hand-written mixins (`mixin=` in the grammar):
   by role (free-standing name, name after the dot, nested class `Gui.Button`, `default` in a switch, loop
   subcommands, declared types).
 - `AhkNames` loads the name lists (`directives`, `variables`, `classes`, `functions`, `methods`, `properties`,
-  `nested-classes`, `keys`, `members`). The tables live in holder classes because extension classes must not
-  use static initialization and annotators run in parallel.
+  `nested-classes`, `keys`, `members`), one set per language level (`AhkNames.get(level)`,
+  `AhkNames.of(element)`), on first use. The tables live outside of the extension classes because extension classes
+  must not use static initialization and annotators run in parallel.
 - Further annotators each check one rule: `AhkBlockBraceAnnotator` (nothing after `{`), `AhkElseBodyAnnotator`,
-  `AhkBadCommentAnnotator`, `AhkDeclAnnotator` (`global` without a name), `AhkVersionAnnotator` with the quick fix
-  `AhkAddRequiresFix`, `AhkTypeDeclarationAnnotator`.
+  `AhkBadCommentAnnotator`, `AhkDeclAnnotator` (`global` without a name), `AhkModuleAnnotator` (`#Module`/`#Import`: v2.1 only, where they
+  are allowed, module name; the arguments of `#Import` are normal tokens, see `Ahk.flex`, and the element
+  `IMPORT_SPEC` in the grammar), `AhkParameterOrderAnnotator`
+  (mandatory parameter after an optional one outside v2.1; the syntax is the same at both levels, therefore no
+  parser rule), `AhkFuncExprAnnotator` (function definition expression: v2.1 only, not a statement on its own
+  except after a hotkey), `AhkTypedPropertyAnnotator` (typed property and union block: v2.1 only, union block only
+  directly in a class body and only with typed properties), `AhkVersionAnnotator` with the quick fix
+  `AhkAddRequiresFix`, `AhkTypeDeclarationAnnotator`. `AhkAddRequiresFix.lineFor(level)` gives the line for the
+  level of the file (= default level): v2.0 `#Requires AutoHotkey v2.0`, v2.1 the version from the folder name of
+  the v2.1 interpreter (`v2.1-alpha.39`), otherwise `v2.1-`. The intention `AhkAddRequiresIntention` offers the same
+  `#Requires` lines anywhere in a file without `#Requires` except in the line of the hint (no double entry); its
+  subclass `V1` (`#Requires AutoHotkey v1.1`, first) only when `AhkVersionDetector` says v1.
 - `AhkVersionDetector`: for a file without `#Requires` it runs the syntax detection of the AutoHotkey launcher
   (`IdentifyBySyntax` from `UX/inc/identify.ahk` of the installation) through a small helper script with
   `AutoHotkeyUX.exe`, in the background, once per text and debounced; `AhkVersionAnnotator` then shows a warning with
@@ -140,8 +200,8 @@ AutoHotkey files (AutoHotkey allows non-ASCII characters in names, e.g. a `§` p
 - `AhkArguments` finds the owner of the arguments at a position (call, command, directive, method call) and the
   index of the current argument.
 - `AhkCommandInfo` loads `signatures.txt`, `method-signatures.txt`, `values.txt` and `options.txt` (option strings,
-  with groups `@Name`; `options(...)` with the rule `Class.Method<FirstArgument>`) and builds signatures of own
-  functions and methods from their parameter lists.
+  with groups `@Name`; `options(...)` with the rule `Class.Method<FirstArgument>`), one set per language level, and
+  builds signatures of own functions and methods from their parameter lists.
 - `AhkParameterInfoHandler` shows the forms for the owner found by `AhkArguments`.
 - `AhkTypedHandler` opens the popup after `.` and `#` (in an include line also after `<`, quotes, `\`, `/`), the parameter info after `(`, and types `%` in pairs;
   `AhkQuoteHandler` types quotes in pairs.
@@ -152,7 +212,7 @@ AutoHotkey files (AutoHotkey allows non-ASCII characters in names, e.g. a `§` p
   names, names after the dot and the names after `extends`. The reference is poly-variant: it collects matching
   functions, classes and properties in the file and its directly included files. Without a definition but with a
   help page, the target is an `AhkHelpTarget`, which opens the quick documentation.
-- Local variables and parameters (Z.27): `psi/AhkLocals` collects per scope (function, accessor, property,
+- Local variables and parameters: `psi/AhkLocals` collects per scope (function, accessor, property,
   fat-arrow function; cached per PSI modification) the parameters, `local`/`static`/`global` declarations,
   assigned names and nested functions, and resolves a name by the rules of AutoHotkey v2 (closures, static nested
   functions, assume-global). Where a free-standing name, command name or definition (parameter, `decl_item`,
@@ -165,13 +225,18 @@ AutoHotkey files (AutoHotkey allows non-ASCII characters in names, e.g. a `§` p
   the searcher adds it explicitly, because the comment lies outside the function).
 - `AhkLabelReferenceContributor` / `AhkLabelReference`: targets of `goto`, `break`, `continue`.
 - `AhkInclude` resolves `#Include` arguments (library folders, built-in variables, current include directory);
+  `<Name>` by the language level of the file (`library`: v2.0 with the `_` rule, v2.1 own directory first and
+  exact name before `Name.ahk`; standard Lib next to the interpreter of that level, `globalLibraryDirectories`
+  without a level = all levels for the library "AutoHotkey Lib");
   `AhkIncludeReferenceContributor` / `AhkIncludeReference` open the file, `AhkIncludeDirectoryTarget` shows a hint
   for a directory.
 - `AhkLibraryRootsProvider` registers the global Lib folders as a synthetic library, because the platform runs no
   annotators on files outside of the project and its libraries.
 - `AhkReference` / `AhkReferenceContributor` are an early draft and are not registered.
 - `AhkFindUsagesProvider` (`lang.findUsagesProvider`) enables Find Usages for `AhkNamedElement`s and
-  `AhkFieldTarget` (which reports the AutoHotkey language for this); `AhkReferencesSearcher` (`referencesSearch`)
+  `AhkFieldTarget` (which reports the AutoHotkey language for this); `AhkTargetElementEvaluator`
+  (`targetElementEvaluator`) makes the name of a field in its defining statement (`x := 0`, `x : Int32`) the
+  `AhkFieldTarget`, so Find Usages and Rename also work at the definition; `AhkReferencesSearcher` (`referencesSearch`)
   collects the references: in the file of the definition and the AutoHotkey files of the scope that include it
   directly (`AhkInclude.includedFiles`), every reference whose targets contain the definition. No words scanner and
   no word index (it is case-sensitive).
@@ -184,7 +249,7 @@ AutoHotkey files (AutoHotkey allows non-ASCII characters in names, e.g. a `§` p
   `AhkSymbolItem`s (a `PsiElementNavigationItem` that shows the file as location, unlike the elements' own
   presentation used by the Ctrl+B choosers). The scope (project, libraries with "Include non-project items") comes
   from the platform.
-- Rename (Z.20): `AhkRenameProcessor` (`renamePsiElementProcessor`) forces the preview, finds code occurrences with
+- Rename: `AhkRenameProcessor` (`renamePsiElementProcessor`) forces the preview, finds code occurrences with
   `AhkReferencesSearcher.search(..., transitive = true)` (also indirectly including files; references there are
   checked with `AhkDefinitionReference.definitionsIn` over the file's whole include closure), adds occurrences in
   comments and strings as `NonCodeUsageInfo` in `findCollisions` (the platform's own search needs the word index)
@@ -200,12 +265,52 @@ AutoHotkey files (AutoHotkey allows non-ASCII characters in names, e.g. a `§` p
   local variables); definitions and assignment targets are write occurrences. `highlightReferences()` is
   false, so the platform does not add its own reference search.
 
+## Modules (`module/`, v2.1)
+
+- `AhkModules` is the one place that knows the namespaces of AutoHotkey v2.1 modules; everything else asks it, and
+  only for v2.1 files (`isActive`), so v2.0 files keep "the file and its direct includes". `regions` splits a file at
+  its top-level `#Module` directives (first region `__Main`); `parts(Module)` collects the regions of a module in the
+  group of its home file (the file itself plus the regions of its directly included files: the first region of an
+  included file belongs to the module of the `#Include` line). `imports` parses `#Import` (`Import`, `Item`; an
+  import inside a function only applies there). `resolveModule` finds the loaded module: `AHK` (built-in), a
+  `#Module` of the group, `"Path:Name"`, or a module file in the search path (`searchDirectories`: folder of the
+  file, folder of the module's home file, `AhkInclude.libPathDirectories` = `AhkLibPath` or user/standard library;
+  `Name`, `Name\__Init.ahk`, `Name.ahk`). `exists` checks the disk for the "Module not found" error (a file need
+  not be in the VFS yet).
+- `resolve(context, name, finder, variables)`: own definitions of the module, then explicit imports, then wildcard
+  imports (last first); `exports(module, name, ...)` for `X.Name` and `{Name}` (definitions, global variables, all
+  explicit imports, wildcard imports with `Export`); `wildcardExports` for `{*}` (no `_` names, only imports with
+  `Export`). A `Finder` (`AhkDefinitionReference.finder(kind, name, outer)`) gives the matching definitions of a
+  whole file; `definitions` keeps those inside the module's parts. `Result.module` is set when the name stands for
+  a module; `qualifierModule` uses it for `X.` and `X.Y.`. Results and caches depend on
+  `PsiModificationTracker.MODIFICATION_COUNT` and `AhkSettings.LANGUAGE_LEVEL_TRACKER`.
+- `AhkModuleSymbol` (`FakePsiElement`): target for names without own PSI element - `MODULE` (the name in the
+  `DIRECTIVE_ARGS` of `#Module`), `ALIAS` (identifier after `as`), `VARIABLE` (first assignment or `global`
+  declaration of a module variable, navigation only). Modules and aliases are definitions for
+  `AhkReferencesSearcher` (Find Usages, Rename) and are found at the caret by `AhkTargetElementEvaluator`.
+- `AhkModuleReferenceContributor`: `ModuleReference` on `import_module` (only `Name` in `"Path:Name"`; target the
+  `#Module` symbol or the module file) and `ImportReference` on the first identifier of `import_item` (target from
+  `exports`; for `AHK` the help). Both rules carry `AhkReferenceHostMixin` in the grammar.
+- Users: `AhkDefinitionReference` (`moduleDefinitions`: free names and base classes by module, `X.Name` and
+  `extends X.Base` by exports, `AHK.Name` = help), `AhkLocals.isFunctionOrClass`, `AhkCompletionContributor`
+  (`addModuleScope`, `addModuleMembers`, `addModuleNames`, `addImportableNames`), `AhkCommandInfo`
+  (`signatures(PsiElement, name)`, `moduleSignatures`), `AhkAnnotator.identifierColor` (`hiddenByModule`: built-in
+  names the module defines or imports, `ownNames`; `moduleLeftOfDot`), `AhkModuleAnnotator` (checks),
+  `AhkReferencesSearcher` (candidate files also import the definition's file; the transitive name check of Rename
+  is skipped in files with modules), `AhkStructureViewElement`/`AhkStructureSorter` (module nodes) and
+  `AhkFoldingBuilder` (module regions).
+- The DBGp engine of v2.1-alpha.39 answers the *Global* context always for the module of the innermost frame
+  (`-d` is ignored there) and shows a `Module` object without its exports; the debugger has no module-specific
+  code.
+
 ## Help (`documentation/`)
 
 - `AhkHelpRepository` knows which identifiers have help: the lookup files `help/lookup/docs.txt` (help shipped
   with AutoHotkey) and `help/lookup/extra.txt` (own pages), each line `word<TAB>path<TAB>anchor[<TAB>class]`
   (path relative to `help/`, anchor = `id` of a direct child of `<body>` or `<null>`). `docs.txt` is searched
-  first. It loads pages as resources (path in lower case), cuts the page between `<body>` and the anchor,
+  first. Per language level: for v2.1 the lines of `help/lookup/v2.1/docs.txt` replace all entries of their word,
+  and the pages come from `help/v2.1/` (`Topic.root`). It loads pages as resources (path in lower case), cuts the
+  page between `<body>` and the anchor,
   replaces stylesheet links by an inline style block (CSS from `help/styles/`, a copy of the styles of the
   AutoHotkey help, so that `help/docs/` can be replaced by a new version of the help at any time) and rewrites links between
   pages to `psi_element://`.
@@ -226,11 +331,14 @@ AutoHotkey files (AutoHotkey allows non-ASCII characters in names, e.g. a `§` p
   the files listed in the `[FILES]` section of `help/extra.hhp` are copied to `<temp>/intellij-autohotkey/manual/` and the
   start page opens in the browser. `extra.hhp` is the single list of the manual's files (pages and `help/styles/`);
   `testManualFilesAndLinks` checks that every page is listed and every link and anchor between them exists.
-- `AhkHelpAction` (menu *Help > AutoHotkey Help*) calls `AhkExternalHelp.openDocs`: the command line of the
-  settings with the key `/docs/index.htm`, otherwise `hh.exe AutoHotkey.chm`.
+- `AhkHelpAction` (menu *Help > AutoHotkey v2.0 Help*) and `AhkHelpAction.V21` (*AutoHotkey v2.1 Help*) call
+  `AhkExternalHelp.openDocs(project, level)`: the command line of the settings with the key `/docs/index.htm`,
+  otherwise `hh.exe` with `findChm()` / `findChmV21()`, otherwise `AhkBundledDocs` copies the help shipped with the
+  plugin (`help/docs/` or `help/v2.1/docs/`, listed from the plugin JAR) to `<temp>/intellij-autohotkey/docs-<version>/`
+  (reused while the JAR is unchanged, stamp file `.stamp`) and opens `index.htm` in the browser.
 - In a compiler directive `;@Ahk2Exe-...` the help key is `@Ahk2Exe` (`AhkDocumentationProvider.pragmaKey`), an
   entry of `docs.txt` that points to `/docs/misc/Ahk2ExeDirectives.htm`.
-- Doc comments (Z.22): `AhkDocComment.of(definition)` finds the `/** */` before a function, method or class (the
+- Doc comments: `AhkDocComment.of(definition)` finds the `/** */` before a function, method or class (the
   lexer splits a block comment into several `BLOCK_COMMENT` tokens; they are joined) and parses description and
   tags, with absolute ranges of `@param` names and types for warnings; cached until the next PSI change.
   `AhkOwnDoc` renders the page (`DocumentationMarkup`, Markdown via the platform's `DocMarkdownToHtmlConverter`,
@@ -246,7 +354,8 @@ AutoHotkey files (AutoHotkey allows non-ASCII characters in names, e.g. a `§` p
   (`enterHandlerDelegate`) writes the skeleton after `/**` + Enter.
 
 The help under `src/main/resources/help/` is part of the repository: `docs/` is a copy of the AutoHotkey
-documentation (currently v2.0.31) and can be replaced by a newer one at any time, `styles/` holds the stylesheets
+documentation (currently v2.0.31) and can be replaced by a newer one at any time, `v2.1/docs/` the same for
+AutoHotkey v2.1 (currently v2.1-alpha.39), `styles/` holds the stylesheets
 the plugin uses (copied from `docs/static/`), `extra/` the plugin's own pages (manual, pragmas, images),
 `lookup/` the lookup files, and `extra.hhp`/`.hhc`/`.hhk` the HTML Help project for `extra.chm` (compiled
 with `hhc.exe extra.hhp`; the compiled `extra.chm` is checked in as well).
@@ -295,7 +404,9 @@ check the tokenizers and the dictionary directly.
 ## Structure (`structure/`)
 
 `AhkStructureViewFactory` → `AhkStructureViewModel` → `AhkStructureViewElement` (hotkeys/hotstrings, classes,
-functions, labels; skips blocks), sorted by `AhkStructureSorter`. `AhkBreadcrumbsProvider` provides breadcrumbs
+functions, properties, labels; skips blocks; the fields of a class as `AhkFieldTarget` nodes from
+`AhkDefinitions.fields`, typed ones with their type as location string), sorted by `AhkStructureSorter` (fields in
+the order of the code, the layout of a struct). `AhkBreadcrumbsProvider` provides breadcrumbs
 and, through the platform, sticky lines. `AhkFoldingBuilder` (`lang.foldingBuilder`, dumb-aware, syntax tree
 only) folds brace pairs, block comments (the lexer returns them in several `BLOCK_COMMENT` tokens), continuation
 sections, runs of comment and `#Include` lines and `;region`/`;endregion` and `;{`/`;}` regions. The platform's
@@ -304,12 +415,18 @@ custom folding providers only know `//`, `#` and `/*` as comment prefixes, so th
 ## Run and settings (`run/`, `settings/`)
 
 - `AhkSettings` is an application-level light service (`@Service`, stored in `autohotkey.xml`): AutoHotkey path,
-  external help command, trigger of the automatic validation, Ahk2Exe path and compression, automatic detection
+  external help command, trigger of the automatic validation, Ahk2Exe path and compression, language level of
+  files without `#Requires` (`LANGUAGE_LEVEL_TRACKER` for cached levels), automatic detection
   of the installation, the launcher and Ahk2Exe (`detectAhk2Exe`). `findAutoHotkey(script)` replaces the launcher
   by the v2 interpreter next to it (`v2Interpreter`) if the script requires AutoHotkey 2.0
   (`AhkVersion.scriptRequirement`, read from the saved file with `AhkCompiler.readDirectives`); used by running and
-  validating.
-- `AhkSettingsConfigurable` is the settings page; changing the path updates the library roots.
+  validating. `scriptTarget(script)` gives the language level of the saved script (`#Requires`, otherwise the
+  default level) and the bitness; for level v2.1 `findAutoHotkey(script)` and `findInterpreter(script)` return the
+  v2.1 interpreter (`findAutoHotkeyV21`: configured path `autoHotkeyV21Path`, otherwise the newest version folder
+  `v2.1...` of the installation or entry of `UX\installed-files.csv`, `detectAutoHotkeyV21Dir`, compared with
+  `AhkVersion.compareVersions`), never the launcher; `notFoundMessage(script)` names the missing program.
+- `AhkSettingsConfigurable` is the settings page; changing the path updates the library roots, changing the
+  language level parses the open files again.
 - `AhkRunConfigurationType` (with its factory), `AhkRunConfiguration`, `AhkRunConfigurationOptions` and
   `AhkRunConfigurationEditor` form the run configuration; `AhkRunConfigurationProducer` creates it from the
   context; `AhkRunState` builds the command line and starts the process; `AhkErrorFilter` links load errors in
@@ -338,8 +455,9 @@ custom folding providers only know `//`, `#` and `/*` as comment prefixes, so th
   (`AhkValidator.target`), saves the AutoHotkey documents (`AhkValidator.saveAhkDocuments`) and requires a line
   `;@Ahk2Exe-Base` in the script (`hasBaseDirective`); otherwise a balloon notification (group `AutoHotkey`)
   offers "Add Ahk2Exe directives"; without Ahk2Exe it shows a hint in the editor (a dialog without an editor).
-- `AhkAhk2ExeHeader` builds the head of compiler directives as live template (placeholders for name, version,
-  description, copyright; base `AutoHotkey32/64.exe` after `#Requires`) and inserts it below the first `#Requires`
+- `AhkAhk2ExeHeader` builds the head of compiler directives as live template (placeholders for name, version
+  in `;@Ahk2Exe-SetVersion`, description, copyright; values without quotes, aligned in one column; base
+  `AutoHotkey32/64.exe` after `#Requires`) and inserts it below the first `#Requires`
   line; used by the notification and by the intention `AhkAddAhk2ExeHeaderIntention` (Alt+Enter in files without
   base directive, no warning; `startInWriteAction` is true, otherwise the platform keeps the document read-only
   while the intention runs; description under `intentionDescriptions/`).
@@ -356,6 +474,39 @@ custom folding providers only know `//`, `#` and `/*` as comment prefixes, so th
   `cmd /c start /wait` does not return the exit code. `checkConfiguration` requires `;@Ahk2Exe-Base` and Ahk2Exe
   instead of the AutoHotkey program.
 
+## Installer and versions (`install/`)
+
+- `AhkInstallAction` ("Deploy to Local Target...", Code menu, context menus) calls `AhkInstaller.install`: target as
+  for Validate/Compile (`AhkValidator.target`), `settings.ahk-plugin.ini` next to the script, `prepare` in a
+  background task (reads the INI, plans, asks Git for uncommitted changes), `AhkInstallDialog` (always; prominent
+  notice for `RequiresAdmin`, `Message`, overview = compile step and the copy sections without comments, warnings,
+  link "More..." to `/extra/installer.htm#Uncommitted`), then `execute` in a background task: compile
+  (`AhkCompiler.run`, then the plan is created again because the executable exists now), copy; report in a console of
+  the Run tool window. Problems before the start are collected and shown together; nothing happens then. No commit,
+  no tag.
+- `AhkInstallConfig` reads `settings.ahk-plugin.ini` (sections `[Install]`, `[Overwrite]`, `[KeepExisting]`,
+  `[Version]`; keys case-insensitive, `;` comments only at the line start, one pair of quotes removed, duplicates and
+  unknown keys are errors); `AhkInstallPlan` resolves `Destination`, `%DESTINATION%`, environment variables of the
+  IDE process, `%%`, `` `n `` in `Message`, sources (no `..`, wildcards only in the file name; `willExist` = the
+  executable that the compilation creates) and targets (folder rules) into `Step`s.
+- `AhkCreateSettingsAction` ("Create settings.ahk-plugin.ini") and the missing-file question of the installer call
+  `AhkSettingsFile.create`: the resource `install/settings.ahk-plugin.ini` (all options commented out and explained,
+  `{tool}` = script name without extension, CR LF) is written next to the script in a write command (into the
+  document if one is loaded) and opened; an existing file only after confirmation.
+- `AhkSetVersionAction` ("Set Version...") calls `AhkSetVersion.run`: `prepare` in the background (version line,
+  `TagPrefix` from `[Version]` if the INI exists, Git state, existing tags `<prefix>/*`), `AhkSetVersionDialog`
+  (patch/minor/major/other, commit and tag check boxes, message; validates the version and that the tag is new),
+  then the value is replaced in the document (`WriteCommandAction`, undoable) and saved, and `commitAndTag` runs in
+  the background (`check-ref-format` first, then commit of the script only, annotated tag); result as notification.
+- `AhkVersionDirective`: finds `;@Ahk2Exe-SetVersion` as Ahk2Exe does (trimmed line, any case, ` ;` comment cut
+  off, block comments and `IgnoreBegin`/`IgnoreEnd` skipped, `/*@Ahk2Exe-Keep` counts), `bump`, `isValidVersion`,
+  `tagName`.
+- `AhkInstallGit`: `git` on the command line (no Git4Idea) in the tool folder: `status --porcelain` (folder, one file,
+  other files via `:(exclude)`), `check-ref-format`, `rev-parse --verify`, `add -- <file>` +
+  `commit --only -- <file>`, annotated tag on HEAD.
+- `AhkInstaller.compiledExe` guesses the output file (`;@Ahk2Exe-ExeName`, otherwise `<script>.exe`) for the
+  warning "executable older than the scripts".
+
 ## Debugger (`debug/`, in progress)
 
 The debugger talks DBGp with the engine built into AutoHotkey v2 (`AutoHotkey64.exe /Debug=127.0.0.1:port`). It
@@ -363,7 +514,7 @@ follows the DBGp specification; the observed behavior of the engine is covered b
 `AhkDebugTest`).
 
 - `AhkDebugRunner` (`programRunner`, debug executor, AutoHotkey run configurations) opens a `DbgpServer`, starts the
-  v2 interpreter (`AhkSettings.findInterpreter`, never the launcher) with `/ErrorStdOut /Debug=…` and starts the
+  v2 or v2.1 interpreter (`AhkSettings.findInterpreter`, never the launcher) with `/ErrorStdOut /Debug=…` and starts the
   session with an `AhkDebugProcess`.
 - `AhkDebugProcess` (`XDebugProcess`) is a thin adapter: console with `AhkErrorFilter`, waits in the background for
   the engine to connect (`sessionInitialized`; a process that ends, e.g. by a syntax error, ends the session),
@@ -376,7 +527,9 @@ follows the DBGp specification; the observed behavior of the engine is covered b
   (`max_depth` 0 for `context_get`, 1 for expanding).
 - `AhkLineBreakpointType` allows breakpoints only on lines with code (PSI). `AhkSuspendContext`, `AhkStackFrame`
   (first context directly, other contexts as groups, built-in names in a "Built-in" sub-group), `AhkValue` (lazy
-  children page by page with `tooManyChildren`, total for Array/Map from `Length`/`Count`; "Set Value"; full value
+  children page by page with `tooManyChildren`, total for Array/Map from `Length`/`Count` plus the non-entry
+  children of page 0 (`<base>`, in v2.1 also inherited properties), otherwise `numchildren`, which v2.1 does not
+  send (`DbgpProperty.numChildren` = -1: "more" link without a number); "Set Value"; full value
   of shortened strings; watch expression = `fullname`), `AhkDebuggerEditorsProvider` (AutoHotkey file type).
 - Evaluation: `AhkNamePath` checks and normalizes name paths (the only expressions the engine can evaluate),
   `AhkDebuggerEvaluator` (per frame) resolves them with `AhkDebugController.resolve` (context of the first name from
@@ -425,12 +578,19 @@ template `fileTemplates/internal/AutoHotkey Script.ahk.ft`.
 | `names/method-signatures.txt` | signatures of methods | generated from the help (maintainer tool) |
 | `names/values.txt` | parameter values | by hand |
 | `names/options.txt` | options in option strings (MsgBox, Gui, Gui.Add ...) | by hand |
-| `names/keyword-case.txt` | keyword groups and spellings for case adjustment | by hand |
+| `names/keyword-case.txt` | keyword groups and spellings for case adjustment (all language levels) | by hand |
+| `names/v2.1/*.txt` | AutoHotkey v2.1: differences of the lists, `signatures.txt` and `values.txt` (see below); `members.txt` and `method-signatures.txt` complete | by hand / generated from the v2.1 help |
+| `help/lookup/v2.1/docs.txt` | AutoHotkey v2.1: differences of the help lookup | by hand |
 | `messages/AhkBundle.properties` | all visible texts | by hand |
 | `colorSchemes/AhkDefault.xml` | default colors | by hand |
 
 The list format is simple: names separated by line breaks, spaces or commas, `;` starts a comment, case does not
 matter. A new name in a list needs no code change.
+
+A difference file of v2.1 (`AhkResources`) holds only what is new or different: in a name list a name is added and
+`-Name` removes it; in `signatures.txt`, `values.txt`, `options.txt` and the help lookup a line replaces all v2.0
+lines with the same key (signature and lookup: the name; values and options: `Name Position` or `@Group`), and
+`-Key` removes them. Without a difference file v2.1 uses the v2.0 file.
 
 ## Tools (`tools/`)
 
@@ -440,6 +600,7 @@ pages such as `lib/Array.htm`; the case of file names is ignored):
 
 - `klassenmember/klassenmember.py` → `names/members.txt`
 - `methodensignaturen/methodensignaturen.py` → `names/method-signatures.txt` (run after `klassenmember.py`)
+- both with `--level 2.1`: from `help/v2.1/docs/` to `names/v2.1/`
 - `bezeichnerliste/bezeichnerliste.py` → `tools/bezeichnerliste/bezeichner-komplett.txt`, the list of all
   identifiers the plugin recognizes, used to check which help pages exist.
 
@@ -457,6 +618,9 @@ how the engine behaves (written from the DBGp specification only).
 - `AhkPluginTest` (`BasePlatformTestCase`): the whole plugin - highlighting with `checkHighlighting`, completion,
   parameter info, navigation, formatting, help, run configuration, live templates. Tests for `#Include` use real
   files in a temporary directory.
+- `module/AhkModuleTest` (`BasePlatformTestCase`): v2.1 modules with real files in a temporary content root
+  (navigation, module files and `AhkLibPath` via `AhkInclude.environment`, Find Usages, Rename, completion,
+  parameter info, highlighting, checks, structure view, folding).
 
 `./gradlew test` regenerates lexer and parser first. Test reports are in `build/test-results/test/*.xml`.
 

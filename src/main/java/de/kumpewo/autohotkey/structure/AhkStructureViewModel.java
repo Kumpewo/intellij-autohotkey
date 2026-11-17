@@ -5,7 +5,9 @@ import com.intellij.ide.structureView.StructureViewModelBase;
 import com.intellij.ide.structureView.StructureViewTreeElement;
 import com.intellij.ide.util.treeView.smartTree.Sorter;
 import com.intellij.psi.PsiFile;
+import de.kumpewo.autohotkey.navigation.AhkFieldTarget;
 import de.kumpewo.autohotkey.psi.AhkClass;
+import de.kumpewo.autohotkey.psi.AhkClassProperty;
 import de.kumpewo.autohotkey.psi.AhkFunc;
 import de.kumpewo.autohotkey.psi.AhkLabel;
 import de.kumpewo.autohotkey.psi.AhkPersistent;
@@ -16,7 +18,7 @@ public class AhkStructureViewModel extends StructureViewModelBase implements Str
 
     public AhkStructureViewModel(@NotNull PsiFile psiFile) {
         super(psiFile, new AhkStructureViewElement(psiFile));
-        withSuitableClasses(AhkClass.class, AhkFunc.class, AhkLabel.class);
+        withSuitableClasses(AhkClass.class, AhkClassProperty.class, AhkFunc.class, AhkLabel.class);
     }
 
     /** The only sorter is the grouping by category. */
@@ -35,10 +37,10 @@ public class AhkStructureViewModel extends StructureViewModelBase implements Str
         return false;
     }
 
-    /** Hotkeys/hotstrings and labels never have children. */
+    /** Hotkeys/hotstrings, labels and fields never have children. */
     @Override
     public boolean isAlwaysLeaf(@NotNull StructureViewTreeElement element) {
         Object value = element.getValue();
-        return value instanceof AhkPersistent || value instanceof AhkLabel;
+        return value instanceof AhkPersistent || value instanceof AhkLabel || value instanceof AhkFieldTarget;
     }
 }

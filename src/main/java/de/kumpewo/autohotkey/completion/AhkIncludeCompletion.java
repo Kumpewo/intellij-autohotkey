@@ -12,6 +12,7 @@ import com.intellij.psi.PsiFile;
 import de.kumpewo.autohotkey.AhkBundle;
 import de.kumpewo.autohotkey.AhkIcons;
 import de.kumpewo.autohotkey.include.AhkInclude;
+import de.kumpewo.autohotkey.parser.AhkLanguageLevel;
 import de.kumpewo.autohotkey.psi.AhkDirective;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -31,8 +32,8 @@ import java.util.stream.Stream;
  * Completion of the argument of {@code #Include}/{@code #IncludeAgain}:
  * <ul>
  *   <li>{@code #Include <Na|}: the {@code .ahk} files (without extension) and subdirectories of the Lib folders
- *       ({@link AhkInclude#libraryDirectories}: {@code A_ScriptDir\Lib}, user Lib, standard Lib); a file gets the
- *       closing {@code >}.</li>
+ *       ({@link AhkInclude#libraryDirectories}: {@code A_ScriptDir\Lib}, user Lib, standard Lib; in v2.1 files
+ *       first the directory of the file, without the file itself); a file gets the closing {@code >}.</li>
  *   <li>{@code #Include Na|}, also in quotes and after {@code *i }: the {@code .ahk} files and subdirectories of
  *       the directory that relative paths refer to ({@link AhkInclude#includeDirectory}: the directory of the file
  *       or of the last earlier {@code #Include Directory}). A typed directory part ({@code sub\}, {@code ..\},
@@ -68,7 +69,7 @@ public final class AhkIncludeCompletion {
         if (script == null) return true;
         String before = args.getText().substring(0, offset - args.getTextRange().getStartOffset()).stripLeading();
         if (before.startsWith("<")) {
-            addLibrary(before.substring(1), script, result);
+            addLibrary(before.substring(1), script, AhkLanguageLevel.of(directive), result);
         } else {
             addRelative(directive, before, file, script, result);
         }
@@ -76,13 +77,13 @@ public final class AhkIncludeCompletion {
     }
 
     /** {@code <dir\prefix}: files and subdirectories of the Lib folders. */
-    private static void addLibrary(String typed, Path script, CompletionResultSet result) {
+    private static void addLibrary(String typed, Path script, AhkLanguageLevel level, CompletionResultSet result) {
         if (typed.indexOf('>') >= 0) return;
         int split = lastSeparator(typed) + 1;
         String directoryPart = typed.substring(0, split);
         CompletionResultSet out = result.withPrefixMatcher(typed.substring(split)).caseInsensitive();
         Set<String> seen = new HashSet<>();
-        for (Path lib : AhkInclude.libraryDirectories(script)) {
+        for (Path lib : AhkInclude.libraryDirectories(script, level)) {
             Path directory;
             try {
                 directory = lib.resolve(directoryPart).normalize();
@@ -94,7 +95,7 @@ public final class AhkIncludeCompletion {
                 String name = String.valueOf(entry.getFileName());
                 if (Files.isDirectory(entry)) {
                     if (seen.add(key(name) + "\\")) out.addElement(directoryItem(name));
-                } else if (isAhk(name)) {
+                } else if (isAhk(name) && !entry.equals(script) && !isValidateCopy(name)) {
                     String base = name.substring(0, name.length() - 4);
                     if (seen.add(key(base))) {
                         out.addElement(LookupElementBuilder.create(base).withIcon(AhkIcons.FILE).withTypeText(typeText)
@@ -132,7 +133,7 @@ public final class AhkIncludeCompletion {
             String name = String.valueOf(entry.getFileName());
             if (Files.isDirectory(entry)) {
                 out.addElement(directoryItem(name));
-            } else if (isAhk(name) && !entry.equals(script) && !name.toLowerCase(Locale.ROOT).contains(".~validate.")) {
+            } else if (isAhk(name) && !entry.equals(script) && !isValidateCopy(name)) {
                 out.addElement(LookupElementBuilder.create(name).withIcon(AhkIcons.FILE)
                         .withTypeText(AhkBundle.message("completion.include.file")).withInsertHandler(closing));
             }
@@ -177,6 +178,11 @@ public final class AhkIncludeCompletion {
     /** File name with the extension {@code .ahk} (any case). */
     private static boolean isAhk(String name) {
         return name.length() > 4 && name.toLowerCase(Locale.ROOT).endsWith(".ahk");
+    }
+
+    /** Temporary copy of the validation ({@code name.~validate.ahk}), never offered. */
+    private static boolean isValidateCopy(String name) {
+        return name.toLowerCase(Locale.ROOT).contains(".~validate.");
     }
 
     /** Key for duplicates: lower case. */

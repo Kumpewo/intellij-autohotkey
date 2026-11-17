@@ -647,8 +647,13 @@ public class AhkPluginTest extends BasePlatformTestCase {
                 + ":X:def:: {\n    x := 1\n    " + nichtErste + "\n}\n"
                 + nichtErste + "\n"
                 + "j() {\n    <error descr=\"'local' needs a variable name.\">local</error>\n"
-                + "    <error descr=\"'static' needs a variable name.\">static</error>\n}\n"
-                + "k() {\n    global x, y := 2\n}\n");
+                + "    <error descr=\"'static' without a variable name is only allowed as the first statement of a "
+                + "function.\">static</error>\n}\n"
+                + "k() {\n    global x, y := 2\n}\n"
+                // assume-static: like "global" alone (AutoHotkey 2.0.31 accepts these)
+                + "s() {\n    static\n    x := 1\n}\n"
+                + "class L {\n    static m() {\n        static\n    }\n}\n"
+                + "F5:: {\n    static\n}\n");
         myFixture.checkHighlighting(true, false, false);
     }
 
@@ -658,6 +663,75 @@ public class AhkPluginTest extends BasePlatformTestCase {
                 + "switch x { ; Kommentar\ncase 1: a()\n}\n"
                 + "switch x\n{\ncase 1: a()\n}\n");
         myFixture.checkHighlighting(true, false, false);
+    }
+
+    /**
+     * Code after "{" is allowed if the brace starts its line or follows else/try/finally (as in AutoHotkey 2.0.31);
+     * not after the head on the same line and never in the body of a class.
+     */
+    public void testCodeAfterBraceAtLineStart() {
+        String e = "<error descr=\"A line break must follow '{'\">";
+        myFixture.configureByText("a.ahk", "x := 1\na() => 1\n"
+                + "if (x = 1)\n{ MsgBox \"a\"\n    MsgBox \"b\"\n}\n"
+                + "if x\n{ a()\n} else { a()\n}\n"
+                + "try { a()\n}\nfinally { a()\n}\n"
+                + "f()\n{ a()\n}\n"
+                + "F1::\n{ a()\n}\n"
+                + "switch x\n{ case 1: a()\n}\n"
+                + "{ a()\n}\n"
+                + "if x { " + e + "a()</error>\n}\n"
+                + "g() { " + e + "a()</error>\n}\n"
+                + "F2:: { " + e + "a()</error>\n}\n"
+                + "try a()\ncatch { " + e + "a()</error>\n}\n"
+                + "class C\n{ " + e + "y := 1</error>\n}\n");
+        myFixture.checkHighlighting(true, false, false);
+    }
+
+    /** The help examples give no errors in the editor (parser and annotators). */
+    public void testHelpExampleFormsWithoutErrors() {
+        myFixture.configureByText("a.ahk", "#Requires AutoHotkey v2.0\n"
+                + "x := 1\nMsgBox(\n(\n    \"a:\n    b: \" x \"\n    c\"\n))\n"
+                + "::text1::\n(\nAny text (here)\n)\n"
+                + "f := (this) => this\nh(this) {\n}\n"
+                + "m := 1\ny := m.0\n"
+                + "SetCapsLockState !m\nToolTip ++m\nWinActivate {Hwnd: m}\n"
+                + "pair := {%m%: 2}\n"
+                + "/*\nMsgBox \"Common:\" */ \" not end\"\n*/\n"
+                + "s() {\n    static\n    z := 1\n}\n"
+                + "if x {\n    s()\n} s()\n");
+        myFixture.checkHighlighting(true, false, false);
+    }
+
+    /** Reformat keeps continuation sections, code after braces and the options of a section. */
+    public void testFormatHelpExampleForms() {
+        String text = "x := 1\n"
+                + "MsgBox(\n(\n    \"a:\n    b: \" x \"\n    c\"\n))\n"
+                + "MsgBox\n( LTrim Join\n    \"a\" x\n)\n"
+                + "Var :=\n(\n\"first\n        indented\"\n)\n"
+                + "f() {\n    MsgBox\n    (\n      \"a\n        b\"\n    )\n}\n"
+                + "if x\n{ MsgBox \"a\"\n    MsgBox \"b\"\n} MsgBox \"c\"\n";
+        assertFormatted(text, text);
+        // the section is not moved (its content could change), the code around it is formatted
+        assertFormatted("f() {\n  MsgBox\n            (\n  \"a\n    b\"\n)\n  x:=1\n}\n",
+                "f() {\n    MsgBox\n            (\n  \"a\n    b\"\n)\n    x := 1\n}\n");
+    }
+
+    /** The parser gaps found in the help examples give no errors in the editor (parser and annotators). */
+    public void testParserGapFormsWithoutErrors() {
+        myFixture.configureByText("a.ahk", "#Requires AutoHotkey v2.0\n"
+                + "a := 1, b := 2, c := 3\nx := (a = 1) ?\n    b : ; Comment\n    c\n"
+                + "class C {\n    static M(s) => this\n    static N() => \"n\"\n}\n"
+                + "r := C.M(\"\"\n. \"Select\" . 1)\n.N()\nC\n    .M(\"a\")\n    .N()\n"
+                + "^+\"::Send '\"\"{Left}'\n\"::MsgBox\n"
+                + "sumfn := Sum(p, q) => p + q\nMsgBox sumfn(1, 2) Sum(3, 4)\n");
+        myFixture.checkHighlighting(true, false, false);
+    }
+
+    /** Continuation lines of these forms get one continuation indent. */
+    public void testFormatParserGapForms() {
+        assertFormatted("f() {\nx := a ?\nb :\nc\nr := C.M(\"\")\n.N()\n.N()\ns := Sum(p,q)=>p+q\n}\n",
+                "f() {\n    x := a ?\n            b :\n            c\n    r := C.M(\"\")\n            .N()\n            .N()\n"
+                        + "    s := Sum(p, q) => p + q\n}\n");
     }
 
     // ---------------------------------------------------------------- highlighting (AhkAnnotator, AhkNames)
@@ -1010,7 +1084,7 @@ public class AhkPluginTest extends BasePlatformTestCase {
             var file = com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByNioFile(main);
             com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByNioFile(dir.resolve("shared").resolve("Pragmas.ahk"));
             com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByNioFile(dir.resolve("other.ahk"));
-            // annotators only run for files of the project (Falle 24): the folder becomes a content root for the test
+            // annotators only run for files of the project: the folder becomes a content root for the test
             var root = com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByNioFile(dir);
             var entry = com.intellij.testFramework.PsiTestUtil.addContentRoot(myFixture.getModule(), root);
             com.intellij.openapi.util.Disposer.register(getTestRootDisposable(),
@@ -1249,10 +1323,42 @@ public class AhkPluginTest extends BasePlatformTestCase {
         assertEquals(teil.toString(), includeTarget(directive));
     }
 
+    /**
+     * {@code #Include <Name>} depends on the language level of the file (checked with v2.0.31 and v2.1-alpha.39):
+     * v2.0 searches the Lib folders for {@code Name.ahk}, then for the part before {@code _}; v2.1 searches the
+     * directory of the file first, takes the exact name before {@code Name.ahk} and has no {@code _} rule.
+     */
+    public void testIncludeLibraryByLanguageLevel() throws Exception {
+        java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("ahk").toRealPath();
+        java.nio.file.Path lib = java.nio.file.Files.createDirectories(dir.resolve("Lib"));
+        java.nio.file.Files.createDirectories(dir.resolve("D"));
+        for (String name : List.of("A.ahk", "X", "X.ahk", "X.txt", "X.txt.ahk", "Y.ahk", "D.ahk")) {
+            java.nio.file.Files.writeString(lib.resolve(name), "");
+        }
+        java.nio.file.Files.writeString(dir.resolve("Y.ahk"), "");
+        String includes = "#Include <A_B>\n#Include <X>\n#Include <X.txt>\n#Include <Y>\n#Include <D>\n";
+        for (boolean v21 : new boolean[]{false, true}) {
+            java.nio.file.Path main = java.nio.file.Files.writeString(dir.resolve(v21 ? "main21.ahk" : "main20.ahk"),
+                    (v21 ? "#Requires AutoHotkey v2.1-alpha.39\n" : "#Requires AutoHotkey v2.0\n") + includes);
+            myFixture.configureFromExistingVirtualFile(java.util.Objects.requireNonNull(
+                    com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByNioFile(main)));
+            List<de.kumpewo.autohotkey.psi.AhkDirective> directives = new ArrayList<>(
+                    com.intellij.psi.util.PsiTreeUtil.findChildrenOfType(myFixture.getFile(),
+                            de.kumpewo.autohotkey.psi.AhkDirective.class));
+            List<String> targets = new ArrayList<>();
+            for (de.kumpewo.autohotkey.psi.AhkDirective directive : directives.subList(1, directives.size())) {
+                String target = includeTarget(directive);
+                targets.add(target == null ? "-" : dir.relativize(java.nio.file.Path.of(target)).toString());
+            }
+            assertEquals(v21 ? List.of("-", "Lib\\X", "Lib\\X.txt", "Y.ahk", "Lib\\D.ahk")
+                    : List.of("Lib\\A.ahk", "Lib\\X.ahk", "Lib\\X.txt.ahk", "Lib\\Y.ahk", "Lib\\D.ahk"), targets);
+        }
+    }
+
     /** User Lib folder = Documents\AutoHotkey\Lib (FileSystemView returned no path here). */
     public void testIncludeUserLibFolder() {
         List<java.nio.file.Path> dirs = de.kumpewo.autohotkey.include.AhkInclude.libraryDirectories(
-                java.nio.file.Path.of("C:\\x\\a.ahk"));
+                java.nio.file.Path.of("C:\\x\\a.ahk"), de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_0);
         assertEquals(java.nio.file.Path.of("C:\\x\\Lib"), dirs.get(0));
         java.nio.file.Path user = dirs.get(1);
         assertTrue(user.toString(), user.endsWith(java.nio.file.Path.of("AutoHotkey", "Lib")));
@@ -1667,7 +1773,7 @@ public class AhkPluginTest extends BasePlatformTestCase {
         }
     }
 
-    /** Sample with doc comments (Z.22). */
+    /** Sample with doc comments. */
     private static final String DOC_SAMPLE = String.join("\n",
             "/**",
             " * Opens the **box**.",
@@ -1922,7 +2028,7 @@ public class AhkPluginTest extends BasePlatformTestCase {
             }
             return out;
         };
-        // definitions and assignment targets; not the parameter count of f (a local variable, Z.27)
+        // definitions and assignment targets; not the parameter count of f (a local variable)
         assertEquals(List.of("1:count", "2:Count", "8:count", "10:count"), lines.apply(handler.getWriteUsages()));
         // other occurrences, not in strings and comments, not other names, not the uses of the parameter
         assertEquals(List.of("3:count", "9:count"), lines.apply(handler.getReadUsages()));
@@ -1932,7 +2038,7 @@ public class AhkPluginTest extends BasePlatformTestCase {
                 myFixture.getEditor(), myFixture.getFile()));
     }
 
-    // ---------------------------------------------------------------- local variables (Z.27)
+    // ---------------------------------------------------------------- local variables
 
     /**
      * The local variable named at {@code <caret>}: "line:name" of its first definition, or "-" if the name is no
@@ -2238,6 +2344,11 @@ public class AhkPluginTest extends BasePlatformTestCase {
         assertEquals("#Include <ZqLib>\n", insertedInFile(dir, "#Include <ZqL<caret>\n"));
         assertEquals("#Include <v2\\ZqTeil>\n", insertedInFile(dir, "#Include <v2\\Zq<caret>\n"));
         assertTrue(suggestionsInFile(dir, "#Include <v<caret>\n").contains("v2\\"));
+        // v2.1: also the files next to the file (not the file itself); v2.0 only the Lib folders
+        assertEquals("#Requires AutoHotkey v2.1-\n#Include <helper>\n",
+                insertedInFile(dir, "#Requires AutoHotkey v2.1-\n#Include <hel<caret>\n"));
+        assertFalse(suggestionsInFile(dir, "#Requires AutoHotkey v2.1-\n#Include <<caret>\n").contains("main"));
+        assertFalse(suggestionsInFile(dir, "#Requires AutoHotkey v2.0\n#Include <<caret>\n").contains("helper"));
         // other directives: no paths
         assertFalse(suggestionsInFile(dir, "#Warn <caret>\n").contains("helper.ahk"));
         // auto popup after "<" and a backslash only in an include line
@@ -2584,6 +2695,34 @@ public class AhkPluginTest extends BasePlatformTestCase {
         com.intellij.codeInsight.daemon.DaemonCodeAnalyzer.getInstance(getProject()).restart(myFixture.getFile(), "test");
     }
 
+    /**
+     * A v2.1 script goes to the installed v2.1 interpreter (skipped if none is installed): v2.1 syntax passes
+     * {@code /validate}, an error is reported with its line.
+     */
+    public void testValidationWithInstalledAutoHotkeyV21() throws Exception {
+        if (de.kumpewo.autohotkey.settings.AhkSettings.detectAutoHotkeyV21() == null) return;
+        java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("ahk");
+        java.nio.file.Path script = java.nio.file.Files.writeString(dir.resolve("a b.ahk"),
+                "#Requires AutoHotkey v2.1-alpha\n#Warn All, StdOut\nx := 0\nx ??= 1\ny := x?.z\n");
+        String exe = de.kumpewo.autohotkey.settings.AhkSettings.getInstance().findAutoHotkey(script.toString());
+        assertNotNull(exe);
+        assertFalse(exe, exe.endsWith(de.kumpewo.autohotkey.settings.AhkSettings.LAUNCHER_EXE));
+        var commandLine = de.kumpewo.autohotkey.run.AhkRunState.createCommandLine(exe,
+                List.of("/ErrorStdOut", "/validate"), script.toString(), "", dir.toString());
+        var output = new com.intellij.execution.process.CapturingProcessHandler(commandLine)
+                .runProcess(de.kumpewo.autohotkey.validate.AhkValidator.TIMEOUT_MS, true);
+        assertFalse(output.isTimeout());
+        assertEquals(output.getStdout() + output.getStderr(), 0, output.getExitCode());
+
+        java.nio.file.Files.writeString(script, "#Requires AutoHotkey v2.1-alpha\nx := 1\ny := (\n");
+        output = new com.intellij.execution.process.CapturingProcessHandler(commandLine)
+                .runProcess(de.kumpewo.autohotkey.validate.AhkValidator.TIMEOUT_MS, true);
+        assertFalse(output.isTimeout());
+        var error = de.kumpewo.autohotkey.validate.AhkValidator.parse(output.getStdout() + "\n" + output.getStderr());
+        assertNotNull(output.getStderr(), error);
+        assertEquals(3, error.line());
+    }
+
     /** Runs the real AutoHotkey (skipped if it is not installed) with the command line of the validation. */
     public void testValidationWithInstalledAutoHotkey() throws Exception {
         java.nio.file.Path exe = de.kumpewo.autohotkey.settings.AhkSettings.detectAutoHotkey();
@@ -2674,10 +2813,480 @@ public class AhkPluginTest extends BasePlatformTestCase {
         assertEquals(3, error.line());
     }
 
+    public void testLanguageLevelFromRequires() {
+        var V2_0 = de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_0;
+        var V2_1 = de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_1;
+        var OTHER = de.kumpewo.autohotkey.parser.AhkLanguageLevel.OTHER;
+        for (String args : List.of("v2", "v2.0", "2.0.18", ">=2.0- <2.1", "v2.0-rc.2", "v2.0 64-bit")) {
+            assertEquals(args, V2_0, de.kumpewo.autohotkey.parser.AhkVersion.level("AutoHotkey " + args));
+        }
+        for (String args : List.of("v2.1-alpha.39", ">=2.1", "v2.1 32-bit", "v3")) {
+            assertEquals(args, V2_1, de.kumpewo.autohotkey.parser.AhkVersion.level("AutoHotkey " + args));
+        }
+        assertEquals(OTHER, de.kumpewo.autohotkey.parser.AhkVersion.level("AutoHotkey v1.1"));
+        assertNull(de.kumpewo.autohotkey.parser.AhkVersion.level("AutoHotkey 64-bit"));
+        assertNull(de.kumpewo.autohotkey.parser.AhkVersion.level("Other v2.1"));
+    }
+
+    public void testLanguageLevelOfFile() {
+        var settings = de.kumpewo.autohotkey.settings.AhkSettings.getInstance();
+        var V2_0 = de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_0;
+        var V2_1 = de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_1;
+        assertEquals(V2_0, settings.getDefaultLanguageLevel());
+        var with21 = myFixture.configureByText("a21.ahk", "; #Requires AutoHotkey v2.0\r\n#Requires AutoHotkey v2.1-alpha.39\r\nx := 1\r\n");
+        assertEquals(V2_1, de.kumpewo.autohotkey.parser.AhkLanguageLevel.of(with21));
+        var with20 = myFixture.configureByText("a20.ahk", "#Requires AutoHotkey v2.0\r\nx := 1\r\n");
+        var without = myFixture.configureByText("none.ahk", "x := 1\r\n");
+        assertEquals(V2_0, de.kumpewo.autohotkey.parser.AhkLanguageLevel.of(without));
+        try {
+            settings.setDefaultLanguageLevel(V2_1);
+            assertEquals(V2_1, de.kumpewo.autohotkey.parser.AhkLanguageLevel.of(without));
+            assertEquals(V2_0, de.kumpewo.autohotkey.parser.AhkLanguageLevel.of(with20));
+        } finally {
+            settings.setDefaultLanguageLevel(V2_0);
+        }
+        assertEquals(V2_0, de.kumpewo.autohotkey.parser.AhkLanguageLevel.of(without));
+        var v1 = myFixture.configureByText("v1.ahk", "#Requires AutoHotkey v1.1\r\nx = 1\r\n");
+        assertEquals(de.kumpewo.autohotkey.parser.AhkLanguageLevel.OTHER, de.kumpewo.autohotkey.parser.AhkLanguageLevel.of(v1));
+    }
+
+    /** Name lists per language level: v2.1 = v2.0 plus the differences in names/v2.1/, members.txt complete. */
+    public void testNamesPerLanguageLevel() {
+        var v20 = de.kumpewo.autohotkey.highlighting.AhkNames.get(de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_0);
+        var v21 = de.kumpewo.autohotkey.highlighting.AhkNames.get(de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_1);
+        assertSame(v20, de.kumpewo.autohotkey.highlighting.AhkNames.get(de.kumpewo.autohotkey.parser.AhkLanguageLevel.OTHER));
+        assertNull(v20.nonMember("ATan2"));
+        assertEquals(AhkColors.AHK_BUILTIN_FUNCTION, v21.nonMember("ATan2"));
+        assertEquals(AhkColors.AHK_BUILTIN_FUNCTION, v21.nonMember("MsgBox"));   // from the v2.0 list
+        assertEquals(AhkColors.AHK_BUILTIN_VARIABLE, v21.nonMember("a_hotif"));
+        assertEquals(AhkColors.AHK_BUILTIN_CLASS, v21.nonMember("Struct"));
+        assertNull(v20.directive("#Module"));
+        assertEquals(AhkColors.AHK_DIRECTIVE, v21.directive("#Module"));
+        assertNotNull(v21.nestedClass("Struct", "Array"));
+        assertTrue(v21.names("functions").contains("WinGetEnabled"));
+        assertFalse(v20.names("functions").contains("WinGetEnabled"));
+        // members.txt of v2.1: Error has the method Show, Struct is a class
+        assertNull(v20.builtinClass("Struct"));
+        assertNotNull(v21.builtinClass("Struct"));
+        assertTrue(v21.builtinClass("Error").methods().contains("Show"));
+        assertFalse(v20.builtinClass("Error").methods().contains("Show"));
+    }
+
+    /** "struct" is no keyword in v2.0: a normal name, without keyword color and without help. */
+    public void testStructIsNoKeyword() {
+        myFixture.configureByText("a.ahk", "#Requires AutoHotkey v2.0\nstruct := 1\nMsgBox struct\n");
+        myFixture.checkHighlighting(true, false, false);
+        PsiElement leaf = myFixture.getFile().findElementAt(myFixture.getFile().getText().indexOf("struct"));
+        assertEquals(de.kumpewo.autohotkey.psi.AhkTypes.IDENTIFIER, leaf.getNode().getElementType());
+        assertNull(de.kumpewo.autohotkey.annotation.AhkAnnotator.keywordColor(leaf));
+        assertTrue(de.kumpewo.autohotkey.documentation.AhkHelpRepository.topics(
+                de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_0, "struct").isEmpty());
+    }
+
+    /** Merging of the differences: words added and removed, lines replaced by their key and removed. */
+    public void testDifferenceFiles() {
+        List<String> merged = de.kumpewo.autohotkey.AhkResources.merge(
+                List.of("A 1: x", "A 2: y", "B 1: z", "C 1: w"), List.of("a 2: new", "-B 1:", "D 1: v"),
+                line -> line.substring(0, line.indexOf(':')));
+        assertEquals(List.of("A 1: x", "C 1: w", "a 2: new", "D 1: v"), merged);
+    }
+
+    /** Highlighting follows the language level of the file. */
+    public void testHighlightingPerLanguageLevel() {
+        assertColor(AhkColors.AHK_BUILTIN_FUNCTION, "#Requires AutoHotkey v2.1-alpha.39\nx := §ATan2(1, 2)\n");
+        assertColor(null, "#Requires AutoHotkey v2.0\nx := §ATan2(1, 2)\n");
+        var settings = de.kumpewo.autohotkey.settings.AhkSettings.getInstance();
+        try {
+            settings.setDefaultLanguageLevel(de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_1);
+            assertColor(AhkColors.AHK_BUILTIN_FUNCTION, "x := §ATan2(1, 2)\n");
+        } finally {
+            settings.setDefaultLanguageLevel(de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_0);
+        }
+        // a v2.1 directive is unknown in a v2.0 file (#Module/#Import are errors there, see testModules)
+        myFixture.configureByText("a.ahk", "#Requires AutoHotkey v2.0\n<warning descr=\""
+                + de.kumpewo.autohotkey.AhkBundle.message("annotator.unknown.directive") + "\">#StructPack</warning> 4\n");
+        myFixture.checkHighlighting(true, false, false);
+        myFixture.configureByText("b.ahk", "#Requires AutoHotkey v2.1-alpha.39\n#StructPack 4\n#Module Other\n");
+        myFixture.checkHighlighting(true, false, false);
+    }
+
+    /** v2.1 syntax: struct is a keyword only there, v2.1 operators are an error in v2.0, formatting. */
+    public void testV21Syntax() {
+        String v21 = "#Requires AutoHotkey v2.1-alpha.39\n";
+        assertColor(AhkColors.AHK_RESERVED, v21 + "§struct POINT {\n}\n");
+        assertColor(AhkColors.AHK_CLASS, v21 + "struct §POINT {\n}\n");
+        assertColor(null, "#Requires AutoHotkey v2.0\nx := §struct\n");
+        String message = de.kumpewo.autohotkey.AhkBundle.message("parser.requires.v21");
+        myFixture.configureByText("a.ahk", "#Requires AutoHotkey v2.0\nx := 1\ny := x<error descr=\"" + message
+                + "\">?</error>.z\nx <error descr=\"" + message + "\">??=</error> 2\n");
+        myFixture.checkHighlighting(false, false, false);
+        myFixture.configureByText("b.ahk", v21 + "x := 1\ny := x?.z, x ??= 2, b := x !~= \"a\"\n");
+        myFixture.checkHighlighting(false, false, false);
+        assertFormatted(v21 + "y := x?.z\nb := x!~=\"a\"\nstruct  P {\n}\n",
+                v21 + "y := x?.z\nb := x !~= \"a\"\nstruct P {\n}\n");
+    }
+
+    /** Mandatory parameter after an optional one: an error outside v2.1, variadic parameters always allowed. */
+    public void testParameterOrder() {
+        String code = """
+                f(a?, <error descr="%1$s">b</error>, c := 2, <error descr="%1$s">&d</error>, e*) {
+                }
+                g := (a := 1, <error descr="%1$s">b</error>) => 1
+                class C {
+                    P[a?, <error descr="%1$s">b</error>] => 1
+                    M(a, b?, *) {
+                    }
+                }
+                """.formatted(de.kumpewo.autohotkey.AhkBundle.message("annotator.parameter.default.required"));
+        myFixture.configureByText("a.ahk", "#Requires AutoHotkey v2.0\n" + code);
+        myFixture.checkHighlighting(false, false, false);
+        myFixture.configureByText("b.ahk", "#Requires AutoHotkey v2.1-alpha.39\n"
+                + code.replaceAll("<error descr=\"[^\"]*\">([^<]*)</error>", "$1"));
+        myFixture.checkHighlighting(false, false, false);
+    }
+
+    /** #Module and #Import: v2.1 only, where they are allowed, the module name; formatting of #Import. */
+    public void testModules() {
+        String v21 = "#Requires AutoHotkey v2.1-alpha.39\n";
+        String requires = de.kumpewo.autohotkey.AhkBundle.message("parser.requires.v21");
+        myFixture.configureByText("a.ahk", "#Requires AutoHotkey v2.0\n<error descr=\"" + requires
+                + "\">#Import</error> X {Calc}\n<error descr=\"" + requires + "\">#Module</error> X\n");
+        myFixture.checkHighlighting(false, false, false);
+
+        String misplacedModule = de.kumpewo.autohotkey.AhkBundle.message("annotator.module.misplaced");
+        String misplacedImport = de.kumpewo.autohotkey.AhkBundle.message("annotator.import.misplaced");
+        String moduleName = de.kumpewo.autohotkey.AhkBundle.message("annotator.module.name");
+        myFixture.configureByText("b.ahk", v21 + """
+                #Import Export X as Y {*, Calc as K}
+                f() {
+                    #Import X
+                    if 1 {
+                        <error descr="%2$s">#Import</error> X
+                    }
+                    <error descr="%1$s">#Module</error> Z
+                }
+                class A {
+                    <error descr="%2$s">#Import</error> X
+                    M() {
+                        #Import X
+                    }
+                    P {
+                        get {
+                            #Import X
+                        }
+                    }
+                }
+                F1:: {
+                    #Import X
+                }
+                #Module <error descr="%3$s">1abc</error>
+                #Module <error descr="%3$s">"abc"</error>
+                #Module X ; comment
+                Calc() => 1
+                """.formatted(misplacedModule, misplacedImport, moduleName));
+        myFixture.checkHighlighting(false, false, false);
+
+        assertFormatted(v21 + "#Import  Export  X  as  Y {*,Calc   as K}\n#Import X {\nCalc,\n    Other\n}\n",
+                v21 + "#Import Export X as Y {*, Calc as K}\n#Import X {\n    Calc,\n    Other\n}\n");
+    }
+
+    /** Function definition expressions (v2.1): errors, color, navigation, locals, structure view. */
+    public void testFuncExpr() {
+        String v21 = "#Requires AutoHotkey v2.1-alpha.39\n";
+        String requires = de.kumpewo.autohotkey.AhkBundle.message("parser.requires.v21");
+        String statement = de.kumpewo.autohotkey.AhkBundle.message("annotator.funcexpr.statement");
+        myFixture.configureByText("a.ahk", "#Requires AutoHotkey v2.0\nx := <error descr=\"" + requires
+                + "\">f(a)</error> {\n    return a\n}\nSetTimer(<error descr=\"" + requires + "\">()</error> {\n}, -1)\n");
+        myFixture.checkHighlighting(false, false, false);
+        // a function expression as a whole statement is a function definition (only allowed after a hotkey)
+        myFixture.configureByText("b.ahk", v21 + """
+                x := f(a) {
+                    return a
+                }
+                SetTimer(() {
+                    MsgBox "x"
+                }, -1)
+                F1::g(hk) {
+                }
+                F2::<error descr="%1$s">(hk)</error> {
+                }
+                <error descr="%1$s">(a)</error> {
+                }
+                if x
+                    <error descr="%1$s">h()</error> {
+                    }
+                else <error descr="%1$s">k()</error> {
+                }
+                """.formatted(statement));
+        myFixture.checkHighlighting(false, false, false);
+
+        assertColor(AhkColors.AHK_FUNC, v21 + "x := §f(a) {\n    return a\n}\n");
+        // the name is a function in its scope; a function in the initializer of a field is no method
+        assertEquals(List.of("f()"), targets(v21 + "x := f() {\n}\ny := <caret>f\n"));
+        assertEquals(List.of("m()"), targets(v21 + "class C {\n    p := m() {\n    }\n}\nx := <caret>m()\n"));
+        // own parameters, and the variables of the outer function (closure)
+        assertEquals("2:a", localAt(v21 + "x := f(a) {\n    return <caret>a\n}\n"));
+        assertEquals("2:p", localAt(v21 + "outer(p) {\n    return () {\n        return <caret>p\n    }\n}\n"));
+        assertEquals("4:y", localAt(v21 + "outer() {\n    SetTimer(() {\n        y := 1\n        return <caret>y\n    }, -1)\n}\n"));
+
+        // structure view: named function expressions; an anonymous one is no node (but its nested functions are)
+        myFixture.configureByText("c.ahk", v21 + "x := f() {\n}\ny := () {\n    inner() {\n    }\n}\n");
+        List<String> top = new ArrayList<>();
+        for (TreeElement e : new AhkStructureViewModel(myFixture.getFile()).getRoot().getChildren()) {
+            top.add(e.getPresentation().getPresentableText());
+        }
+        assertEquals(List.of("f()", "inner()"), top);
+    }
+
+    /** Formatting of function definition expressions: the body is indented like the body of a function. */
+    public void testFuncExprFormatting() {
+        String v21 = "#Requires AutoHotkey v2.1-alpha.39\n";
+        assertFormatted(v21 + """
+                x := f(a,b)   {
+                return a
+                }
+                SetTimer(() {
+                MsgBox "x"
+                if a {
+                b := 1
+                }
+                }, -1)
+                y := [
+                () {
+                return 1
+                },
+                g(){
+                }
+                ]
+                f2() {
+                z := (inner(y) {
+                return y
+                })(1)
+                }
+                """, v21 + """
+                x := f(a, b) {
+                    return a
+                }
+                SetTimer(() {
+                    MsgBox "x"
+                    if a {
+                        b := 1
+                    }
+                }, -1)
+                y := [
+                    () {
+                        return 1
+                    },
+                    g() {
+                    }
+                ]
+                f2() {
+                    z := (inner(y) {
+                        return y
+                    })(1)
+                }
+                """);
+    }
+
+    /** Typed properties and union blocks (v2.1): errors, fields (navigation, completion), color, formatting. */
+    public void testTypedProperties() {
+        String v21 = "#Requires AutoHotkey v2.1-alpha.39\n";
+        String requires = de.kumpewo.autohotkey.AhkBundle.message("parser.requires.v21");
+        myFixture.configureByText("a.ahk", "#Requires AutoHotkey v2.0\nclass P {\n    <error descr=\"" + requires
+                + "\">x : Int32</error> := 1, y := 2\n    <error descr=\"" + requires
+                + "\">union</error> {\n        <error descr=\"" + requires + "\">a : Int8</error>\n    }\n}\n");
+        myFixture.checkHighlighting(false, false, false);
+
+        String content = de.kumpewo.autohotkey.AhkBundle.message("annotator.union.content");
+        String misplaced = de.kumpewo.autohotkey.AhkBundle.message("annotator.union.misplaced");
+        String brace = de.kumpewo.autohotkey.AhkBundle.message("annotator.brace.line.break");
+        myFixture.configureByText("b.ahk", v21 + """
+                struct RECT {
+                    Left : Int32, Top : Int32 := 0
+                    union {
+                        a : Int32 := 1, <error descr="%1$s">c := 1</error>
+                        <error descr="%1$s">m() => 1</error>
+                        <error descr="%2$s">union</error> {
+                            b : Int8
+                        }
+                    }
+                    union { <error descr="%3$s">d : Int8</error>
+                    }
+                    union {
+                    }
+                }
+                """.formatted(content, misplaced, brace));
+        myFixture.checkHighlighting(false, false, false);
+
+        // the properties are fields: navigation from this.x and obj.x, completion; the type navigates to the struct
+        String code = v21 + "struct RECT {\n    Left : Int32, Top : Int32\n    union {\n        Width : Int32\n    }\n}\n"
+                + "struct MI {\n    rc : RECT\n    Get() => this.";
+        assertEquals(List.of("Left in Class RECT"), targets(code + "Le<caret>ft\n}\n"));
+        assertEquals(List.of("Width in Class RECT"), targets(code + "Wi<caret>dth\n}\n"));
+        assertEquals(List.of("Class RECT"), targets(v21 + "struct RECT {\n}\nstruct MI {\n    rc : RE<caret>CT.Ptr\n}\n"));
+        List<String> list = suggestions(code + "<caret>\n}\n");
+        assertTrue(list.toString(), list.containsAll(List.of("Left", "Top", "Width", "rc")));
+        // Find Usages and Rename of a typed property (the target that navigation returns)
+        myFixture.configureByText("c.ahk", v21 + "struct RECT {\n    Left : Int32, Top : Int32\n}\n"
+                + "r := RECT(), r.Left := 1\nx := r.Le<caret>ft\n");
+        PsiElement field = ((com.intellij.psi.PsiPolyVariantReference) java.util.Objects.requireNonNull(
+                myFixture.getFile().findReferenceAt(myFixture.getCaretOffset()))).multiResolve(false)[0].getElement();
+        assertEquals(2, myFixture.findUsages(java.util.Objects.requireNonNull(field)).size());
+        myFixture.renameElement(field, "X", false, false);
+        assertEquals(v21 + "struct RECT {\n    X : Int32, Top : Int32\n}\nr := RECT(), r.X := 1\nx := r.X\n",
+                myFixture.getFile().getText());
+        // keyword color of "union", class color of the type
+        assertColor(AhkColors.AHK_RESERVED, v21 + "struct S {\n    §union {\n        a : Int8\n    }\n}\n");
+    }
+
+    /**
+     * The name of a field in its definition is a target: Find Usages and Rename work from there, for typed
+     * properties (also in a union block) and for fields like {@code count := 0} and {@code static count := 0}.
+     */
+    public void testFieldTargetAtDefinition() {
+        String v21 = "#Requires AutoHotkey v2.1-alpha.39\n";
+        String code = v21 + "struct RECT {\n    Left : Int32, Right : Int32\n    union {\n        Raw : Int64\n    }\n"
+                + "    W => this.Right - this.Left\n}\nclass Box {\n    count := 0\n    static total := 1\n}\n"
+                + "r := RECT(), r.Right := 1, r.Raw := 2\nb := Box(), b.count := 2, Box.total := 3\n";
+        int flags = com.intellij.codeInsight.TargetElementUtil.ELEMENT_NAME_ACCEPTED
+                | com.intellij.codeInsight.TargetElementUtil.REFERENCED_ELEMENT_ACCEPTED;
+        for (String[] c : new String[][]{{"Right : Int32", "2"}, {"Raw : Int64", "1"}, {"count := 0", "1"},
+                {"total := 1", "1"}}) {
+            myFixture.configureByText("t.ahk", code);
+            myFixture.getEditor().getCaretModel().moveToOffset(code.indexOf(c[0]) + 1);
+            PsiElement target = com.intellij.codeInsight.TargetElementUtil.findTargetElement(myFixture.getEditor(), flags);
+            assertTrue(c[0] + ": " + target, target instanceof de.kumpewo.autohotkey.navigation.AhkFieldTarget);
+            assertEquals(c[0], Integer.parseInt(c[1]), myFixture.findUsages(target).size());
+        }
+        // rename from the definition: the definition and all usages
+        myFixture.configureByText("t.ahk", code);
+        myFixture.getEditor().getCaretModel().moveToOffset(code.indexOf("Right : Int32") + 1);
+        myFixture.renameElementAtCaret("Right2");
+        assertEquals(code.replace("Right", "Right2"), myFixture.getFile().getText());
+        // a method name stays a method (no field target)
+        myFixture.configureByText("t.ahk", v21 + "class C {\n    M() {\n    }\n}\n");
+        myFixture.getEditor().getCaretModel().moveToOffset(myFixture.getFile().getText().indexOf("M()"));
+        assertFalse(com.intellij.codeInsight.TargetElementUtil.findTargetElement(myFixture.getEditor(), flags)
+                instanceof de.kumpewo.autohotkey.navigation.AhkFieldTarget);
+    }
+
+    /** Structure view of a class: fields (in file order, typed ones with their type), properties, methods. */
+    public void testStructureViewFieldsAndProperties() {
+        myFixture.configureByText("s.ahk", "#Requires AutoHotkey v2.1-alpha.39\n"
+                + "struct RECT {\n    top : Int32, left : Int32\n    union {\n        raw : Int64\n    }\n"
+                + "    Width => 1\n    Area {\n        get => 2\n    }\n    M() {\n    }\n}\n"
+                + "class Box {\n    count := 0\n    static total := 1\n}\n");
+        TreeElement[] classes = new AhkStructureViewModel(myFixture.getFile()).getRoot().getChildren();
+        assertEquals(2, classes.length);
+        List<String> rect = new ArrayList<>();
+        for (TreeElement e : sorted(classes[0].getChildren())) {
+            String location = e.getPresentation().getLocationString();
+            rect.add(e.getPresentation().getPresentableText() + (location == null ? "" : " " + location));
+        }
+        assertEquals(List.of("top Int32", "left Int32", "raw Int64", "Area", "Width", "M()"), rect);
+        List<String> box = new ArrayList<>();
+        for (TreeElement e : classes[1].getChildren()) box.add(e.getPresentation().getPresentableText());
+        assertEquals(List.of("count", "total"), box);
+    }
+
+    /** The children sorted like the structure view does (AhkStructureSorter). */
+    private static List<TreeElement> sorted(TreeElement[] elements) {
+        List<TreeElement> list = new ArrayList<>(List.of(elements));
+        list.sort(de.kumpewo.autohotkey.structure.AhkStructureSorter.INSTANCE.getComparator());
+        return list;
+    }
+
+    /** Formatting of typed properties and union blocks (v2.1). */
+    public void testTypedPropertyFormatting() {
+        String v21 = "#Requires AutoHotkey v2.1-alpha.39\n";
+        assertFormatted(v21 + """
+                struct P {
+                x:Int32,y  :  Int32:=1
+                union
+                {
+                a : Int32[ 2 ]
+                b : (
+                Int8)
+                }
+                }
+                """, v21 + """
+                struct P {
+                    x : Int32, y : Int32 := 1
+                    union
+                    {
+                        a : Int32[2]
+                        b : (
+                            Int8)
+                    }
+                }
+                """);
+    }
+
+    /** Signatures and values per language level. */
+    public void testSignaturesPerLanguageLevel() {
+        var V2_0 = de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_0;
+        var V2_1 = de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_1;
+        assertTrue(de.kumpewo.autohotkey.completion.AhkCommandInfo.signatures(V2_0, "ATan2").isEmpty());
+        assertEquals(List.of("Y", "X"), de.kumpewo.autohotkey.completion.AhkCommandInfo.signatures(V2_1, "atan2")
+                .get(0).parameters().stream().map(p -> p.display()).toList());
+        // a line of the difference replaces all forms of the name
+        assertEquals("[Filename]", de.kumpewo.autohotkey.completion.AhkCommandInfo.signatures(V2_1, "Edit")
+                .get(0).parameters().get(0).display());
+        assertTrue(de.kumpewo.autohotkey.completion.AhkCommandInfo.signatures(V2_0, "Edit").get(0).parameters().isEmpty());
+        assertEquals(3, de.kumpewo.autohotkey.completion.AhkCommandInfo.signatures(V2_1, "BlockInput").size());
+        assertEquals(List.of("0", "1", "2", "4", "8"),
+                de.kumpewo.autohotkey.completion.AhkCommandInfo.values(V2_1, "#StructPack", 0));
+        assertEquals(de.kumpewo.autohotkey.completion.AhkCommandInfo.values(V2_0, "#Warn", 0),
+                de.kumpewo.autohotkey.completion.AhkCommandInfo.values(V2_1, "#Warn", 0));
+        // method-signatures.txt of v2.1 (complete): Menu.Show has the parameter Wait
+        myFixture.configureByText("a.ahk", "#Requires AutoHotkey v2.1-alpha.39\nm := Menu()\n");
+        var forms = de.kumpewo.autohotkey.completion.AhkCommandInfo.methodSignatures(myFixture.getFile(), null, "Show");
+        assertTrue(forms.toString(), forms.stream().anyMatch(s -> "Menu".equals(s.owner()) && s.parameters().size() == 3));
+        myFixture.configureByText("b.ahk", "#Requires AutoHotkey v2.0\nm := Menu()\n");
+        forms = de.kumpewo.autohotkey.completion.AhkCommandInfo.methodSignatures(myFixture.getFile(), null, "Show");
+        assertTrue(forms.toString(), forms.stream().anyMatch(s -> "Menu".equals(s.owner()) && s.parameters().size() == 2));
+    }
+
+    /** The help of v2.1 (help/v2.1/docs/, lookup with the differences in help/lookup/v2.1/docs.txt). */
+    public void testHelpPerLanguageLevel() {
+        var V2_0 = de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_0;
+        var V2_1 = de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_1;
+        assertNull(de.kumpewo.autohotkey.documentation.AhkHelpRepository.topic(V2_0, "WinGetEnabled"));
+        var enabled = de.kumpewo.autohotkey.documentation.AhkHelpRepository.topic(V2_1, "WinGetEnabled");
+        assertNotNull(enabled);
+        assertEquals("v2.1/docs/lib/wingetenabled.htm", enabled.page());
+        assertEquals("/docs/lib/WinGetEnabled.htm", enabled.externalKey());
+        // pages of entries that are the same as in v2.0 come from the v2.1 help as well
+        assertEquals("v2.1/docs/lib/msgbox.htm",
+                de.kumpewo.autohotkey.documentation.AhkHelpRepository.topic(V2_1, "MsgBox").page());
+        assertEquals("v2.1/docs/_requires.htm",
+                de.kumpewo.autohotkey.documentation.AhkHelpRepository.topic(V2_1, "#Requires").page());
+        // a word with a new entry keeps its old ones (Show of Gui, Menu and now Error)
+        assertEquals(2, de.kumpewo.autohotkey.documentation.AhkHelpRepository.topics(V2_0, "Show").size());
+        assertEquals(3, de.kumpewo.autohotkey.documentation.AhkHelpRepository.topics(V2_1, "Show").size());
+        // links inside a v2.1 page stay in the v2.1 help
+        String html = de.kumpewo.autohotkey.documentation.AhkHelpRepository.getHelp(V2_1, "MsgBox");
+        assertNotNull(html);
+        assertTrue(html.contains("href=\"psi_element://v2.1/docs/misc/WinTitle.htm#ahk_id\""));
+        assertNotNull(de.kumpewo.autohotkey.documentation.AhkHelpRepository.getPage("v2.1/docs/misc/WinTitle.htm"));
+        // every entry of the merged lookup of v2.1 has its page (missing ones would be dropped)
+        for (String line : de.kumpewo.autohotkey.AhkResources.read("/help/lookup/docs.txt").split("\n")) {
+            if (line.isBlank() || line.startsWith(";")) continue;
+            String word = line.split("\t")[0];
+            assertFalse(word, de.kumpewo.autohotkey.documentation.AhkHelpRepository.topics(V2_1, word).isEmpty());
+        }
+        // quick documentation in a v2.1 file
+        myFixture.configureByText("a.ahk", "#Requires AutoHotkey v2.1-alpha.39\nx := WinGet<caret>Enabled()\n");
+        PsiElement name = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
+        String doc = new de.kumpewo.autohotkey.documentation.AhkDocumentationProvider().generateDoc(name, name);
+        assertNotNull(doc);
+        assertTrue(doc, doc.contains("WinGetEnabled"));
+    }
+
     public void testV2InterpreterInsteadOfLauncher() throws Exception {
         var v20 = de.kumpewo.autohotkey.parser.AhkVersion.scriptRequirement(
                 "; #Requires AutoHotkey v1.1\r\n#Requires AutoHotkey v2.0 ; comment\r\nx := 1\r\n");
-        assertEquals(new de.kumpewo.autohotkey.parser.AhkVersion.Requirement(true, 0), v20);
+        assertEquals(new de.kumpewo.autohotkey.parser.AhkVersion.Requirement(true, true, 0), v20);
         for (String args : List.of("v2", "2.0.18", ">=2.0- <2.1", "v2.0-rc.2")) {
             assertTrue(args, de.kumpewo.autohotkey.parser.AhkVersion.requirement("AutoHotkey " + args).v20());
         }
@@ -2704,7 +3313,7 @@ public class AhkPluginTest extends BasePlatformTestCase {
             assertEquals(v2.resolve("AutoHotkey.exe").toString(), settings.findAutoHotkey(script.toString()));
             java.nio.file.Files.writeString(script, "#Requires AutoHotkey v2.0 32-bit\r\n");
             assertEquals(v2.resolve("AutoHotkey32.exe").toString(), settings.findAutoHotkey(script.toString()));
-            java.nio.file.Files.writeString(script, "#Requires AutoHotkey v2.1-alpha.3\r\n");
+            java.nio.file.Files.writeString(script, "#Requires AutoHotkey v1.1\r\n");
             assertEquals(launcher.toString(), settings.findAutoHotkey(script.toString()));
             java.nio.file.Files.writeString(script, "MsgBox 1\r\n");
             assertEquals(launcher.toString(), settings.findAutoHotkey(script.toString()));
@@ -2714,6 +3323,84 @@ public class AhkPluginTest extends BasePlatformTestCase {
             assertEquals(v2.resolve("AutoHotkey64.exe").toString(), settings.findAutoHotkey(script.toString()));
         } finally {
             settings.setAutoHotkeyPath(before);
+        }
+    }
+
+    public void testCompareVersions() {
+        List<String> ordered = List.of("2.0.30", "v2.0.31", "2.1-alpha.4", "2.1-alpha.39", "2.1-beta",
+                "2.1-beta.1", "2.1-rc.1", "2.1", "2.1.0.1", "2.1.1", "3.0");
+        for (int i = 0; i < ordered.size(); i++) {
+            for (int j = 0; j < ordered.size(); j++) {
+                Integer c = de.kumpewo.autohotkey.parser.AhkVersion.compareVersions(ordered.get(i), ordered.get(j));
+                assertEquals(ordered.get(i) + " / " + ordered.get(j), Integer.valueOf(Integer.compare(i, j)), c);
+            }
+        }
+        assertEquals(Integer.valueOf(0), de.kumpewo.autohotkey.parser.AhkVersion.compareVersions("2.1", "2.1.0"));
+        assertNull(de.kumpewo.autohotkey.parser.AhkVersion.compareVersions("v2", "x"));
+        assertFalse(de.kumpewo.autohotkey.parser.AhkVersion.atLeastV21("2.0.31"));
+        assertTrue(de.kumpewo.autohotkey.parser.AhkVersion.atLeastV21("2.1-alpha.1"));
+        assertTrue(de.kumpewo.autohotkey.parser.AhkVersion.atLeastV21("v3"));
+        assertEquals(List.of("a", "2.1", "x\\A \"q\".exe", ""),
+                de.kumpewo.autohotkey.settings.AhkSettings.csvFields("a,2.1,\"x\\A \"\"q\"\".exe\","));
+    }
+
+    /**
+     * Language level v2.1 always gets the v2.1 interpreter, never the launcher: the newest version folder of the
+     * installation (also from UX\installed-files.csv), or the configured one with the bitness of #Requires. The test
+     * versions (2.1.998/2.1.999) are newer than any real alpha, so an installed one does not disturb.
+     */
+    public void testV21Interpreter() throws Exception {
+        java.nio.file.Path root = java.nio.file.Files.createTempDirectory("ahk");
+        java.nio.file.Path ux = java.nio.file.Files.createDirectories(root.resolve("UX"));
+        java.nio.file.Path launcher = java.nio.file.Files.writeString(ux.resolve("AutoHotkeyUX.exe"), "");
+        java.nio.file.Files.writeString(ux.resolve("launcher.ahk"), "");
+        java.nio.file.Path v2 = java.nio.file.Files.createDirectories(root.resolve("v2"));
+        java.nio.file.Files.writeString(v2.resolve("AutoHotkey64.exe"), "");
+        java.nio.file.Path older = java.nio.file.Files.createDirectories(root.resolve("v2.1.998"));
+        java.nio.file.Path newer = java.nio.file.Files.createDirectories(root.resolve("v2.1.999"));
+        for (java.nio.file.Path dir : List.of(older, newer)) {
+            java.nio.file.Files.writeString(dir.resolve("AutoHotkey32.exe"), "");
+            java.nio.file.Files.writeString(dir.resolve("AutoHotkey64.exe"), "");
+        }
+        java.nio.file.Path script = root.resolve("a.ahk");
+        de.kumpewo.autohotkey.settings.AhkSettings settings = de.kumpewo.autohotkey.settings.AhkSettings.getInstance();
+        String before = settings.getAutoHotkeyPath();
+        String beforeV21 = settings.getAutoHotkeyV21Path();
+        var beforeLevel = settings.getDefaultLanguageLevel();
+        try {
+            settings.setAutoHotkeyPath(launcher.toString());
+            settings.setAutoHotkeyV21Path("");
+            java.nio.file.Files.writeString(script, "#Requires AutoHotkey v2.1-alpha.3\r\n");
+            assertEquals(newer.resolve("AutoHotkey64.exe").toString(), settings.findAutoHotkey(script.toString()));
+            assertEquals(newer.resolve("AutoHotkey64.exe").toString(), settings.findInterpreter(script.toString()));
+            java.nio.file.Files.writeString(script, "#Requires AutoHotkey v2.1-alpha.3 32-bit\r\n");
+            assertEquals(newer.resolve("AutoHotkey32.exe").toString(), settings.findAutoHotkey(script.toString()));
+            // without #Requires the default level decides, as for the parser
+            java.nio.file.Files.writeString(script, "MsgBox 1\r\n");
+            assertEquals(launcher.toString(), settings.findAutoHotkey(script.toString()));
+            assertEquals(v2.resolve("AutoHotkey64.exe").toString(), settings.findInterpreter(script.toString()));
+            settings.setDefaultLanguageLevel(de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_1);
+            assertEquals(newer.resolve("AutoHotkey64.exe").toString(), settings.findAutoHotkey(script.toString()));
+            settings.setDefaultLanguageLevel(beforeLevel);
+            // an interpreter listed by the launcher in a folder without version name
+            java.nio.file.Path listed = java.nio.file.Files.createDirectories(root.resolve("custom"));
+            java.nio.file.Files.writeString(listed.resolve("AutoHotkey64.exe"), "");
+            java.nio.file.Files.writeString(ux.resolve("installed-files.csv"),
+                    "Hash,Version,Path,Description\r\nab,2.1.9999,\"custom\\AutoHotkey64.exe\",\"AutoHotkey 64-bit\"\r\n");
+            java.nio.file.Files.writeString(script, "#Requires AutoHotkey v2.1-alpha.3\r\n");
+            assertEquals(listed.resolve("AutoHotkey64.exe").toString(), settings.findAutoHotkey(script.toString()));
+            // configured: used directly; the bitness of #Requires picks the sibling
+            settings.setAutoHotkeyV21Path(older.resolve("AutoHotkey64.exe").toString());
+            assertEquals(older.resolve("AutoHotkey64.exe").toString(), settings.findAutoHotkey(script.toString()));
+            java.nio.file.Files.writeString(script, "#Requires AutoHotkey v2.1-alpha.3 32-bit\r\n");
+            assertEquals(older.resolve("AutoHotkey32.exe").toString(), settings.findInterpreter(script.toString()));
+            assertEquals(AhkBundle.message("run.autohotkey.v21.not.found"), settings.notFoundMessage(script.toString()));
+            java.nio.file.Files.writeString(script, "#Requires AutoHotkey v2.0\r\n");
+            assertEquals(AhkBundle.message("run.autohotkey.not.found"), settings.notFoundMessage(script.toString()));
+        } finally {
+            settings.setAutoHotkeyPath(before);
+            settings.setAutoHotkeyV21Path(beforeV21);
+            settings.setDefaultLanguageLevel(beforeLevel);
         }
     }
 
@@ -2845,9 +3532,10 @@ public class AhkPluginTest extends BasePlatformTestCase {
     }
 
     public void testQuickFixInsertsRequires() {
-        // only offered in the range of the hint (first line)
+        // outside the range of the hint (first line) the intention offers the same
         myFixture.configureByText("a.ahk", "; Kopf\nx<caret> := 1\n");
-        assertEmpty(myFixture.filterAvailableIntentions("Insert '#Requires AutoHotkey v2.0'"));
+        myFixture.launchAction(myFixture.findSingleIntention("Insert '#Requires AutoHotkey v2.0'"));
+        assertEquals("#Requires AutoHotkey v2.0\n; Kopf\nx := 1\n", myFixture.getEditor().getDocument().getText());
         myFixture.configureByText("a.ahk", "; Ko<caret>pf\nx := 1\n");
         myFixture.launchAction(myFixture.findSingleIntention("Insert '#Requires AutoHotkey v2.0'"));
         assertEquals("#Requires AutoHotkey v2.0\n; Kopf\nx := 1\n", myFixture.getEditor().getDocument().getText());
@@ -3473,7 +4161,7 @@ public class AhkPluginTest extends BasePlatformTestCase {
     }
 
     /**
-     * Z.25: formatting through the PSI (previews of the code style page, refactorings) keeps the CRLF tokens: no
+     * Formatting through the PSI (previews of the code style page, refactorings) keeps the CRLF tokens: no
      * extra blank lines, bodies are indented (assertFormatted checks the PSI path and the tree).
      */
     public void testFormatThroughPsiKeepsLineBreaks() {
@@ -3522,7 +4210,7 @@ public class AhkPluginTest extends BasePlatformTestCase {
     }
 
     /**
-     * Formats the input like "Reformat Code" (text path) and compares it with the expected text. Before that (Z.25):
+     * Formats the input like "Reformat Code" (text path) and compares it with the expected text. Before that:
      * the same input formatted through the PSI ({@code CodeStyleManager.reformat(PsiElement)}, used by the previews of
      * the code style page and by refactorings) must give the same text, and its tree must be the one a fresh parse of
      * that text gives (CRLF tokens stay CRLF tokens).
@@ -3547,7 +4235,7 @@ public class AhkPluginTest extends BasePlatformTestCase {
     /** Instead of the stylesheet links the help contains the merged CSS as a style block. */
     public void testHelpWithEmbeddedStylesheet() {
         for (String name : new String[]{"MsgBox", "StrLen"}) {
-            String html = de.kumpewo.autohotkey.documentation.AhkHelpRepository.getHelp(name);
+            String html = de.kumpewo.autohotkey.documentation.AhkHelpRepository.getHelp(de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_0, name);
             assertNotNull(name, html);
             assertFalse(name, html.toLowerCase().matches("(?s).*<link[^>]*stylesheet.*"));
             assertFalse(name, html.contains("@import"));
@@ -3636,42 +4324,42 @@ public class AhkPluginTest extends BasePlatformTestCase {
     /** Help pages and external keys from help/lookup/docs.txt. */
     public void testHelpFromTheLists() {
         de.kumpewo.autohotkey.documentation.AhkHelpRepository.Topic msgBox =
-                de.kumpewo.autohotkey.documentation.AhkHelpRepository.topic("msgbox");
+                de.kumpewo.autohotkey.documentation.AhkHelpRepository.topic(de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_0, "msgbox");
         assertNotNull(msgBox);
         assertEquals("/docs/lib/MsgBox.htm", msgBox.externalKey());
         assertEquals("docs/lib/msgbox.htm", msgBox.page());
         // with anchor: external key path#anchor, popup from the element with the id on
         de.kumpewo.autohotkey.documentation.AhkHelpRepository.Topic readInt =
-                de.kumpewo.autohotkey.documentation.AhkHelpRepository.topic("ReadInt");
+                de.kumpewo.autohotkey.documentation.AhkHelpRepository.topic(de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_0, "ReadInt");
         assertNotNull(readInt);
         assertEquals("/docs/lib/File.htm#ReadNum", readInt.externalKey());
-        String close = de.kumpewo.autohotkey.documentation.AhkHelpRepository.getHelp("CLOSE");
+        String close = de.kumpewo.autohotkey.documentation.AhkHelpRepository.getHelp(de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_0, "CLOSE");
         assertNotNull(close);
         assertTrue(close, close.matches("(?s).*<body[^>]*><div class=\"methodShort\" id=\"Close\">.*"));
         assertFalse(close, close.contains("site.init()"));
-        assertNull(de.kumpewo.autohotkey.documentation.AhkHelpRepository.topic("GibtEsNicht"));
-        assertNull(de.kumpewo.autohotkey.documentation.AhkHelpRepository.getHelp("GibtEsNicht"));
+        assertNull(de.kumpewo.autohotkey.documentation.AhkHelpRepository.topic(de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_0, "GibtEsNicht"));
+        assertNull(de.kumpewo.autohotkey.documentation.AhkHelpRepository.getHelp(de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_0, "GibtEsNicht"));
         // directive: looked up with "#", the page has "_" in its name
         assertEquals("#include", de.kumpewo.autohotkey.documentation.AhkHelpRepository.listKey("#Include"));
         de.kumpewo.autohotkey.documentation.AhkHelpRepository.Topic include =
-                de.kumpewo.autohotkey.documentation.AhkHelpRepository.topic("#include");
+                de.kumpewo.autohotkey.documentation.AhkHelpRepository.topic(de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_0, "#include");
         assertNotNull(include);
         assertEquals("docs/lib/_include.htm", include.page());
         assertEquals("/docs/lib/_Include.htm", include.externalKey());
-        assertNotNull(de.kumpewo.autohotkey.documentation.AhkHelpRepository.getHelp("#Include"));
+        assertNotNull(de.kumpewo.autohotkey.documentation.AhkHelpRepository.getHelp(de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_0, "#Include"));
         // anchor on a direct child of body
-        String isAlnum = de.kumpewo.autohotkey.documentation.AhkHelpRepository.getHelp("IsAlnum");
+        String isAlnum = de.kumpewo.autohotkey.documentation.AhkHelpRepository.getHelp(de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_0, "IsAlnum");
         assertNotNull(isAlnum);
         assertTrue(isAlnum, isAlnum.matches("(?s).*<body[^>]*><[a-z0-9]+ [^>]*id=\"cat-string\".*"));
         // several entries with a class (fourth column), narrowed by the type on the left
-        assertEquals(5, de.kumpewo.autohotkey.documentation.AhkHelpRepository.topics("Add").size());
+        assertEquals(5, de.kumpewo.autohotkey.documentation.AhkHelpRepository.topics(de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_0, "Add").size());
         myFixture.configureByText("a.ahk", ";@declare-type lv as Gui.ListView\nlv.A<caret>dd()\n");
         PsiElement add = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
         assertEquals(List.of("/docs/lib/ListView.htm#Add"),
                 new de.kumpewo.autohotkey.documentation.AhkDocumentationProvider().getUrlFor(add, add));
 
         // links resolved relative to the page, page also loadable with another spelling
-        String html = de.kumpewo.autohotkey.documentation.AhkHelpRepository.getHelp("MsgBox");
+        String html = de.kumpewo.autohotkey.documentation.AhkHelpRepository.getHelp(de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_0, "MsgBox");
         assertNotNull(html);
         assertTrue(html.contains("href=\"psi_element://docs/misc/WinTitle.htm#ahk_id\""));
         assertTrue(html.contains("href=\"psi_element://docs/lib/Gui.htm\""));
@@ -3798,6 +4486,116 @@ public class AhkPluginTest extends BasePlatformTestCase {
         }
     }
 
+    /**
+     * Alt+Enter "Insert '#Requires AutoHotkey v2.0'" anywhere in a file without #Requires; in the line of the hint
+     * only once (quick fix, no second entry from the intention); not with a #Requires.
+     */
+    public void testRequiresIntentionAnywhere() {
+        String name = "Insert '#Requires AutoHotkey v2.0'";
+        myFixture.configureByText("a.ahk", "x := 1\n\nf() {\n    return 1<caret>\n}\n");
+        myFixture.launchAction(myFixture.findSingleIntention(name));
+        assertEquals("#Requires AutoHotkey v2.0\nx := 1\n\nf() {\n    return 1\n}\n",
+                myFixture.getEditor().getDocument().getText());
+        assertEmpty(myFixture.filterAvailableIntentions(name));
+        myFixture.configureByText("b.ahk", "x<caret> := 1\ny := 2\n");
+        assertEquals(1, myFixture.filterAvailableIntentions(name).size());
+        myFixture.configureByText("c.ahk", "x := 1\n#Requires AutoHotkey v2.1\ny<caret> := 2\n");
+        assertEmpty(myFixture.filterAvailableIntentions(name));
+        myFixture.configureByText("d.ahk", "#Requires AutoHotkey v1.1\nMsgBox, x<caret>\n");
+        assertEmpty(myFixture.filterAvailableIntentions(name));
+        // the v1 variant needs the syntax detection, which is off in tests
+        assertEmpty(myFixture.filterAvailableIntentions("Insert '#Requires AutoHotkey v1.1'"));
+    }
+
+    /**
+     * With the default level v2.1 the intention and the quick fix insert a v2.1 #Requires: the version of the v2.1
+     * interpreter ({@code v2.1-alpha.39}) or {@code v2.1-} (never {@code v2.1} alone, which rejects the alpha).
+     */
+    public void testRequiresMatchesDefaultLevel() {
+        var settings = de.kumpewo.autohotkey.settings.AhkSettings.getInstance();
+        settings.setDefaultLanguageLevel(de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_1);
+        try {
+            String line = de.kumpewo.autohotkey.annotation.AhkAddRequiresFix.lineFor(
+                    de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_1);
+            assertTrue(line, line.startsWith("#Requires AutoHotkey v2.1-"));
+            assertEquals(de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_1,
+                    de.kumpewo.autohotkey.parser.AhkVersion.level(line.substring("#Requires".length())));
+            myFixture.configureByText("a.ahk", "x := 1\ny<caret> := 2\n");
+            myFixture.launchAction(myFixture.findSingleIntention("Insert '" + line + "'"));
+            assertEquals(line + "\nx := 1\ny := 2\n", myFixture.getEditor().getDocument().getText());
+            myFixture.configureByText("b.ahk", "x<caret> := 1\n");
+            myFixture.launchAction(myFixture.findSingleIntention("Insert '" + line + "'"));
+            assertEquals(line + "\nx := 1\n", myFixture.getEditor().getDocument().getText());
+        } finally {
+            settings.setDefaultLanguageLevel(de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_0);
+        }
+        assertEquals("#Requires AutoHotkey v2.0", de.kumpewo.autohotkey.annotation.AhkAddRequiresFix.lineFor(
+                de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_0));
+    }
+
+    /** Language level of the file for the status bar and the Project view, with the line of the deciding #Requires. */
+    public void testLevelInfo() {
+        myFixture.configureByText("a.ahk", "; head\n#Requires AutoHotkey v2.1-alpha.39\nx := 1\n");
+        var info = de.kumpewo.autohotkey.level.AhkLevelInfo.of(myFixture.getFile());
+        assertNotNull(info);
+        assertEquals(de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_1, info.level());
+        assertEquals(1, info.requiresLine());
+        assertEquals(7, info.requiresOffset());
+        assertEquals("AHK v2.1", info.statusText());
+        assertTrue(info.tooltip(), info.tooltip().contains("line 2"));
+        myFixture.configureByText("b.ahk", "#Requires AutoHotkey 64-bit\nx := 1\n");
+        info = de.kumpewo.autohotkey.level.AhkLevelInfo.of(myFixture.getFile());
+        assertEquals(de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_0, info.level());
+        assertFalse(info.fromRequires());
+        assertEquals("AHK v2.0", info.statusText());
+        myFixture.configureByText("c.ahk", "#Requires AutoHotkey v1.1\nMsgBox, x\n");
+        info = de.kumpewo.autohotkey.level.AhkLevelInfo.of(myFixture.getFile());
+        assertEquals(de.kumpewo.autohotkey.parser.AhkLanguageLevel.OTHER, info.level());
+        assertEquals("v1", info.shortLabel());
+        assertNull(de.kumpewo.autohotkey.level.AhkLevelInfo.of(myFixture.configureByText("d.txt", "x")));
+    }
+
+    /** Project view: "v2.1" as location string after an AutoHotkey file; not when switched off. */
+    public void testLevelInProjectView() {
+        var file = myFixture.configureByText("a.ahk", "#Requires AutoHotkey >=2.1-\nx := 1\n");
+        var settings = de.kumpewo.autohotkey.settings.AhkSettings.getInstance();
+        var node = new com.intellij.ide.projectView.impl.nodes.PsiFileNode(getProject(), file,
+                com.intellij.ide.projectView.ViewSettings.DEFAULT);
+        var data = new com.intellij.ide.projectView.PresentationData();
+        new de.kumpewo.autohotkey.level.AhkLevelDecorator().decorate(node, data);
+        assertEquals("v2.1", data.getLocationString());
+        settings.setShowLevelInProjectView(false);
+        try {
+            data = new com.intellij.ide.projectView.PresentationData();
+            new de.kumpewo.autohotkey.level.AhkLevelDecorator().decorate(node, data);
+            assertNull(data.getLocationString());
+        } finally {
+            settings.setShowLevelInProjectView(true);
+        }
+    }
+
+    /** The help shipped with the plugin per level is copied into a folder (fallback without AutoHotkey.chm). */
+    public void testBundledDocsAreExtracted() throws Exception {
+        var v20 = de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_0;
+        var v21 = de.kumpewo.autohotkey.parser.AhkLanguageLevel.V2_1;
+        assertEquals("help/docs/", de.kumpewo.autohotkey.documentation.AhkBundledDocs.root(v20));
+        assertEquals("help/v2.1/docs/", de.kumpewo.autohotkey.documentation.AhkBundledDocs.root(v21));
+        List<String> files = de.kumpewo.autohotkey.documentation.AhkBundledDocs.list(v20).files();
+        assertTrue(files.contains("index.htm"));
+        assertTrue(files.contains("lib/msgbox.htm"));
+        assertFalse(files.contains("modules.htm"));
+        java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("ahk-docs-test");
+        try {
+            java.nio.file.Path start = de.kumpewo.autohotkey.documentation.AhkBundledDocs.extract(v21, dir);
+            assertEquals(dir.resolve("index.htm"), start);
+            assertTrue(java.nio.file.Files.readString(start).contains("2.1-alpha"));
+            assertTrue(java.nio.file.Files.isRegularFile(dir.resolve("modules.htm")));
+            assertTrue(java.nio.file.Files.isRegularFile(dir.resolve("static").resolve("content.js")));
+        } finally {
+            com.intellij.openapi.util.io.FileUtil.delete(dir);
+        }
+    }
+
     /** Where the Ahk2Exe head goes and which base file it names. */
     public void testAhk2ExeHeaderPosition() {
         assertEquals(0, de.kumpewo.autohotkey.compile.AhkAhk2ExeHeader.insertionOffset("MsgBox 1\n"));
@@ -3829,14 +4627,21 @@ public class AhkPluginTest extends BasePlatformTestCase {
         String[] lines = text.split("\n");
         assertEquals("#Requires AutoHotkey v2.0 32-bit", lines[0]);
         assertEquals(";@Ahk2Exe-Base ..\\v2\\AutoHotkey32.exe", lines[1]);
-        assertTrue(text, text.contains("Ahk2Exe_ProductName := \t\t\t\"tool\"\n"
-                + ";@Ahk2Exe-SetProductName\t\t%A_PriorLine~U)(.+\")(.*)\".*$~$2%\n"));
-        assertTrue(text, text.contains("Ahk2Exe_ProductVersion := \t\t\"1.0\"\n"));
-        assertTrue(text, text.contains("Ahk2Exe_Description := \t\t\t\"tool\"\n"));
-        assertTrue(text, text.contains(";@Ahk2Exe-SetCopyright\t\t\t© " + java.time.Year.now().getValue() + " Your Name\n"));
-        assertTrue(text, text.contains(";;@Ahk2Exe-SetMainIcon\t\t\ttool.ico\n;;@Ahk2Exe-ConsoleApp\n"));
-        assertTrue(text, text.contains(";GetProductInfo() => Ahk2Exe_ProductName \" v\" Ahk2Exe_ProductVersion\n"));
-        assertTrue(text, text.endsWith("---\nMsgBox 1\n"));
+        String separator = "; ---------------------------------------------------------------------------\n";
+        assertEquals("#Requires AutoHotkey v2.0 32-bit\n"
+                + ";@Ahk2Exe-Base ..\\v2\\AutoHotkey32.exe\n"
+                + separator
+                + ";@Ahk2Exe-SetProductName    tool\n"
+                + ";@Ahk2Exe-SetVersion        1.0.0\n"
+                + ";@Ahk2Exe-SetDescription    tool description\n"
+                + ";@Ahk2Exe-SetLanguage       0x0409\n"
+                + ";@Ahk2Exe-SetCopyright      © " + java.time.Year.now().getValue() + " Your Name\n"
+                + ";;@Ahk2Exe-SetMainIcon      tool.ico\n"
+                + ";;@Ahk2Exe-ConsoleApp\n"
+                + separator
+                + "MsgBox 1\n", text);
+        // the version line is the one that "Set Version" changes
+        assertEquals("1.0.0", de.kumpewo.autohotkey.install.AhkVersionDirective.find(text).get(0).value());
         assertTrue(de.kumpewo.autohotkey.compile.AhkCompiler.hasBaseDirective(text));
         // the inserted head is valid code for the plugin's parser
         assertTrue(myFixture.doHighlighting(HighlightSeverity.ERROR).isEmpty());

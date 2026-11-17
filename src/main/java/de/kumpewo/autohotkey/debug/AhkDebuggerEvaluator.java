@@ -94,7 +94,7 @@ final class AhkDebuggerEvaluator extends XDebuggerEvaluator {
             path = parent;
         } else if (parentType == AhkTypes.REF_EXPR) {
             if (!isThis) {
-                var color = AhkNames.nonMember(leaf.getText());
+                var color = AhkNames.of(leaf).nonMember(leaf.getText());
                 if (color == AhkColors.AHK_BUILTIN_FUNCTION || color == AhkColors.AHK_BUILTIN_CLASS) return null;
             }
             path = parent;

@@ -35,7 +35,8 @@ public class AhkBlock extends AbstractBlock {
     /** Elements that have their content between brackets. The brackets belong to the element itself. */
     private static final TokenSet BRACKET_CONTAINERS = TokenSet.create(
             AhkTypes.BLOCK, AhkTypes.PROPERTY_BLOCK, AhkTypes.ARG_LIST, AhkTypes.INDEX_LIST, AhkTypes.PARAMETER_LIST,
-            AhkTypes.INDEX_PARAMETER_LIST, AhkTypes.PAREN_EXPR, AhkTypes.ARRAY_EXPR, AhkTypes.OBJECT_EXPR);
+            AhkTypes.INDEX_PARAMETER_LIST, AhkTypes.PAREN_EXPR, AhkTypes.ARRAY_EXPR, AhkTypes.OBJECT_EXPR,
+            AhkTypes.IMPORT_LIST);
 
     /**
      * Elements whose second and following children can be a continuation line.
@@ -48,7 +49,7 @@ public class AhkBlock extends AbstractBlock {
             AhkTypes.ADD_EXPR, AhkTypes.MUL_EXPR, AhkTypes.POWER_EXPR, AhkTypes.CONCAT_EXPR,
             AhkTypes.MEMBER_EXPR, AhkTypes.LAMBDA_EXPR, AhkTypes.PROPERTY,
             AhkTypes.EXPR_STMT, AhkTypes.COMMAND_STMT, AhkTypes.DECL_STMT, AhkTypes.DECL_ITEM,
-            AhkTypes.RETURN_STMT);
+            AhkTypes.RETURN_STMT, AhkTypes.TYPED_DECL_STMT, AhkTypes.TYPED_PROPERTY);
 
     /** Control structures with a BODY. */
     private static final TokenSet CONTROL_STATEMENTS = TokenSet.create(
@@ -56,10 +57,11 @@ public class AhkBlock extends AbstractBlock {
             AhkTypes.TRY_STMT, AhkTypes.CATCH_CLAUSE, AhkTypes.FINALLY_CLAUSE, AhkTypes.ELSE_BRANCH);
 
     private static final TokenSet COMMENTS = TokenSet.create(
-            AhkTypes.LINE_COMMENT, AhkTypes.BLOCK_COMMENT, AhkTypes.BAD_COMMENT);
+            AhkTypes.LINE_COMMENT, AhkTypes.BLOCK_COMMENT, AhkTypes.BAD_COMMENT, AhkTypes.CONTINUATION_OPTIONS);
 
     private static final TokenSet SKIPPED = TokenSet.create(
-            TokenType.WHITE_SPACE, AhkTypes.CRLF, AhkTypes.LINE_COMMENT, AhkTypes.BLOCK_COMMENT, AhkTypes.BAD_COMMENT);
+            TokenType.WHITE_SPACE, AhkTypes.CRLF, AhkTypes.LINE_COMMENT, AhkTypes.BLOCK_COMMENT, AhkTypes.BAD_COMMENT,
+            AhkTypes.CONTINUATION_OPTIONS);
 
     private final SpacingBuilder spacingBuilder;
 
@@ -75,6 +77,8 @@ public class AhkBlock extends AbstractBlock {
         List<Block> blocks = new ArrayList<>();
         // File for another AHK version: leave unchanged (v2 rules would corrupt the code)
         if (myNode.getElementType() == AhkTypes.OTHER_VERSION_CODE) return blocks;
+        // Continuation section: its content stays exactly as written (the indentation can be part of strings)
+        if (isContinuationSection(myNode)) return blocks;
         ASTNode child = myNode.getFirstChildNode();
         while (child != null) {
             IElementType type = child.getElementType();
@@ -195,6 +199,14 @@ public class AhkBlock extends AbstractBlock {
             return false;
         }
         return true;
+    }
+
+    /**
+     * Continuation section outside a string (Ahk.flex, CS_OPEN_LINE): a parenthesized expression whose "(" starts
+     * a line and is followed by a line break (options and a comment may be in between).
+     */
+    static boolean isContinuationSection(ASTNode node) {
+        return node.getElementType() == AhkTypes.PAREN_EXPR && startsLine(node) && lineBreakAfterOpener(node);
     }
 
     /** Is the node after the ":" of its case/default? */
@@ -326,10 +338,25 @@ public class AhkBlock extends AbstractBlock {
 
     // ------------------------------------------------------------------ Rest
 
-    /** Spacing between two children, from the rules of AhkFormattingModelBuilder. */
+    /**
+     * Spacing between two children, from the rules of AhkFormattingModelBuilder. The whitespace before a
+     * continuation section is never changed: moving its "(" line would move the whole section, and the indentation
+     * of its lines can be part of strings.
+     */
     @Override
     public @Nullable Spacing getSpacing(@Nullable Block child1, @NotNull Block child2) {
+        if (child2 instanceof AhkBlock block && startsWithContinuationSection(block.getNode())) {
+            return Spacing.getReadOnlySpacing();
+        }
         return spacingBuilder.getSpacing(this, child1, child2);
+    }
+
+    /** The node is a continuation section or begins with one (as its first descendant). */
+    private static boolean startsWithContinuationSection(@Nullable ASTNode node) {
+        for (ASTNode n = node; n != null; n = n.getFirstChildNode()) {
+            if (isContinuationSection(n)) return true;
+        }
+        return false;
     }
 
     /** Range of the node. */
@@ -338,9 +365,13 @@ public class AhkBlock extends AbstractBlock {
         return myNode.getTextRange();
     }
 
-    /** Leaves: tokens, and code for another AHK version (formatted as a whole, i.e. not at all). */
+    /**
+     * Leaves: tokens, code for another AHK version and continuation sections (formatted as a whole, i.e. not at
+     * all).
+     */
     @Override
     public boolean isLeaf() {
-        return myNode.getFirstChildNode() == null || myNode.getElementType() == AhkTypes.OTHER_VERSION_CODE;
+        return myNode.getFirstChildNode() == null || myNode.getElementType() == AhkTypes.OTHER_VERSION_CODE
+                || isContinuationSection(myNode);
     }
 }

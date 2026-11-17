@@ -1,0 +1,6 @@
+; Directives of AutoHotkey v2.1: only the differences to names/directives.txt (a name is added, "-Name" removes it).
+; Source: help/v2.1/docs/v2.1-changes.htm (v2.1-alpha.39). See AhkResources.java.
+
+#Import
+#Module
+#StructPack

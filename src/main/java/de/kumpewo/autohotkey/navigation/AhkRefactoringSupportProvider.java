@@ -6,7 +6,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Refactoring support (lang.refactoringSupport, Z.20): local variables and parameters of functions (Z.27) are renamed
+ * Refactoring support (lang.refactoringSupport): local variables and parameters of functions are renamed
  * in place in the editor, all other definitions in the Rename dialog with its forced preview (AhkRenameProcessor).
  * Other refactorings are not offered.
  */

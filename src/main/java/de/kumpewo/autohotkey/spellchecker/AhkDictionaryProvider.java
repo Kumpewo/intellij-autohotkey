@@ -39,8 +39,10 @@ public class AhkDictionaryProvider implements RuntimeDictionaryProvider {
         /** All names and their parts in lower case. */
         private static Set<String> build() {
             Set<String> words = new HashSet<>();
-            for (String list : LISTS) {
-                for (String name : AhkNames.names(list)) add(words, name);
+            for (de.kumpewo.autohotkey.parser.AhkLanguageLevel level : de.kumpewo.autohotkey.parser.AhkLanguageLevel.selectable()) {
+                for (String list : LISTS) {
+                    for (String name : AhkNames.get(level).names(list)) add(words, name);
+                }
             }
             for (String name : AhkNames.loopSubcommands()) add(words, name);
             for (String term : TERMS) add(words, term);

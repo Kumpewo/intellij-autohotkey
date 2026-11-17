@@ -18,7 +18,7 @@ import org.jetbrains.annotations.Nullable;
 import javax.swing.*;
 
 /**
- * Target of a local variable or parameter of a function ({@link AhkLocals.Local}, Z.27): Ctrl+B leads to its first
+ * Target of a local variable or parameter of a function ({@link AhkLocals.Local}): Ctrl+B leads to its first
  * definition, Find Usages and the highlighting of occurrences stay inside the function that owns it, Rename works
  * in place in the editor (AhkRefactoringSupportProvider). Every occurrence, also the definition, carries an
  * {@link AhkLocalReference}, so renaming the references renames everything and {@link #setName} has nothing left to

@@ -386,8 +386,9 @@ public final class AhkDebugController {
     }
 
     /**
-     * A value with one page of children: page 0 holds {@code <base>} and the first {@code MAX_CHILDREN - 1}
-     * entries, page n ≥ 1 the next {@link #MAX_CHILDREN}.
+     * A value with one page of children ({@link #MAX_CHILDREN} each): page 0 begins with {@code <base>} and the
+     * properties (in AutoHotkey v2.1 also the inherited ones such as {@code Length}), then the entries; page n ≥ 1
+     * continues the same list.
      */
     public @NotNull CompletableFuture<DbgpPacket.Response> propertyGet(int epoch, @NotNull String fullName,
                                                                         int context, int level, int page) {

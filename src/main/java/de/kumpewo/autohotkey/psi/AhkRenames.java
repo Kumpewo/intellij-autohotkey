@@ -8,7 +8,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Text replacement for Rename (Z.20): replaces a range inside one leaf of an element, e.g. the name of a function,
+ * Text replacement for Rename: replaces a range inside one leaf of an element, e.g. the name of a function,
  * a name after the dot or a label name in quotes ({@code goto "Target"}). Works on the leaf text, so the tree keeps
  * its structure (the replaced leaf has the same token type).
  */

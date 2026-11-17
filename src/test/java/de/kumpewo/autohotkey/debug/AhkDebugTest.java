@@ -31,8 +31,8 @@ import java.util.function.Function;
 
 /**
  * Tests of the debugger above the protocol layer: breakpoint lines, the {@link AhkDebugController} against a
- * scripted fake engine and, if AutoHotkey v2 is installed, against the real engine. The XDebugger UI itself is not
- * tested automatically.
+ * scripted fake engine and against the real engine of every installed interpreter (v2.0 and v2.1, see
+ * {@code realEngines}). The XDebugger UI itself is not tested automatically.
  */
 public class AhkDebugTest extends BasePlatformTestCase {
 
@@ -418,11 +418,17 @@ public class AhkDebugTest extends BasePlatformTestCase {
     }
 
     public void testAttachToRunningScript() throws Exception {
-        String exe = AhkSettings.getInstance().findInterpreter(null);
-        if (exe == null || !com.intellij.openapi.util.SystemInfo.isWindows) return;
+        if (!com.intellij.openapi.util.SystemInfo.isWindows) return;
+        for (Map.Entry<String, Boolean> engine : realEngines().entrySet()) {
+            attachToRunningScript(engine.getKey(), engine.getValue());
+        }
+    }
+
+    /** Attach to a running script of the interpreter (v2.0 or v2.1), pause, read a value, detach. */
+    private void attachToRunningScript(String exe, boolean v21) throws Exception {
         Path dir = Files.createTempDirectory("dbg attach ");
         Path script = dir.resolve("loop.ahk");
-        Files.writeString(script, "#Requires AutoHotkey v2.0\r\nPersistent\r\nLoop {\r\n    x := A_Index\r\n"
+        Files.writeString(script, requires(v21) + "Persistent\r\nLoop {\r\n    x := A_Index\r\n"
                 + "    Sleep 50\r\n}\r\n", StandardCharsets.UTF_8);
         Process process = new ProcessBuilder(exe, script.toString()).start();
         try {
@@ -461,12 +467,22 @@ public class AhkDebugTest extends BasePlatformTestCase {
         }
     }
 
+    /** {@code #Requires} line for the interpreter (v2.0 or v2.1). */
+    private static String requires(boolean v21) {
+        return v21 ? "#Requires AutoHotkey v2.1-\r\n" : "#Requires AutoHotkey v2.0\r\n";
+    }
+
     public void testExceptionsWithRealEngine() throws Exception {
-        String exe = AhkSettings.getInstance().findInterpreter(null);
-        if (exe == null) return;
+        for (Map.Entry<String, Boolean> engine : realEngines().entrySet()) {
+            exceptionsWithRealEngine(engine.getKey(), engine.getValue());
+        }
+    }
+
+    /** Exception breakpoint: caught and uncaught error. */
+    private void exceptionsWithRealEngine(String exe, boolean v21) throws Exception {
         Path dir = Files.createTempDirectory("dbg exceptions ");
         Path script = dir.resolve("errors.ahk");
-        Files.writeString(script, "#Requires AutoHotkey v2.0\r\n"
+        Files.writeString(script, requires(v21)
                 + "try\r\n"
                 + "    x := [][5]\r\n"                 // 3: caught
                 + "catch\r\n"
@@ -585,26 +601,112 @@ public class AhkDebugTest extends BasePlatformTestCase {
         assertEquals(marker, expected, range == null ? null : range.substring(code));
     }
 
+    /**
+     * Interpreters for the tests with the real engine: v2.0 (if installed) with {@code false}, v2.1 (if installed)
+     * with {@code true}.
+     */
+    private static Map<String, Boolean> realEngines() {
+        Map<String, Boolean> result = new java.util.LinkedHashMap<>();
+        String v20 = AhkSettings.getInstance().findInterpreter(null);
+        if (v20 != null) result.put(v20, false);
+        String v21 = AhkSettings.getInstance().findAutoHotkeyV21(0);
+        if (v21 != null) result.put(v21, true);
+        return result;
+    }
+
+    /** A tree node that records the children of {@link AhkValue#computeChildren} and loads every further page. */
+    private static final class ChildrenRecorder implements com.intellij.xdebugger.frame.XCompositeNode {
+        final List<String> names = new CopyOnWriteArrayList<>();
+        /** The {@code remaining} of each "more" link ({@code -1} = unknown). */
+        final List<Integer> remaining = new CopyOnWriteArrayList<>();
+        final CompletableFuture<Void> done = new CompletableFuture<>();
+
+        @Override
+        public void addChildren(@NotNull com.intellij.xdebugger.frame.XValueChildrenList children, boolean last) {
+            for (int i = 0; i < children.size(); i++) names.add(children.getName(i));
+            if (last) done.complete(null);
+        }
+
+        @Override
+        public void tooManyChildren(int remaining) {
+            throw new AssertionError("tooManyChildren without a continuation");
+        }
+
+        @Override
+        public void tooManyChildren(int remaining, @NotNull Runnable addNextChildren) {
+            this.remaining.add(remaining);
+            addNextChildren.run();
+        }
+
+        @Override
+        public void setAlreadySorted(boolean alreadySorted) {
+        }
+
+        @Override
+        public void setErrorMessage(@NotNull String errorMessage) {
+            done.completeExceptionally(new AssertionError(errorMessage));
+        }
+
+        @Override
+        public void setErrorMessage(@NotNull String errorMessage,
+                                    @org.jetbrains.annotations.Nullable com.intellij.xdebugger.frame.XDebuggerTreeNodeHyperlink link) {
+            setErrorMessage(errorMessage);
+        }
+
+        @Override
+        public void setMessage(@NotNull String message, @org.jetbrains.annotations.Nullable javax.swing.Icon icon,
+                               @NotNull com.intellij.ui.SimpleTextAttributes attributes,
+                               @org.jetbrains.annotations.Nullable com.intellij.xdebugger.frame.XDebuggerTreeNodeHyperlink link) {
+        }
+    }
+
+    /** All children of a global value, loaded page by page as the tree does it. */
+    private static ChildrenRecorder expand(AhkDebugController controller, int epoch, String name) throws Exception {
+        DbgpProperty property = controller.propertyGet(epoch, name, 1, 0).get(5, TimeUnit.SECONDS).properties().get(0);
+        ChildrenRecorder node = new ChildrenRecorder();
+        new AhkValue(controller, epoch, 1, 0, property).computeChildren(node);
+        node.done.get(10, TimeUnit.SECONDS);
+        return node;
+    }
+
+    /** {@code [1]} … {@code [count]}. */
+    private static List<String> entries(int count) {
+        List<String> result = new java.util.ArrayList<>();
+        for (int i = 1; i <= count; i++) result.add("[" + i + "]");
+        return result;
+    }
+
     public void testValuesWithRealEngine() throws Exception {
-        String exe = AhkSettings.getInstance().findInterpreter(null);
-        if (exe == null) return;
+        for (Map.Entry<String, Boolean> engine : realEngines().entrySet()) {
+            valuesWithRealEngine(engine.getKey(), engine.getValue());
+        }
+    }
+
+    /**
+     * Values with the real engine. AutoHotkey v2.1 lists the inherited properties ({@code Length} …) before the
+     * entries and reports no {@code numchildren}.
+     */
+    private void valuesWithRealEngine(String exe, boolean v21) throws Exception {
         Path dir = Files.createTempDirectory("dbg values ");
         Path script = dir.resolve("values.ahk");
-        Files.writeString(script, "#Requires AutoHotkey v2.0\r\n"
+        Files.writeString(script, requires(v21)
                 + "arr := []\r\n"
                 + "Loop 250\r\n"
                 + "    arr.Push(A_Index)\r\n"
                 + "m := Map(\"a b\", \"x\", 5, \"five\")\r\n"
                 + "g := 1, obj := {key: \"k\", num: 42}\r\n"
+                + "big := Map(), wide := {}\r\n"
+                + "Loop 199\r\n"
+                + "    big[A_Index] := A_Index, wide.%\"p\" A_Index% := A_Index\r\n"
                 + "F()\r\n"
                 + "ExitApp 0\r\n"
                 + "F() {\r\n"
                 + "    loc := \"text\"\r\n"
-                + "    return\r\n"                                     // 11
+                + "    return\r\n"                                     // 14
                 + "}\r\n", StandardCharsets.UTF_8);
         Recorder recorder = new Recorder();
         AhkDebugController controller = new AhkDebugController(recorder);
-        controller.addBreakpoint(new AhkDebugController.LineBreakpoint("stop", script.toString(), 11));
+        controller.addBreakpoint(new AhkDebugController.LineBreakpoint("stop", script.toString(), 14));
         try (DbgpServer server = DbgpServer.open()) {
             Process process = new ProcessBuilder(exe, "/ErrorStdOut", server.debugSwitch(), script.toString()).start();
             try {
@@ -616,16 +718,38 @@ public class AhkDebugTest extends BasePlatformTestCase {
                 controller.attach(connection);
                 int epoch = recorder.next().epoch();
 
-                // paging: page 0 = <base> + 99 entries, page 1 = entries 100..199, page 2 = 200..250
+                // paging: page 0 = <base> (v2.1 also Capacity, Length) + entries, the next pages continue the list
                 List<DbgpProperty> page0 = controller.propertyGet(epoch, "arr", 1, 0).get(5, TimeUnit.SECONDS)
                         .properties().get(0).children();
                 assertEquals(AhkDebugController.MAX_CHILDREN, page0.size());
                 assertEquals("<base>", page0.get(0).name());
-                assertEquals("[99]", page0.get(page0.size() - 1).name());
                 List<DbgpProperty> page2 = controller.propertyGet(epoch, "arr", 1, 0, 2).get(5, TimeUnit.SECONDS)
                         .properties().get(0).children();
-                assertEquals("[200]", page2.get(0).name());
                 assertEquals("[250]", page2.get(page2.size() - 1).name());
+
+                // expanding in the tree: every child once, "more" links with the right number of remaining children
+                List<String> members = v21 ? List.of("<base>", "Capacity", "Length") : List.of("<base>");
+                List<String> expected = new java.util.ArrayList<>(members);
+                expected.addAll(entries(250));
+                ChildrenRecorder arr = expand(controller, epoch, "arr");
+                assertEquals(expected, arr.names);
+                assertEquals(List.of(expected.size() - 100, expected.size() - 200), arr.remaining);
+                ChildrenRecorder m = expand(controller, epoch, "m");
+                assertEquals(v21 ? List.of("<base>", "Capacity", "CaseSense", "Count", "[5]", "[\"a b\"]")
+                        : List.of("<base>", "[5]", "[\"a b\"]"), m.names);
+                assertEquals(List.of(), m.remaining);
+                // a map: 199 entries + <base> = exactly two full pages in v2.0; v2.1 adds 3 inherited properties
+                ChildrenRecorder big = expand(controller, epoch, "big");
+                assertEquals(v21 ? 203 : 200, big.names.size());
+                assertEquals("[199]", big.names.get(big.names.size() - 1));
+                assertEquals(v21 ? List.of(103, 3) : List.of(100), big.remaining);
+                // an object with exactly two full pages: v2.0 counts the children (numchildren); v2.1 does not, so
+                // every full page offers a "more" link without a number, and the last one turns out empty
+                ChildrenRecorder wide = expand(controller, epoch, "wide");
+                assertEquals(200, wide.names.size());
+                assertEquals(v21 ? List.of(-1, -1) : List.of(100), wide.remaining);
+                ChildrenRecorder obj = expand(controller, epoch, "obj");
+                assertEquals(List.of("<base>", "key", "num"), obj.names);
 
                 // name paths: local, global from inside a function, map keys
                 AhkDebugController.Resolved loc = controller.resolve(epoch, "loc", 0).get(5, TimeUnit.SECONDS);
@@ -664,11 +788,16 @@ public class AhkDebugTest extends BasePlatformTestCase {
     }
 
     public void testControllerWithRealEngine() throws Exception {
-        String exe = AhkSettings.getInstance().findInterpreter(null);
-        if (exe == null) return;
+        for (Map.Entry<String, Boolean> engine : realEngines().entrySet()) {
+            controllerWithRealEngine(engine.getKey(), engine.getValue());
+        }
+    }
+
+    /** Breakpoint, stack, contexts, OutputDebug, step out (v2.0 or v2.1). */
+    private void controllerWithRealEngine(String exe, boolean v21) throws Exception {
         Path dir = Files.createTempDirectory("dbg ä ");
         Path script = dir.resolve("a b.ahk");
-        Files.writeString(script, "#Requires AutoHotkey v2.0\r\n"     // 1
+        Files.writeString(script, requires(v21)                         // 1
                 + "global counter := 5\r\n"                              // 2
                 + "obj := {key: \"wert ä\"}\r\n"                         // 3
                 + "OutputDebug \"hello\"\r\n"                            // 4
@@ -705,7 +834,7 @@ public class AhkDebugTest extends BasePlatformTestCase {
                 List<DbgpProperty> globals = controller.contextGet(stop.epoch(), 1, 0).get(5, TimeUnit.SECONDS)
                         .properties();
                 assertTrue(globals.stream().anyMatch(p -> p.name().equals("counter") && p.value().equals("5")));
-                // inside a function the engine also lists built-in classes and functions, without facet
+                // inside a function v2.0 also lists built-in classes and functions, without facet (v2.1 does not)
                 List<String> own = globals.stream().filter(p -> !AhkStackFrame.isBuiltIn(p)).map(DbgpProperty::name)
                         .sorted().toList();
                 assertEquals(List.of("Add", "counter", "obj", "result"), own);

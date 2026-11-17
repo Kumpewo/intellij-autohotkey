@@ -201,7 +201,9 @@ public final class AhkRunState extends CommandLineState {
     @Override
     protected @NotNull ProcessHandler startProcess() throws ExecutionException {
         String exe = AhkSettings.getInstance().findAutoHotkey(configuration.getScriptPath());
-        if (exe == null) throw new ExecutionException(AhkRunConfiguration.noAutoHotkey());
+        if (exe == null) {
+            throw new ExecutionException(AhkSettings.getInstance().notFoundMessage(configuration.getScriptPath()));
+        }
         GeneralCommandLine commandLine = createCommandLine(exe, configuration.getScriptPath(),
                 configuration.getScriptParameters(), configuration.getEffectiveWorkingDirectory());
         OSProcessHandler handler = ProcessHandlerFactory.getInstance().createColoredProcessHandler(commandLine);

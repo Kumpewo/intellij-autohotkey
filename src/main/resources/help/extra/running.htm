@@ -29,10 +29,12 @@
 <table class="info">
   <tr><th>Settings</th><th>Script</th><th>Started program</th></tr>
   <tr><td>Program empty, launcher found</td><td><code>#Requires AutoHotkey v2.0</code> (also <code>v2</code>, <code>2.0.18</code>, <code>&gt;=2.0</code>)</td><td><code>v2\AutoHotkey.exe</code> next to the launcher (or <code>AutoHotkey32.exe</code>/<code>AutoHotkey64.exe</code> with <code>32-bit</code>/<code>64-bit</code>)</td></tr>
-  <tr><td>Program empty, launcher found</td><td>no <code>#Requires</code>, or 2.1 and later</td><td>the launcher <code>UX\AutoHotkeyUX.exe launcher.ahk</code>, which chooses the version</td></tr>
+  <tr><td>Program empty, launcher found</td><td>no <code>#Requires</code> (language level v2.0), or v1</td><td>the launcher <code>UX\AutoHotkeyUX.exe launcher.ahk</code>, which chooses the version</td></tr>
   <tr><td>Program = launcher</td><td>as above</td><td>as above</td></tr>
-  <tr><td>Program = interpreter</td><td>any</td><td>exactly this program</td></tr>
+  <tr><td>Program = interpreter</td><td>any v2.0 or v1</td><td>exactly this program</td></tr>
+  <tr><td>any</td><td>language level v2.1 (<code>#Requires AutoHotkey v2.1-alpha.39</code>, or no <code>#Requires</code> with the <a href="settings.htm#LanguageLevel">language level</a> v2.1)</td><td>the <a href="settings.htm#ProgramV21">AutoHotkey v2.1 interpreter</a>, never the launcher (or <code>AutoHotkey32.exe</code>/<code>AutoHotkey64.exe</code> with <code>32-bit</code>/<code>64-bit</code>)</td></tr>
 </table>
+<p>The launcher only knows AutoHotkey versions that were installed through it; for an alpha that was only unpacked it would offer a download. That is why v2.1 files never go through the launcher.</p>
 <p>Starting the interpreter directly saves the extra launcher process. The launcher passes output and exit code through, so both ways behave the same in the IDE.</p>
 
 <h2 id="Console">Console and errors</h2>

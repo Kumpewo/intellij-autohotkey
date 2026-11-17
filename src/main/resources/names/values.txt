@@ -29,7 +29,7 @@ ProcessSetPriority 1: Low BelowNormal Normal AboveNormal High Realtime
 #Warn 1: VarUnset LocalSameAsGlobal Unreachable All
 #Warn 2: MsgBox StdOut OutputDebug Off
 
-; Event names for OnEvent (Z.19 C11; help/docs/lib/guionevent.htm, "Applies to" of each event).
+; Event names for OnEvent (help/docs/lib/guionevent.htm, "Applies to" of each event).
 ; Window events:
 Gui.OnEvent 1: Close ContextMenu DropFiles Escape Size
 ; Control events: all, and per control class (an entry of the derived class wins over Gui.Control)

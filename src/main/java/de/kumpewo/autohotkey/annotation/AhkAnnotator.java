@@ -68,7 +68,8 @@ public class AhkAnnotator implements Annotator {
             for (IElementType t : new IElementType[]{
                     AhkTypes.KEYWORD_AS, AhkTypes.KEYWORD_AND, AhkTypes.KEYWORD_OR, AhkTypes.KEYWORD_NOT,
                     AhkTypes.KEYWORD_IS, AhkTypes.KEYWORD_IN, AhkTypes.KEYWORD_CONTAINS, AhkTypes.KEYWORD_DECL,
-                    AhkTypes.KEYWORD_CLASS, AhkTypes.KEYWORD_EXTENDS}) {
+                    AhkTypes.KEYWORD_CLASS, AhkTypes.KEYWORD_EXTENDS, AhkTypes.KEYWORD_STRUCT,
+                    AhkTypes.KEYWORD_EXPORT, AhkTypes.KEYWORD_UNION}) {
                 KEYWORD_COLORS.put(t, AhkColors.AHK_RESERVED);
             }
             // true, false, unset, this, super
@@ -159,11 +160,13 @@ public class AhkAnnotator implements Annotator {
 
     /** Colors a known directive, warns about an unknown one. */
     private static void annotateDirective(PsiElement element, AnnotationHolder holder) {
-        TextAttributesKey key = AhkNames.directive(element.getText());
+        TextAttributesKey key = AhkNames.of(element).directive(element.getText());
         if (key != null) {
             color(holder, element, key);
-        } else if (PsiTreeUtil.getParentOfType(element, AhkOtherVersionCode.class) == null) {
-            // No warning in files for another version (#Requires AutoHotkey v1.1); other directives apply there
+        } else if (PsiTreeUtil.getParentOfType(element, AhkOtherVersionCode.class) == null
+                && !"#Import".equalsIgnoreCase(element.getText()) && !"#Module".equalsIgnoreCase(element.getText())) {
+            // No warning in files for another version (#Requires AutoHotkey v1.1); other directives apply there.
+            // #Import/#Module outside v2.1: error "requires AutoHotkey v2.1" from AhkModuleAnnotator instead.
             holder.newAnnotation(HighlightSeverity.WARNING, AhkBundle.message("annotator.unknown.directive"))
                     .range(element)
                     .create();
@@ -183,11 +186,15 @@ public class AhkAnnotator implements Annotator {
      *       ;@declare-type gets AHK_DECLARED_TYPE (built-in names only with an explicit declaration, not via a
      *       wildcard; extends names never)</li>
      * </ol>
+     * v2.1 modules: a built-in function, class or variable name that the own module defines or imports
+     * explicitly is not colored as built-in (a module may hide built-ins); after {@code AHK.} (the built-in module)
+     * names get the color of the built-in name, after another module no built-in member color.
      * Not free-standing (NOT_FREE_STANDING): function, class and label names, properties in classes, object keys,
      * parts of dynamic names. Methods/properties (Length) are never colored when free-standing.
      */
     public static @Nullable TextAttributesKey identifierColor(@NotNull PsiElement identifier) {
         String name = identifier.getText();
+        AhkNames names = AhkNames.of(identifier);
         PsiElement parent = identifier.getParent();
         IElementType parentType = parent.getNode().getElementType();
 
@@ -196,16 +203,18 @@ public class AhkAnnotator implements Annotator {
 
         if (parentType == AhkTypes.MEMBER_EXPR) {
             if (!isMemberName(identifier)) return null;
+            de.kumpewo.autohotkey.module.AhkModules.Module module = moduleLeftOfDot(parent);
+            if (module != null) return module.isBuiltin() ? names.nonMember(name) : null;
             // ;@declare-private: explicit beats built-in, via wildcard only without a built-in color
             AhkTypeDeclarations.Privacy privacy = AhkTypeDeclarations.privacy(identifier.getContainingFile(), name);
             if (privacy == AhkTypeDeclarations.Privacy.EXPLICIT) return AhkColors.AHK_PRIVATE_MEMBER;
             // Gui.Button: nested class if exactly the outer class is on the left of the dot
             PsiElement qualifier = parent.getFirstChild();
             if (qualifier != null && qualifier.getNode().getElementType() == AhkTypes.REF_EXPR) {
-                TextAttributesKey nested = AhkNames.nestedClass(qualifier.getText(), name);
+                TextAttributesKey nested = names.nestedClass(qualifier.getText(), name);
                 if (nested != null) return nested;
             }
-            TextAttributesKey member = AhkNames.member(name);
+            TextAttributesKey member = names.member(name);
             if (member != null) return member;
             return privacy == AhkTypeDeclarations.Privacy.WILDCARD ? AhkColors.AHK_PRIVATE_MEMBER : null;
         }
@@ -218,27 +227,51 @@ public class AhkAnnotator implements Annotator {
         if (isFieldName(identifier)) {
             AhkTypeDeclarations.Privacy privacy = AhkTypeDeclarations.privacy(identifier.getContainingFile(), name);
             if (privacy == AhkTypeDeclarations.Privacy.EXPLICIT) return AhkColors.AHK_PRIVATE_MEMBER;
-            TextAttributesKey builtin = AhkNames.nonMember(name);
+            TextAttributesKey builtin = names.nonMember(name);
             if (builtin != null) return builtin;
             return privacy == AhkTypeDeclarations.Privacy.WILDCARD ? AhkColors.AHK_PRIVATE_MEMBER : null;
         }
         if (parentType == AhkTypes.CLASS) {
-            if (isExtendsName(identifier)) return AhkNames.nonMember(name);   // base class, not a variable
+            if (isExtendsName(identifier)) return names.nonMember(name);   // base class, not a variable
             // "extends Gui.Edit": part after the dot, nested class of the class before it
             PsiElement dot = PsiTreeUtil.skipWhitespacesAndCommentsBackward(identifier);
             if (dot != null && dot.getNode().getElementType() == AhkTypes.DOT) {
                 PsiElement outer = PsiTreeUtil.skipWhitespacesAndCommentsBackward(dot);
-                return outer != null ? AhkNames.nestedClass(outer.getText(), name) : null;
+                return outer != null ? names.nestedClass(outer.getText(), name) : null;
             }
             // The class name itself: color AHK_CLASS via the element AhkClass
             return null;
         }
         // Type declaration (;@declare-type, @param {Type} of the enclosing function): explicitly declared beats
         // built-in, via wildcard only without built-in
-        TextAttributesKey builtin = AhkNames.nonMember(name);
+        TextAttributesKey builtin = names.nonMember(name);
+        if (builtin != null && builtin != AhkColors.AHK_BUILTIN_VARIABLE && hiddenByModule(identifier, name)) builtin = null;
         AhkTypeDeclarations.Declared declared = AhkTypeDeclarations.lookup(identifier, name);
         if (declared != null && (declared.explicit() || builtin == null)) return AhkColors.AHK_DECLARED_TYPE;
         return builtin;
+    }
+
+    /**
+     * v2.1: the module of the free-standing name defines or imports a function, class or module of this name, so the
+     * built-in one is hidden (built-in variables cannot be reused, their color stays).
+     */
+    private static boolean hiddenByModule(@NotNull PsiElement identifier, @NotNull String name) {
+        com.intellij.psi.PsiFile file = identifier.getContainingFile();
+        if (!de.kumpewo.autohotkey.module.AhkModules.isActive(file)) return false;
+        return de.kumpewo.autohotkey.module.AhkModules.ownNames(de.kumpewo.autohotkey.module.AhkModules.moduleOf(identifier))
+                .contains(name.toLowerCase(java.util.Locale.ROOT));
+    }
+
+    /** v2.1: the module left of the dot of a member access ({@code X.Name}, {@code AHK.Name}), or {@code null}. */
+    private static de.kumpewo.autohotkey.module.AhkModules.@Nullable Module moduleLeftOfDot(@NotNull PsiElement memberExpr) {
+        com.intellij.psi.PsiFile file = memberExpr.getContainingFile();
+        if (!de.kumpewo.autohotkey.module.AhkModules.isActive(file) || !de.kumpewo.autohotkey.module.AhkModules.usesModules(file)) {
+            return null;
+        }
+        PsiElement qualifier = memberExpr.getFirstChild();
+        return qualifier == null ? null : de.kumpewo.autohotkey.module.AhkModules.qualifierModule(qualifier,
+                n -> de.kumpewo.autohotkey.navigation.AhkDefinitionReference.finder(
+                        de.kumpewo.autohotkey.navigation.AhkDefinitionReference.Kind.FREE, n, null));
     }
 
     /** Colors escape sequences (backtick + character from ESCAPE_CHARS) in a string; unknown ones stay uncolored. */

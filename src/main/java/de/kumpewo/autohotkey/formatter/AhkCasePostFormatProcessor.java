@@ -91,8 +91,9 @@ public final class AhkCasePostFormatProcessor implements PostFormatProcessor {
     /** Spelling by the role of the leaf (keyword group or name list of its color). */
     private static @Nullable String spelling(PsiElement leaf, IElementType type, String text,
                                              AhkCodeStyleSettings settings) {
+        AhkNames names = AhkNames.of(leaf);
         if (type == AhkTypes.DIRECTIVE_NAME) {
-            return settings.ADJUST_BUILTIN_CASE ? AhkNames.spelling(text, "directives") : null;
+            return settings.ADJUST_BUILTIN_CASE ? names.spelling(text, "directives") : null;
         }
         if (!AhkAnnotator.isName(leaf)) {
             return AhkKeywordCase.spelling(text, settings);   // keyword token (keywordColor != null)
@@ -101,20 +102,20 @@ public final class AhkCasePostFormatProcessor implements PostFormatProcessor {
         if (color == null) return null;
         if (color == AhkColors.AHK_FLOWCONTROL) return AhkKeywordCase.spelling(text, settings);   // default, Files ...
         if (!settings.ADJUST_BUILTIN_CASE) return null;
-        if (color == AhkColors.AHK_BUILTIN_VARIABLE) return AhkNames.spelling(text, "variables");
-        if (color == AhkColors.AHK_BUILTIN_FUNCTION) return AhkNames.spelling(text, "functions");
-        if (color == AhkColors.AHK_BUILTIN_METHOD) return AhkNames.spelling(text, "methods");
-        if (color == AhkColors.AHK_BUILTIN_PROPERTY) return AhkNames.spelling(text, "properties");
+        if (color == AhkColors.AHK_BUILTIN_VARIABLE) return names.spelling(text, "variables");
+        if (color == AhkColors.AHK_BUILTIN_FUNCTION) return names.spelling(text, "functions");
+        if (color == AhkColors.AHK_BUILTIN_METHOD) return names.spelling(text, "methods");
+        if (color == AhkColors.AHK_BUILTIN_PROPERTY) return names.spelling(text, "properties");
         if (color == AhkColors.AHK_BUILTIN_CLASS) {
             // after the dot (Gui.Button, extends Gui.Edit): nested class of the class before it
             PsiElement dot = PsiTreeUtil.prevVisibleLeaf(leaf);
             if (dot != null && dot.getNode().getElementType() == AhkTypes.DOT) {
                 PsiElement outer = PsiTreeUtil.prevVisibleLeaf(dot);
                 if (outer == null) return null;
-                String nested = AhkNames.spelling(outer.getText() + "." + text, "nested-classes");
+                String nested = names.spelling(outer.getText() + "." + text, "nested-classes");
                 return nested == null ? null : nested.substring(nested.indexOf('.') + 1);
             }
-            return AhkNames.spelling(text, "classes");
+            return names.spelling(text, "classes");
         }
         return null;   // AHK_DECLARED_TYPE: own name
     }

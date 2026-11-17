@@ -128,7 +128,7 @@ public final class AhkTypeDeclarations {
 
     /**
      * Declaration of the name at this place: the pragmas of the file ({@link #lookup(PsiFile, String)}) plus the
-     * types of {@code @param {Type} name} in the doc comment of the enclosing function (Z.22; the innermost function
+     * types of {@code @param {Type} name} in the doc comment of the enclosing function (the innermost function
      * that has a parameter with this name decides, only within it). A type from a doc comment counts as explicit.
      */
     public static @Nullable Declared lookup(@NotNull PsiElement context, @NotNull String name) {
@@ -258,10 +258,11 @@ public final class AhkTypeDeclarations {
                 && first.getText().equalsIgnoreCase("static");
     }
 
-    /** Is at least one of the classes an own class (not a built-in class)? */
-    public static boolean hasOwnClass(@NotNull Declared declared) {
+    /** Is at least one of the classes an own class (not a built-in class at the language level of the file)? */
+    public static boolean hasOwnClass(@NotNull PsiFile file, @NotNull Declared declared) {
+        AhkNames names = AhkNames.of(file);
         for (String className : declared.classes()) {
-            if (AhkNames.builtinClass(className) == null) return true;
+            if (names.builtinClass(className) == null) return true;
         }
         return false;
     }
@@ -297,7 +298,7 @@ public final class AhkTypeDeclarations {
 
     /** Built-in class (takes precedence) or own class from the file and its direct #Include files. */
     private static @Nullable Level resolve(PsiFile file, String name) {
-        AhkNames.BuiltinClass builtin = AhkNames.builtinClass(name);
+        AhkNames.BuiltinClass builtin = AhkNames.of(file).builtinClass(name);
         if (builtin != null) return new Level(builtin.name(), null, builtin);
         AhkClass own = ownClass(file, name);
         return own == null ? null : new Level(qualifiedName(own), own, null);
@@ -370,7 +371,7 @@ public final class AhkTypeDeclarations {
                 return resolved != null ? resolved : name;
             };
         }
-        return parse(comment.getText(), comment.getTextRange().getStartOffset(), classes).problems();
+        return parse(comment.getText(), comment.getTextRange().getStartOffset(), classes, AhkNames.of(file)).problems();
     }
 
     /** Is the file a {@code pragmas.ahk} (case-insensitive)? */
@@ -387,9 +388,10 @@ public final class AhkTypeDeclarations {
         return CachedValuesManager.getCachedValue(file, () -> {
             List<Entry> entries = new ArrayList<>();
             Function<String, String> classes = classResolver(file);
-            addEntries(file, classes, entries);
+            AhkNames names = AhkNames.of(file);
+            addEntries(file, classes, names, entries);
             for (PsiFile included : AhkInclude.includedFiles(file)) {
-                if (isPragmaFile(included)) addEntries(included, classes, entries);
+                if (isPragmaFile(included)) addEntries(included, classes, names, entries);
             }
             // own classes and pragmas can come from #Include files: recompute on every PSI change
             return CachedValueProvider.Result.create(List.copyOf(entries), file,
@@ -397,11 +399,12 @@ public final class AhkTypeDeclarations {
         });
     }
 
-    /** Adds the entries of all pragma comments of {@code source}. */
-    private static void addEntries(PsiFile source, Function<String, String> classes, List<Entry> entries) {
+    /** Adds the entries of all pragma comments of {@code source}; built-in classes from {@code names}. */
+    private static void addEntries(PsiFile source, Function<String, String> classes, AhkNames names,
+                                   List<Entry> entries) {
         for (PsiComment comment : PsiTreeUtil.findChildrenOfType(source, PsiComment.class)) {
             if (comment.getNode().getElementType() != AhkTypes.LINE_COMMENT) continue;
-            entries.addAll(parse(comment.getText(), comment.getTextRange().getStartOffset(), classes).entries());
+            entries.addAll(parse(comment.getText(), comment.getTextRange().getStartOffset(), classes, names).entries());
         }
     }
 
@@ -427,8 +430,8 @@ public final class AhkTypeDeclarations {
         return 0;
     }
 
-    /** Parses one comment: the comma-separated sections after the marker. */
-    private static Parsed parse(String text, int offset, Function<String, String> classes) {
+    /** Parses one comment: the comma-separated sections after the marker; built-in classes from {@code names}. */
+    private static Parsed parse(String text, int offset, Function<String, String> classes, AhkNames names) {
         List<Entry> entries = new ArrayList<>();
         List<Problem> problems = new ArrayList<>();
         int bodyStart = markerLength(text);
@@ -453,7 +456,7 @@ public final class AhkTypeDeclarations {
                 TextRange at = comma >= 0 ? TextRange.from(comma, 1) : TextRange.from(segmentStart - 1, 1);
                 problems.add(new Problem(at.shiftRight(offset), INVALID_PATTERN));
             } else if (auto) {
-                parseAuto(text, words, offset, entries, problems);
+                parseAuto(text, words, offset, entries, problems, names);
             } else if (priv) {
                 parsePrivate(text, words, offset, entries, problems);
             } else {
@@ -515,7 +518,7 @@ public final class AhkTypeDeclarations {
 
     /** Class pattern: every matching class K becomes "*K as K" (for Gui.X "*X as Gui.X"). */
     private static void parseAuto(String text, List<TextRange> words, int offset, List<Entry> entries,
-                                  List<Problem> problems) {
+                                  List<Problem> problems, AhkNames names) {
         TextRange patternRange = words.get(0);
         if (words.size() > 1) {
             problems.add(new Problem(words.get(1).shiftRight(offset), COMMA_EXPECTED));
@@ -533,7 +536,7 @@ public final class AhkTypeDeclarations {
         Entry classPattern = new Entry(kind,
                 pattern.group(2) == null ? "" : pattern.group(2).toLowerCase(Locale.ROOT), "");
         boolean found = false;
-        for (AhkNames.BuiltinClass cls : AhkNames.builtinClasses()) {
+        for (AhkNames.BuiltinClass cls : names.builtinClasses()) {
             if (!classPattern.matches(cls.name().toLowerCase(Locale.ROOT))) continue;
             found = true;
             String simple = cls.name().substring(cls.name().lastIndexOf('.') + 1);

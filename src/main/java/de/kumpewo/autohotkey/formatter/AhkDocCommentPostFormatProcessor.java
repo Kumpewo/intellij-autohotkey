@@ -18,11 +18,11 @@ import java.util.List;
 /**
  * "Reformat Code" for doc comments (only those at the start of a line and completely inside the range):
  * <ul>
- *   <li>always (Z.22): the formatter only moves the first line ({@code /**}), the following lines are text inside
+ *   <li>always: the formatter only moves the first line ({@code /**}), the following lines are text inside
  *       the comment. Every following line that starts with {@code *} gets the indentation of the {@code /**} line
  *       plus one space, so that the stars stand below each other. Lines without a star and plain block comments
  *       (starting with a single star) stay as they are;</li>
- *   <li>with the main switch DOC_FORMAT (Z.23, tab "Doc Comments"): the whole comment is rewritten by
+ *   <li>with the main switch DOC_FORMAT (tab "Doc Comments"): the whole comment is rewritten by
  *       {@link AhkDocCommentFormatter} (alignment, blank lines, wrapping at the right margin, tags) and replaces its
  *       tokens.</li>
  * </ul>

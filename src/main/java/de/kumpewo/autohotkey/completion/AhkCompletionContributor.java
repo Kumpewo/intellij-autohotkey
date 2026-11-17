@@ -23,6 +23,8 @@ import de.kumpewo.autohotkey.formatter.AhkKeywordCase;
 import de.kumpewo.autohotkey.highlighting.AhkColors;
 import de.kumpewo.autohotkey.highlighting.AhkNames;
 import de.kumpewo.autohotkey.include.AhkInclude;
+import de.kumpewo.autohotkey.module.AhkModuleSymbol;
+import de.kumpewo.autohotkey.module.AhkModules;
 import de.kumpewo.autohotkey.psi.*;
 import de.kumpewo.autohotkey.types.AhkTypeDeclarations;
 import org.jetbrains.annotations.NotNull;
@@ -56,6 +58,10 @@ import java.util.Set;
  *       option with a value (w200) inserts only its prefix</li>
  *   <li>in a hotkey before "::" (token HOTKEY, e.g. "^F|::"): key names (keys.txt)</li>
  *   <li>argument of #Include/#IncludeAgain: files and directories (AhkIncludeCompletion)</li>
+ *   <li>v2.1 modules ({@link AhkModules}): free-standing names only from the own module plus what it imports
+ *       (in files with {@code #Module}/{@code #Import}); after a module ({@code X.}) only its exports, after
+ *       {@code AHK.} the built-in names; in {@code #Import} the module names (modules of the group, module files
+ *       of the search path, {@code AHK}) and in its list the names the module exports</li>
  * </ul>
  * Functions and methods are inserted with "()" (caret in between). Case does not matter; the spelling of the list
  * is inserted. No suggestions in comments and other strings.
@@ -109,7 +115,7 @@ public class AhkCompletionContributor extends CompletionContributor {
         if (type == AhkTypes.DIRECTIVE_NAME) {
             String prefix = leaf.getText().substring(0, parameters.getOffset() - leaf.getTextRange().getStartOffset());
             CompletionResultSet directives = result.withPrefixMatcher(prefix).caseInsensitive();
-            for (String name : AhkNames.names("directives")) {
+            for (String name : AhkNames.of(leaf).names("directives")) {
                 directives.addElement(item(name, AhkBundle.message("completion.directive"), AllIcons.Nodes.Annotationtype, false));
             }
             return;
@@ -135,8 +141,16 @@ public class AhkCompletionContributor extends CompletionContributor {
 
         PsiElement parent = leaf.getParent();
         IElementType parentType = parent.getNode().getElementType();
+        if (parentType == AhkTypes.IMPORT_MODULE) {
+            addModuleNames(leaf, out);
+            return;
+        }
+        if (parentType == AhkTypes.IMPORT_ITEM) {
+            if (parent.getFirstChild() == leaf) addImportableNames(leaf, out);
+            return;
+        }
         if (parentType == AhkTypes.MEMBER_EXPR) {
-            if (isAfterDot(leaf)) addMembers(parent, out);
+            if (isAfterDot(leaf) && !addModuleMembers(parent, out)) addMembers(parent, out);
             return;
         }
         if (parentType == AhkTypes.REF_EXPR) {
@@ -245,7 +259,8 @@ public class AhkCompletionContributor extends CompletionContributor {
         if (!(directive instanceof AhkDirective)) return;
         com.intellij.lang.ASTNode name = directive.getNode().findChildByType(AhkTypes.DIRECTIVE_NAME);
         if (name == null) return;
-        List<String> values = AhkCommandInfo.values(name.getText(), AhkArguments.index(directive, offset));
+        List<String> values = AhkCommandInfo.values(de.kumpewo.autohotkey.parser.AhkLanguageLevel.of(directive),
+                name.getText(), AhkArguments.index(directive, offset));
         if (values.isEmpty()) return;
         String before = args.getText().substring(0, offset - args.getTextRange().getStartOffset());
         int start = before.length();
@@ -267,7 +282,7 @@ public class AhkCompletionContributor extends CompletionContributor {
         String prefix = before.substring(brace + 1);
         if (!prefix.matches("[A-Za-z0-9_]*") || !isSendArgument(string)) return;
         CompletionResultSet keys = result.withPrefixMatcher(prefix).caseInsensitive();
-        for (String name : AhkNames.names("keys")) {
+        for (String name : AhkNames.of(string).names("keys")) {
             keys.addElement(item(name, AhkBundle.message("completion.key"), null, false).withInsertHandler(Tables.CLOSE_BRACE));
         }
     }
@@ -289,7 +304,7 @@ public class AhkCompletionContributor extends CompletionContributor {
         int start = before.length();
         while (start > 0 && isKeyNameChar(before.charAt(start - 1))) start--;
         CompletionResultSet keys = result.withPrefixMatcher(before.substring(start)).caseInsensitive();
-        for (String name : AhkNames.names("keys")) keys.addElement(item(name, AhkBundle.message("completion.key"), null, false));
+        for (String name : AhkNames.of(hotkey).names("keys")) keys.addElement(item(name, AhkBundle.message("completion.key"), null, false));
     }
 
     /** ASCII letter, digit or underscore. */
@@ -311,7 +326,7 @@ public class AhkCompletionContributor extends CompletionContributor {
     }
 
     /**
-     * Local variables and parameters of the function (Z.27, also those shared with enclosing functions), built-in
+     * Local variables and parameters of the function (also those shared with enclosing functions), built-in
      * variables, classes and functions (priority as in highlighting) and own definitions.
      */
     private static void addFreeStanding(PsiFile file, PsiElement leaf, CompletionResultSet out) {
@@ -323,14 +338,19 @@ public class AhkCompletionContributor extends CompletionContributor {
                     AhkBundle.message(local.parameter() ? "completion.local.parameter" : "completion.local.variable"),
                     local.parameter() ? AllIcons.Nodes.Parameter : AllIcons.Nodes.Variable, false), 1));
         }
-        addBuiltins("variables", AhkColors.AHK_BUILTIN_VARIABLE, AhkBundle.message("completion.variable"), AllIcons.Nodes.Variable, out);
-        addBuiltins("classes", AhkColors.AHK_BUILTIN_CLASS, AhkBundle.message("completion.class"), AllIcons.Nodes.Class, out);
-        addBuiltins("functions", AhkColors.AHK_BUILTIN_FUNCTION, AhkBundle.message("completion.function"), AllIcons.Nodes.Function, out);
+        AhkNames names = AhkNames.of(file);
+        addBuiltins(names, "variables", AhkColors.AHK_BUILTIN_VARIABLE, AhkBundle.message("completion.variable"), AllIcons.Nodes.Variable, out);
+        addBuiltins(names, "classes", AhkColors.AHK_BUILTIN_CLASS, AhkBundle.message("completion.class"), AllIcons.Nodes.Class, out);
+        addBuiltins(names, "functions", AhkColors.AHK_BUILTIN_FUNCTION, AhkBundle.message("completion.function"), AllIcons.Nodes.Function, out);
 
+        if (AhkModules.isActive(file) && AhkModules.usesModules(file)) {
+            addModuleScope(file, leaf, seen, out);
+            return;
+        }
         for (PsiFile source : definitionFiles(file)) {
             String where = origin(source, file);
             for (AhkFunc func : PsiTreeUtil.findChildrenOfType(source, AhkFunc.class)) {
-                if (PsiTreeUtil.getParentOfType(func, AhkClass.class) != null) continue;   // method
+                if (isMethod(func)) continue;
                 String name = ownName(func.getName(), leaf, seen);
                 if (name != null) out.addElement(item(func, name, AhkBundle.message("completion.own.function", where), AllIcons.Nodes.Function)
                         .withInsertHandler(Tables.PARENS));
@@ -341,6 +361,137 @@ public class AhkCompletionContributor extends CompletionContributor {
                 if (name != null) out.addElement(item(cls, name, AhkBundle.message("completion.own.class", where), AllIcons.Nodes.Class));
             }
         }
+    }
+
+    /**
+     * v2.1 file with modules: the functions and classes of the own module (in the file and its includes), then the
+     * names it imports (modules, list items, wildcard imports).
+     */
+    private static void addModuleScope(PsiFile file, PsiElement leaf, Set<String> seen, CompletionResultSet out) {
+        AhkModules.Module module = AhkModules.moduleOf(leaf);
+        for (PsiElement definition : AhkModules.definitions(module, source -> {
+            List<PsiElement> result = new java.util.ArrayList<>();
+            for (AhkFunc func : PsiTreeUtil.findChildrenOfType(source, AhkFunc.class)) {
+                if (!isMethod(func)) result.add(func);
+            }
+            for (AhkClass cls : PsiTreeUtil.findChildrenOfType(source, AhkClass.class)) {
+                if (PsiTreeUtil.getParentOfType(cls, AhkClass.class) == null) result.add(cls);
+            }
+            return result;
+        })) {
+            String name = ownName(((com.intellij.psi.PsiNamedElement) definition).getName(), leaf, seen);
+            if (name == null) continue;
+            String where = origin(definition.getContainingFile(), file);
+            out.addElement(definition instanceof AhkFunc
+                    ? item(definition, name, AhkBundle.message("completion.own.function", where), AllIcons.Nodes.Function).withInsertHandler(Tables.PARENS)
+                    : item(definition, name, AhkBundle.message("completion.own.class", where), AllIcons.Nodes.Class));
+        }
+        for (AhkModules.Named named : AhkModules.importedNames(leaf)) {
+            String name = ownName(named.name(), leaf, seen);
+            if (name != null) out.addElement(moduleItem(named, name));
+        }
+    }
+
+    /**
+     * After {@code X.} where X is a module: its exports; after {@code AHK.} the built-in variables, classes and
+     * functions. Returns false if the left side is no module.
+     */
+    private static boolean addModuleMembers(PsiElement memberExpr, CompletionResultSet out) {
+        PsiElement qualifier = memberExpr.getFirstChild();
+        if (qualifier == null || !AhkModules.isActive(memberExpr.getContainingFile())) return false;
+        AhkModules.Module module = AhkModules.qualifierModule(qualifier,
+                n -> de.kumpewo.autohotkey.navigation.AhkDefinitionReference.finder(
+                        de.kumpewo.autohotkey.navigation.AhkDefinitionReference.Kind.FREE, n, null));
+        if (module == null) return false;
+        if (module.isBuiltin()) {
+            AhkNames names = AhkNames.of(memberExpr);
+            addBuiltins(names, "variables", AhkColors.AHK_BUILTIN_VARIABLE, AhkBundle.message("completion.variable"), AllIcons.Nodes.Variable, out);
+            addBuiltins(names, "classes", AhkColors.AHK_BUILTIN_CLASS, AhkBundle.message("completion.class"), AllIcons.Nodes.Class, out);
+            addBuiltins(names, "functions", AhkColors.AHK_BUILTIN_FUNCTION, AhkBundle.message("completion.function"), AllIcons.Nodes.Function, out);
+            return true;
+        }
+        PsiElement leaf = PsiTreeUtil.getDeepestLast(memberExpr);
+        Set<String> seen = new HashSet<>();
+        for (AhkModules.Named named : AhkModules.exportedNames(module, false)) {
+            String name = ownName(named.name(), leaf, seen);
+            if (name != null) out.addElement(moduleItem(named, name));
+        }
+        return true;
+    }
+
+    /**
+     * Module names after {@code #Import}: {@code AHK}, the modules of the group (not {@code __Main}) and the module
+     * files of the search path ({@code Name.ahk}, a folder with {@code __Init.ahk}).
+     */
+    private static void addModuleNames(PsiElement leaf, CompletionResultSet out) {
+        AhkDirective directive = PsiTreeUtil.getParentOfType(leaf, AhkDirective.class);
+        AhkModules.Import imp = directive == null ? null : AhkModules.parse(directive);
+        if (imp == null || imp.quoted()) return;
+        PsiFile file = leaf.getContainingFile();
+        Set<String> seen = new HashSet<>();
+        out.addElement(item(AhkModules.BUILTIN, AhkBundle.message("completion.module.builtin"), AllIcons.Nodes.Module, false));
+        seen.add(key(AhkModules.BUILTIN));
+        for (String name : AhkModules.moduleNames(file)) {
+            if (name.equalsIgnoreCase(AhkModules.MAIN) || ownName(name, leaf, seen) == null) continue;
+            out.addElement(item(name, AhkBundle.message("completion.module"), AllIcons.Nodes.Module, true));
+        }
+        java.nio.file.Path self = AhkInclude.localPath(file);
+        for (java.nio.file.Path dir : AhkModules.searchDirectories(imp, AhkModules.moduleOf(directive))) {
+            java.io.File[] entries = dir.toFile().listFiles();
+            if (entries == null) continue;
+            java.util.Arrays.sort(entries);
+            for (java.io.File entry : entries) {
+                String name = null;
+                if (entry.isFile() && entry.getName().toLowerCase(Locale.ROOT).endsWith(".ahk")
+                        && (self == null || !entry.toPath().equals(self))) {
+                    name = entry.getName().substring(0, entry.getName().length() - 4);
+                } else if (entry.isDirectory() && new java.io.File(entry, "__Init.ahk").isFile()) {
+                    name = entry.getName();
+                }
+                if (name == null || !AhkModules.isIdentifier(name) || ownName(name, leaf, seen) == null) continue;
+                out.addElement(item(name, AhkBundle.message("completion.module.file", String.valueOf(dir.getFileName())),
+                        AllIcons.Nodes.Module, false));
+            }
+        }
+    }
+
+    /** In the list of {@code #Import X {...}}: the names module X exports (for {@code AHK} the built-in names). */
+    private static void addImportableNames(PsiElement leaf, CompletionResultSet out) {
+        AhkDirective directive = PsiTreeUtil.getParentOfType(leaf, AhkDirective.class);
+        AhkModules.Import imp = directive == null ? null : AhkModules.parse(directive);
+        AhkModules.Module module = imp == null ? null : AhkModules.resolveModule(imp, AhkModules.moduleOf(directive));
+        if (module == null) return;
+        if (module.isBuiltin()) {
+            AhkNames names = AhkNames.of(leaf);
+            addBuiltins(names, "classes", AhkColors.AHK_BUILTIN_CLASS, AhkBundle.message("completion.class"), AllIcons.Nodes.Class, out);
+            addBuiltins(names, "functions", AhkColors.AHK_BUILTIN_FUNCTION, AhkBundle.message("completion.function"), AllIcons.Nodes.Function, out);
+            return;
+        }
+        Set<String> seen = new HashSet<>();
+        for (AhkModules.Named named : AhkModules.exportedNames(module, false)) {
+            String name = ownName(named.name(), leaf, seen);
+            if (name != null) out.addElement(moduleItem(named, name).withInsertHandler(null));
+        }
+    }
+
+    /** Lookup item for a name a module exports or imports: function (with "()"), class, variable or module. */
+    private static LookupElementBuilder moduleItem(AhkModules.Named named, String name) {
+        PsiElement target = named.target();
+        PsiFile source = target instanceof PsiFile f ? f : target.getContainingFile();
+        String where = source == null ? "" : AhkBundle.message("completion.origin.file", source.getName());
+        if (named.module() != null || target instanceof PsiFile
+                || target instanceof AhkModuleSymbol symbol && symbol.kind() == AhkModuleSymbol.Kind.MODULE) {
+            return item(name, AhkBundle.message("completion.module"), AllIcons.Nodes.Module, false);
+        }
+        if (target instanceof AhkFunc) {
+            return item(target, name, AhkBundle.message("completion.own.function", where), AllIcons.Nodes.Function)
+                    .withInsertHandler(Tables.PARENS);
+        }
+        if (target instanceof AhkClass) return item(target, name, AhkBundle.message("completion.own.class", where), AllIcons.Nodes.Class);
+        if (target instanceof AhkModuleSymbol symbol && symbol.kind() == AhkModuleSymbol.Kind.VARIABLE) {
+            return item(name, AhkBundle.message("completion.own.variable", where), AllIcons.Nodes.Variable, false);
+        }
+        return item(name, AhkBundle.message("completion.imported", where), AllIcons.Nodes.Alias, false);
     }
 
     /**
@@ -360,11 +511,11 @@ public class AhkCompletionContributor extends CompletionContributor {
     }
 
     /** All names of a built-in list in the given role; functions with "()". */
-    private static void addBuiltins(String file, TextAttributesKey role, String typeText, Icon icon,
+    private static void addBuiltins(AhkNames names, String file, TextAttributesKey role, String typeText, Icon icon,
                                     CompletionResultSet out) {
-        for (String name : AhkNames.names(file)) {
+        for (String name : names.names(file)) {
             // name in several lists: only in the role that highlighting chooses too (variables > classes > functions)
-            if (AhkNames.nonMember(name) != role) continue;
+            if (names.nonMember(name) != role) continue;
             LookupElementBuilder item = item(name, typeText, icon, false);
             out.addElement(role == AhkColors.AHK_BUILTIN_FUNCTION ? item.withInsertHandler(Tables.PARENS) : item);
         }
@@ -372,15 +523,16 @@ public class AhkCompletionContributor extends CompletionContributor {
 
     /**
      * After the dot: nested classes (Gui.Button), built-in members and members of the own classes. If the name on
-     * the left is declared with ;@declare-type (or @param {Type} of the enclosing function, Z.22), only the
+     * the left is declared with ;@declare-type (or @param {Type} of the enclosing function), only the
      * instance members of its classes including base classes instead of all built-in members (type text = class that defines the member). If one of them is an own class,
      * the members of the other own classes are left out.
      */
     private static void addMembers(PsiElement memberExpr, CompletionResultSet out) {
         PsiElement qualifier = memberExpr.getFirstChild();
+        AhkNames names = AhkNames.of(memberExpr);
         AhkTypeDeclarations.Declared declared = null;
         if (qualifier != null && qualifier.getNode().getElementType() == AhkTypes.REF_EXPR) {
-            for (String name : AhkNames.nestedClassesOf(qualifier.getText())) {
+            for (String name : names.nestedClassesOf(qualifier.getText())) {
                 out.addElement(item(name, AhkBundle.message("completion.class"), AllIcons.Nodes.Class, true));
             }
             declared = AhkTypeDeclarations.lookup(qualifier, qualifier.getText());
@@ -399,25 +551,25 @@ public class AhkCompletionContributor extends CompletionContributor {
                         member.method() ? item.withInsertHandler(Tables.PARENS) : item, 100 - member.depth()));
             }
         } else {
-            for (String name : AhkNames.names("methods")) {
+            for (String name : names.names("methods")) {
                 if (!isMetaName(name) && seen.add(key(name))) {
                     out.addElement(item(name, AhkBundle.message("completion.method"), AllIcons.Nodes.Method, false)
                             .withInsertHandler(Tables.PARENS));
                 }
             }
-            for (String name : AhkNames.names("properties")) {
+            for (String name : names.names("properties")) {
                 if (!isMetaName(name) && seen.add(key(name))) {
                     out.addElement(item(name, AhkBundle.message("completion.property"), AllIcons.Nodes.Property, false));
                 }
             }
         }
         // declared as an own class: only its members including base classes, not those of all own classes
-        if (declared != null && AhkTypeDeclarations.hasOwnClass(declared)) return;
+        if (declared != null && AhkTypeDeclarations.hasOwnClass(file, declared)) return;
         PsiElement leaf = PsiTreeUtil.getDeepestLast(memberExpr);
         for (PsiFile source : definitionFiles(file)) {
             String where = origin(source, file);
             for (AhkFunc func : PsiTreeUtil.findChildrenOfType(source, AhkFunc.class)) {
-                if (PsiTreeUtil.getParentOfType(func, AhkClass.class) == null) continue;   // methods only
+                if (!isMethod(func)) continue;
                 if (isMetaName(func.getName())) continue;
                 String name = ownName(func.getName(), leaf, seen);
                 if (name != null) out.addElement(item(func, name, AhkBundle.message("completion.own.method", where), AllIcons.Nodes.Method)
@@ -437,6 +589,14 @@ public class AhkCompletionContributor extends CompletionContributor {
                 }
             }
         }
+    }
+
+    /**
+     * A function inside a class counts as a method (also one nested in a method); a function definition expression
+     * never does (v2.1, {@code p := () { ... }} in a class body).
+     */
+    private static boolean isMethod(@NotNull AhkFunc func) {
+        return PsiTreeUtil.getParentOfType(func, AhkClass.class) != null && !AhkDefinitions.isFunctionExpression(func);
     }
 
     /**
@@ -465,7 +625,7 @@ public class AhkCompletionContributor extends CompletionContributor {
 
     /**
      * Item of an own function, method or class: the lookup object is the definition, so that Ctrl+Q in the list
-     * shows its documentation (Z.22, AhkDocumentationProvider.getDocumentationElementForLookupItem).
+     * shows its documentation (AhkDocumentationProvider.getDocumentationElementForLookupItem).
      */
     private static LookupElementBuilder item(PsiElement definition, String name, String typeText, @Nullable Icon icon) {
         return LookupElementBuilder.create(definition, name).withTypeText(typeText).withIcon(icon);

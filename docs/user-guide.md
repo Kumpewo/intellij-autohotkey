@@ -16,6 +16,7 @@ Shortcuts are given for the default Windows keymap of IntelliJ IDEA.
 - [Formatting and case adjustment](#formatting-and-case-adjustment)
 - [Live templates and file template](#live-templates-and-file-template)
 - [Running scripts](#running-scripts)
+- [Deploying tools and setting versions](#deploying-tools-and-setting-versions)
 - [Settings overview](#settings-overview)
 - [Known limitations](#known-limitations)
 
@@ -28,25 +29,136 @@ Shortcuts are given for the default Windows keymap of IntelliJ IDEA.
    AutoHotkey installation by itself; the path is only needed for unusual locations.
 
 Every script should start with `#Requires AutoHotkey v2.0`. Without it the plugin shows a weak warning on the
-first line; *Alt+Enter* inserts the line. If AutoHotkey is installed, the syntax detection of its launcher checks
+first line; *Alt+Enter* inserts the line, there as a quick fix and anywhere else in the file as an intention.
+The inserted line matches the [language level](#autohotkey-v20-and-v21) of the file: with the default level v2.1
+it is `#Requires AutoHotkey v2.1-alpha.39` (the version of the v2.1 interpreter, otherwise `v2.1-`; `v2.1` alone
+would not accept an alpha version). If AutoHotkey is installed, the syntax detection of its launcher checks
 such files in the background; for code that looks like AutoHotkey v1 the hint becomes a warning and *Alt+Enter*
 offers `#Requires AutoHotkey v1.1` first.
+
+### AutoHotkey v2.0 and v2.1
+
+> **v2.1 is alpha.** AutoHotkey v2.0 is fully supported. AutoHotkey v2.1 is still an alpha whose specification
+> changes from release to release; the plugin follows v2.1-alpha.39 as closely as it can, but its v2.1 support is in
+> development too. Validation of v2.1 files uses the installed alpha and may report unexpected errors or
+> differences from the plugin. The manual collects everything about v2.1, including its known limitations, in the
+> chapter *AutoHotkey v2.1 (alpha)*.
+
+Each file has a language level, AutoHotkey v2.0 or v2.1 (v2.1 is currently an alpha version). It comes from
+`#Requires`: if a part asks for 2.1 or later (`#Requires AutoHotkey v2.1-alpha.39`, `>=2.1`), the file is v2.1,
+otherwise v2.0. Files without `#Requires` use the setting *Language level* under
+*Settings > Languages & Frameworks > AutoHotkey* (default v2.0).
+
+The level of the file in the editor is shown in the status bar (`AHK v2.0`, `AHK v2.1`, `AHK v1` for a file of
+another version, which the plugin does not parse). Its tooltip says where the level comes from; a click goes to the
+deciding `#Requires` line or, for the default level, opens the settings. Like every widget it can be hidden with a
+right-click on the status bar. The Project view shows the level in grey after the name of each AutoHotkey file
+(`v2.0`, `v2.1`); the setting *Show the language level ... in the Project view* switches this off.
+
+In v2.1 files the plugin knows the new built-in names of v2.1-alpha.39 (for example `ATan2`, `WinGetEnabled`,
+`A_HotIf`, `Struct`, `#Module`, `Error.Show`), their parameter info and the help pages of that version.
+
+Of the new syntax of v2.1 the parser knows so far:
+- the operators `a !~= b` (not RegExMatch), `x ??= y` (maybe-assign) and the optional chain `a?.b`;
+- struct definitions `struct Name { ... }` (like a class; `struct` is a keyword only there, otherwise a normal
+  name such as the class `Struct`);
+- mandatory parameters after optional ones (`f(a?, b)`, `f(a := 1, &b)`); a variadic parameter (`b*`) may follow
+  an optional one in v2.0 too;
+- modules: `#Module Name` and `#Import [Export] Name [as Alias] [{ *, Name [as Alias], ... }]`; inside the braces
+  line breaks and comments are allowed. `#Module` is only allowed at the top level, `#Import` also directly in the
+  body of a function (not in other blocks or a class body), as in AutoHotkey;
+- function definition expressions: `x := f(a) { ... }`, `SetTimer(() { ... }, 100)`, also called directly
+  (`f() { ... }(1)`). As in AutoHotkey the name must stand directly before `(` (`f () { ... }` concatenates `f`
+  with an anonymous function), the `{` must be on the line of the `)` unless the function is enclosed in `( )`,
+  `[ ]` or `{ }`, and in the head of `if`, `while`, `loop`, `for`, `switch`, `catch` and `until` a function
+  expression must be enclosed in brackets (`if f() {` is a call followed by the block of the `if`). A function
+  expression that forms a whole statement on its own (`(a) { ... }` at the start of a line, `else f() { ... }`) is
+  an error; only after a hotkey or hotstring a named one is allowed (`F1::f(hk) { ... }`). The function is a normal
+  function for the plugin: its name is found by navigation, completion and parameter info, its parameters and
+  variables are local, and it uses the variables of an enclosing function (closure). Named function expressions
+  appear in the structure view, anonymous ones do not;
+- typed properties in the body of a class or struct: `x : Int32`, `cbSize : UInt32 := this.Size`, several on one
+  line (`x : Int32, y : Int32`, also mixed with fields such as `y := 2`), and `union { ... }` blocks of typed
+  properties. The type is a class name, an expression in brackets, or a name with calls, index and member access
+  (`RECT`, `Int32[10]`, `RECT.Ptr`, `CString(32, "UTF-8")`, `(expr)`); an operator such as `+` or a string is an
+  error, as in AutoHotkey. Outside a class body `x : Int32` is not recognized (as in AutoHotkey). A union block
+  contains only typed properties and stands directly in a class body; `union { }` without a typed property is a
+  property named `union`. Typed properties are fields of the class: navigation, completion after `this.` or a
+  declared type, Find Usages and Rename work as for `x := 0`. The formatter puts one space around the `:`;
+- `Throw` as a function in an expression (`x := c ? 1 : throw(Error())`, `f := Throw`); at the start of a
+  statement `throw` stays the statement.
+
+In a v2.0 file these are marked as errors ("Requires AutoHotkey v2.1", for parameters "Parameter default
+required"). The type of a typed property is not used for completion yet (`this.rc.` after `rc : RECT` does not
+offer the fields of `RECT`).
+
+### Modules (v2.1)
+
+In v2.1 files each module is a namespace of its own, as in AutoHotkey: the code up to the first `#Module` belongs
+to the module `__Main`, each `#Module Name` starts (or reopens) the module `Name` up to the next `#Module`. A file
+included with `#Include` belongs to the module of the `#Include` line (its own `#Module` sections are modules of
+the same group). For a free-standing name (`F()`, `MyClass`, `extends Base`) navigation, Find Usages, Rename,
+completion and parameter info see:
+
+1. the functions and classes of the own module;
+2. what the module imports explicitly: `#Import X` gives the name `X` (the module), `#Import X as Y` the name
+   `Y`, `#Import X {F, G as H}` the names `F` and `H`;
+3. the names of wildcard imports `#Import X {*}`: everything X defines that does not start with `_`, plus what X
+   imports with `#Import Export ...`; the last such import wins.
+
+A name after a module (`X.F()`, `Y.MyClass`, `extends X.Base`) is what X defines or imports (also names starting
+with `_`, as in AutoHotkey). Global variables of a module can be reached only through an import: `X.Counter` and
+`#Import X {Counter}` go to its first assignment or `global` declaration; free-standing global variables still have
+no navigation. Ctrl+B on the module name in `#Import` opens the `#Module` or the module file, on a name in the
+braces the definition in the module. `#Import AHK` gives the built-in module: `AHK.MsgBox` goes to the help.
+
+Module files are searched as by AutoHotkey: in the folder of the file with the `#Import`, the folder of the
+module's file, then the folders of the environment variable `AhkLibPath` (of the IDE) or, without it, the user and
+standard library; in each folder `Name`, `Name\__Init.ahk` and `Name.ahk`. `#Import "Path:Name"` finds the
+`#Module Name` of that file. The plugin does not know the main script, so the folder of the file counts as
+`A_ScriptDir`. `AhkLibPath` also applies to `#Include <Name>` in v2.1 files.
+
+- **Completion** offers the own functions and classes and the imported names; after `X.` only what module X
+  offers, after `AHK.` the built-in names; after `#Import` the module names (`AHK`, the `#Module`s of the file and
+  its includes, module files of the search path) and in the braces the names the module offers.
+- **Find Usages and Rename** also search the files that import the file of the definition directly. A `#Module`
+  and an alias (`as Y`) can be renamed; renaming an exported function also changes `X.F` and `{F}` in importing
+  files, an alias after `as` stays. A module file is not renamed with its imports.
+- **Highlighting**: a built-in function or class that the module defines itself or imports (`MsgBox(t) => ...`)
+  is no longer colored as built-in in that module; `AHK.MsgBox` keeps the built-in color.
+- **Structure view and folding**: a file with `#Module` shows the definitions of `__Main` first, then one node per
+  module with its definitions; each `#Module` section can be folded.
+- **Checks**: `#Import` of a module that is neither a `#Module` of the file and its includes nor a file in the
+  search path is an error "Module not found"; a name in the braces that the module does not have is a warning
+  (AutoHotkey accepts it, the name stays unset); a name that an `#Import` at the top level adds and the module
+  also defines as function, class or global variable is an error, as in AutoHotkey.
+
+Outside v2.1 files nothing of this applies: there `#Module` and `#Import` are errors and the file and its includes
+are one namespace.
 
 ## Syntax support and error highlighting
 
 The plugin parses AutoHotkey v2 and marks syntax errors in the editor. Errors found by the grammar are simply
 shown as "Syntax error"; specific rules below have their own messages. A few rules worth knowing:
 
-- **The end of a line ends a statement.** A line continues only after an operator at the end of the line,
-  before a line that starts with `and`, `or`, `&&`, `||`, `??`, `?`, `:`, `.`, `,` and similar, inside
+- **The end of a line ends a statement.** A line continues only after an operator at the end of the line
+  (also after the `:` of a ternary: `x := a ?⏎b :⏎c`), before a line that starts with `and`, `or`, `&&`, `||`,
+  `??`, `?`, `:`, `. `, `,` and similar or with the dot of a method chain (`obj.First()⏎.Second()`), inside
   parentheses (there also before a line that starts with any binary operator such as `+`, `*`, `=`, `:=` or with
-  the dot of a method call `.Method()`), and in continuation sections (`"` at the end of a line, then `(` ... `)"`).
+  the dot of a method call `.Method()`), and in continuation sections: a line that starts with `(` (without
+  another parenthesis on it, options like `LTrim Join` allowed) continues the previous line up to a line that
+  starts with `)`, inside or outside a string (`MsgBox(⏎(⏎"a: " x "⏎b"⏎))`; strings may span lines there).
+  *Reformat Code* never changes a continuation section (its indentation can be part of a string). A hotstring
+  without text followed by a continuation section takes the section as its replacement text.
 - **Block comments** `/* ... */` are only recognized at the start of a line (also indented). Elsewhere they
-  are marked as an error, because AutoHotkey does not recognize them there.
-- After an opening `{` of a block nothing may follow on the same line except a comment.
+  are marked as an error, because AutoHotkey does not recognize them there. `*/` ends the comment only at the
+  start or at the end of a line (`x */ y` in the middle of a line is part of the comment).
+- After an opening `{` of a block nothing may follow on the same line except a comment, unless the `{` starts
+  its line or follows `else`, `try` or `finally` (`if x⏎{ MsgBox "a"` is fine, `if x { MsgBox "a"` is not). Code
+  after a closing `}` on the same line is fine (`} MsgBox "done"`).
 - `else` followed by a statement on the same line is accepted, but gets a warning (hard to read).
-- `global` without a name is only allowed as the first statement of a function, method, hotkey or hotstring
-  block.
+- `global` or `static` without a name (assume-global, assume-static) is only allowed as the first statement of a
+  function, method, hotkey or hotstring block; `local` always needs a name.
 - A label `Name:` must stand alone on its line.
 - Files that require another AutoHotkey version (`#Requires AutoHotkey v1.1`) are not parsed at all; there
   is only a warning at the `#Requires` line.
@@ -117,7 +229,8 @@ What is offered depends on the position:
 - **Key names**: inside a string of `Send...`/`ControlSend...` after `{` (the closing `}` is added), and in a
   hotkey directly before `::` (type `::` first, put the caret before it, then start the key name).
 - **`#Include` paths**: after `#Include <` the `.ahk` files (without extension, the closing `>` is added) and
-  subdirectories of the library folders (`Lib` next to the script, the user library, the standard library). Otherwise
+  subdirectories of the library folders (`Lib` next to the script, the user library, the standard library; in
+  v2.1 files first the directory of the file). Otherwise
   the `.ahk` files and subdirectories of the directory relative paths refer to: the directory of the file, or the
   directory of the last earlier `#Include Directory` line. Quotes, `*i ` and a typed directory part
   (`sub\`, `..\`, `%A_ScriptDir%\`, absolute paths) are understood; a directory is inserted with `\` and the
@@ -157,7 +270,10 @@ then the included files in the order of their `#Include` lines.
 - **Labels**: `goto Target`, `goto "Target"`, `break Outer`, `continue Outer`, within the same function or
   hotkey.
 - **`#Include`**: opens the included file. `<Name>` is searched in the library folders (`Lib` next to the
-  script, `Documents\AutoHotkey\Lib`, `Lib` of the AutoHotkey installation); `%A_ScriptDir%` and other common
+  script, `Documents\AutoHotkey\Lib`, `Lib` of the AutoHotkey installation) as `Name.ahk`, then, if the name
+  contains `_`, as the part before the first `_`. In v2.1 files, as AutoHotkey v2.1 does it, the directory of the
+  file comes first, each folder is searched for the exact name (`Name`, `Name.txt`) before `Name.ahk`, there is no
+  `_` rule, and the standard library is `Lib` next to the v2.1 interpreter. `%A_ScriptDir%` and other common
   built-in variables are resolved. If the argument is a directory, a hint is shown.
 - **Built-in names** without an own definition open the quick documentation.
 
@@ -187,7 +303,9 @@ completion, *Find Usages*, *Rename* and the highlighting of occurrences only loo
 `count` in another function or a global `count` is not affected. Variables outside of functions (global variables)
 still work by name.
 
-The structure view (*Alt+7*) lists hotkeys and hotstrings, classes, functions and labels. Breadcrumbs and
+The structure view (*Alt+7*) lists hotkeys and hotstrings, classes, functions and labels; below a class its fields
+(`x := 0`, `static x := 0`, typed properties with their type, in the order of the code), properties, methods and
+nested classes. Breadcrumbs and
 sticky lines show the enclosing class, function, hotkey and control structures.
 
 ### Find Usages
@@ -281,12 +399,16 @@ Nothing is folded when a file is opened.
   page (e.g. `/docs/lib/MsgBox.htm` or `/docs/lib/File.htm#Close`). Help pages added by the plugin itself
   (the pragmas) always open in `hh.exe` with the plugin's own help file, which is copied to the temporary
   directory (`intellij-autohotkey\extra-….chm`); the configured command line does not apply to them.
-- **Versions:** the popups show help pages that are part of the plugin, currently those of AutoHotkey v2.0.31.
+- **Versions:** the popups show help pages that are part of the plugin, currently those of AutoHotkey v2.0.31,
+  in [v2.1 files](#autohotkey-v20-and-v21) those of v2.1-alpha.39.
   The external help uses the `AutoHotkey.chm` of the installation and therefore matches the installed version.
 - **Compiler directives:** in a comment `;@Ahk2Exe-...` *Ctrl+Q* and *Shift+F1* show the page "Script Compiler
   Directives" of the AutoHotkey help.
-- **AutoHotkey help:** *Help > AutoHotkey Help* opens the help of the installation at its start page (with a
-  configured external help command line, that one with the key `/docs/index.htm`).
+- **AutoHotkey help:** *Help > AutoHotkey v2.0 Help* and *Help > AutoHotkey v2.1 Help* open the help of that
+  version at its start page: the `AutoHotkey.chm` of the installation (v2.0) or next to the
+  [v2.1 interpreter](#autohotkey-v20-and-v21) (v2.1); without one, the copy of the help that ships with the plugin
+  (v2.0.31 or v2.1-alpha.39) is copied to `%TEMP%\intellij-autohotkey\docs-2.0\` (or `docs-2.1\`) and opened in
+  the browser. A configured external help command line is used for both, with the key `/docs/index.htm`.
 - **Plugin manual:** *Help > AutoHotkey Plugin Manual* opens the manual of the plugin in `hh.exe`; if the plugin
   was built without its help file, the pages are copied to `%TEMP%\intellij-autohotkey\manual\` and opened in the
   browser.
@@ -451,10 +573,20 @@ the usual installation folders. If the program is the launcher and the script re
 directly (`v2\AutoHotkey.exe`, or `AutoHotkey32.exe`/`AutoHotkey64.exe` for `32-bit`/`64-bit`); this also applies
 to the validation. Scripts that require 2.1 or later, or have no `#Requires`, still go through the launcher.
 
+Files of [language level v2.1](#autohotkey-v20-and-v21) (from `#Requires`, or from the setting *Language level*
+without one) never go through the launcher: run, validation, debugger and external help use the AutoHotkey v2.1
+interpreter. It comes from the setting *AutoHotkey v2.1 interpreter*; if that is empty, the plugin takes the newest
+installed version 2.1 or later: the version folders of the installation (`v2.1-alpha.39\`, named by their version)
+and the interpreters listed by the launcher (`UX\installed-files.csv`). `AutoHotkey32.exe`/`AutoHotkey64.exe` for
+`32-bit`/`64-bit` in `#Requires`, otherwise `AutoHotkey64.exe`. An alpha that was only unpacked into such a folder
+is found as well, although the launcher itself does not know it. If there is no v2.1 interpreter, running a v2.1
+file reports an error.
+
 ## Debugging
 
 The *Debug* button (*Shift+F9*) works with the same AutoHotkey run configurations as *Run*. The plugin starts the
-AutoHotkey v2 interpreter with its built-in debugger (also when the settings name the launcher) and connects to it.
+AutoHotkey v2 interpreter with its built-in debugger (also when the settings name the launcher; for v2.1 files the
+v2.1 interpreter, see [Running scripts](#running-scripts)) and connects to it.
 
 - **Breakpoints**: click the gutter of a line with code (not on empty or comment lines). AutoHotkey may move a
   breakpoint to the next line with code, e.g. on a line with only `}`; the breakpoint still counts as verified.
@@ -467,7 +599,9 @@ AutoHotkey v2 interpreter with its built-in debugger (also when the settings nam
   such as `Sleep()` appear as their own frame). Clicking a frame opens the line.
 - **Variables**: local variables directly, global variables in the group *Global* with built-in variables,
   classes and functions in the sub-group *Built-in*. Objects, arrays and maps can be expanded (100 children at a
-  time, a link loads the next ones; `<base>` is the prototype).
+  time, a link loads the next ones; `<base>` is the prototype). With AutoHotkey v2.1 an object also shows the
+  properties it inherits (e.g. `Length` and `Capacity` of an array, values of getters) and its prototype as
+  `Name.Prototype`; the link on a large object (not an array or map) cannot say how many children remain.
 - **Set Value** (*F2* on a variable or member): enter a number (`42`, `-3`, `0x1F`, `1.5`), `true`/`false`, or text
   in quotes (`"text"` or `'text'`, with AutoHotkey's escapes such as `` `n `` and `` `" ``). Unquoted text is
   rejected: in AutoHotkey it would be a variable name.
@@ -539,7 +673,7 @@ an executable with Ahk2Exe, the compiler of the AutoHotkey installation (`Compil
   ```autohotkey
   #Requires AutoHotkey v2.0
   ;@Ahk2Exe-Base ..\v2\AutoHotkey64.exe
-  ;@Ahk2Exe-SetProductVersion 1.0.0
+  ;@Ahk2Exe-SetVersion 1.0.0
   ;@Ahk2Exe-SetMainIcon app.ico
   ```
 
@@ -547,10 +681,10 @@ an executable with Ahk2Exe, the compiler of the AutoHotkey installation (`Compil
   Ahk2Exe would otherwise use the base file chosen last in its own window, which may be one of AutoHotkey v1.
   A notification then offers *Add Ahk2Exe directives*; the same is available with *Alt+Enter* (*Add Ahk2Exe
   compiler directives*) in every script without the line. It inserts a head below `#Requires` with the base file
-  (`AutoHotkey64.exe`, or `AutoHotkey32.exe` for `#Requires ... 32-bit`), product name, version, description,
-  language and copyright (placeholders, visited with *Tab*) and disabled lines (`;;@`) for icon and console
-  application. Name, version and description are script variables that the directives read via `A_PriorLine`,
-  so the script can use them too.
+  (`AutoHotkey64.exe`, or `AutoHotkey32.exe` for `#Requires ... 32-bit`), product name, version
+  (`;@Ahk2Exe-SetVersion`, the line that *Set Version...* changes), description, language and copyright
+  (placeholders, visited with *Tab*) and disabled lines (`;;@`) for icon and console application. The values are
+  written without quotes: Ahk2Exe would keep quotes in the properties of the executable.
 - Everything else (name of the executable, icon, version information ...) comes from the `;@Ahk2Exe-...`
   directives of the script; by default the executable is created next to the script.
 - The plugin runs `Ahk2Exe.exe /in script /compress n /silent verbose` in the background. The console shows the
@@ -575,11 +709,70 @@ If compiling fails, the console shows the errors of Ahk2Exe (clickable) and the 
 that AutoHotkey v2 sets `A_WorkingDir` to the script folder at startup; the working directory of the run
 configuration is available as `A_InitialWorkingDir`.
 
+## Deploying tools and setting versions
+
+Two actions in the *Code* menu (also in the context menus of the editor and the project view) help with tools you
+use every day. Both apply to the same script as *Validate* and *Compile*; their settings are in the file
+`settings.ahk-plugin.ini` in the folder of that script (the tool folder):
+
+```ini
+[Install]
+Destination=C:\bin
+Message=Close the running tool first.
+RequiresAdmin=false
+GenerateOverview=true
+CompileBeforeInstall=true
+
+[Overwrite]
+mytool.exe=mytool.exe
+pictures\*.png=pictures
+
+[KeepExisting]
+mytool.ini=%APPDATA%\mytool\
+
+[Version]
+TagPrefix=mytool
+```
+
+*Create settings.ahk-plugin.ini* (same menus) writes a documented default file next to the script: every option is
+explained in comments and commented out (switches with the value that changes the default, usually `true`), so
+the file does nothing until you remove a `;`.
+An existing file is only replaced after a confirmation.
+
+*Deploy to Local Target...* copies a tool to a fixed place, so that compiling in the project does not replace the
+version in use. It needs `settings.ahk-plugin.ini`; without one it offers to create the default file.
+
+- Everything is checked first (sources, targets, variables); any problem stops the deployment before anything
+  happens. Then a confirmation is always shown (message, overview, warnings), and the steps run in this order:
+  compile, copy. The report appears in the Run tool window; a failure stops the remaining steps (no rollback).
+  Nothing is committed or tagged.
+- Sources are relative to the tool folder (no `..`), with `*` and `?` in the file name (not recursive, files only).
+  Targets are absolute or relative to `Destination`; `%DESTINATION%`, environment variables of the IDE and `%%`
+  are resolved. A target ending with `\` or `/`, `.` or `..`, `Destination` itself (also before it exists), an
+  existing folder, or the target of a wildcard is a folder.
+  `[KeepExisting]` skips existing targets. Each source only once per section (use wildcards for more targets).
+- `RequiresAdmin=true` copies in one elevated process (one UAC prompt); the confirmation then always shows a
+  prominent notice. `GenerateOverview` (on by default) shows the destination, the compile step and the lines of
+  `[Overwrite]` and `[KeepExisting]` without comments. All other switches are off by default.
+- The confirmation warns if the executable is older than the scripts of the tool folder (with
+  `CompileBeforeInstall=false`) and if the tool folder has uncommitted changes (Git).
+
+*Set Version...* changes the version in the line `;@Ahk2Exe-SetVersion 1.2.0` of the script (file and product
+version of the executable). The dialog proposes the next patch, minor or major version or takes any other one
+(never with a leading `v`), then changes the line (undoable with *Undo*), commits only the script and sets the
+annotated tag `<TagPrefix>/v<version>` on that commit. Commit and tag can be switched off; without Git only the line is changed,
+without `TagPrefix` in `[Version]` (or without `settings.ahk-plugin.ini`) there is no tag. An existing tag is
+refused. The dialog warns if the script has other uncommitted changes (they are committed with it) and if other files
+of the tool folder have changes (they are not committed). The script needs exactly one such line with a written
+version (not computed with `%...%`); Ahk2Exe reads it as a directive in any case, with a comment ` ; ...` after it.
+
+Details and reasons: *Help > AutoHotkey Plugin Manual*, page "Deploying tools and setting versions".
+
 ## Settings overview
 
 | Where | What |
 |-------|------|
-| *Languages & Frameworks > AutoHotkey* | path to AutoHotkey (empty = automatic), command line of the external help, automatic validation, Ahk2Exe path and compression |
+| *Languages & Frameworks > AutoHotkey* | path to AutoHotkey and to the AutoHotkey v2.1 interpreter (empty = automatic), command line of the external help, automatic validation, Ahk2Exe path and compression, language level of files without `#Requires`, language level in the Project view |
 | *Editor > Color Scheme > AutoHotkey* | colors |
 | *Editor > Code Style > AutoHotkey* | indent, spaces, tab *Case* |
 | *Editor > Live Templates > AutoHotkey* | templates |
@@ -596,6 +789,15 @@ configuration is available as `A_InitialWorkingDir`.
 - Variables are not resolved; navigation and completion work with names only.
 - Inside parentheses, a following line that starts with a fat arrow function (`() => 1`) is not recognized as a
   concatenation. (A following line starting with `!`, `not`, `~`, `++` or `{...}` is an error in AutoHotkey too.)
+- Of the new syntax of AutoHotkey v2.1 only the operators `!~=`, `??=`, `?.`, `struct`, mandatory parameters
+  after optional ones, modules (`#Module`/`#Import`), function definition expressions, `Throw` as a function and
+  typed properties are supported so far (see [AutoHotkey v2.0 and v2.1](#autohotkey-v20-and-v21)).
+- Modules: the main script is not known (the folder of the file counts as `A_ScriptDir`); `#Warn` per module and
+  embedded modules (`#Import "*Resource"`) are not evaluated. In the debugger the *Global* node always shows the
+  globals of the module of the innermost frame, also when an outer frame of another module is selected (the
+  AutoHotkey engine answers that way).
 - The command form of a method call (`obj.Method "x"`) is read as a concatenation.
+- A property block with its accessor on the same line (`Prop { get => 1 }`) is accepted, although AutoHotkey
+  reports an error there; write the accessor on its own line.
 - Calls without parentheses whose first argument starts with `(` (`SetTimer () => ...`) are not supported;
   use `;@ignore-next-line`.

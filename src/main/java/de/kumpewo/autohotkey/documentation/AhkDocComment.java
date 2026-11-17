@@ -21,7 +21,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Doc comment of a function, method or class (Z.22): a block comment {@code /** ... *}{@code /} directly before the
+ * Doc comment of a function, method or class: a block comment {@code /** ... *}{@code /} directly before the
  * definition (only whitespace and at most one line break in between). The leading {@code *} of each line is removed;
  * the text before the first tag is the description (Markdown). Tags at the start of a line:
  * {@code @param [{Type|Type}] name text}, {@code @returns [{Type}] text} (also {@code @return}), {@code @throws text},

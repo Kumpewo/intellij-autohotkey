@@ -18,7 +18,7 @@ If Else While Loop For Until Return Break Continue Try Catch Finally Throw Switc
 Files Parse Read Reg
 
 [Classes]
-Class Struct Extends
+Class Extends
 
 [Scope] lowercase
 Global Local Static

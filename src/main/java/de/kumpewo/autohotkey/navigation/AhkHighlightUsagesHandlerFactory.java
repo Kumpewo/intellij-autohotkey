@@ -27,7 +27,7 @@ import java.util.List;
  * assignment operators) are write occurrences, everything else read occurrences. Names in strings and comments don't
  * count. Accessor names ({@code get}/{@code set} in a property) are no target.
  * <p>
- * Local variables and parameters of functions (Z.27, {@link AhkLocals}) are the exception: for them only the
+ * Local variables and parameters of functions ({@link AhkLocals}) are the exception: for them only the
  * occurrences of the same variable count (in the function that owns it and the nested functions that share it, for a
  * parameter also its name after {@code @param} in the doc comment), and
  * for any other name the local variables with that name in functions are left out.

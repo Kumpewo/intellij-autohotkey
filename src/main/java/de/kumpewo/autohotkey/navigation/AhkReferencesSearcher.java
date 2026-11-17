@@ -18,6 +18,8 @@ import de.kumpewo.autohotkey.AhkFile;
 import de.kumpewo.autohotkey.AhkFileType;
 import de.kumpewo.autohotkey.include.AhkInclude;
 import de.kumpewo.autohotkey.psi.AhkNamedElement;
+import de.kumpewo.autohotkey.module.AhkModuleSymbol;
+import de.kumpewo.autohotkey.module.AhkModules;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -40,7 +42,7 @@ import java.util.Set;
  *       is among the matching definitions in that file and all files it includes, directly or indirectly.</li>
  * </ul>
  * <ul>
- *   <li>A local variable or parameter ({@link AhkLocalVariable}, Z.27): only the function that owns it, including
+ *   <li>A local variable or parameter ({@link AhkLocalVariable}): only the function that owns it, including
  *       nested functions that share it; a reference counts if it resolves to the same variable. For a parameter
  *       also its name after {@code @param} in the doc comment of the function ({@link AhkDocParamReference}).</li>
  * </ul>
@@ -63,7 +65,8 @@ public class AhkReferencesSearcher extends QueryExecutorBase<PsiReference, Refer
     /** Is the element a definition this searcher handles? */
     public static boolean isDefinition(@Nullable PsiElement element) {
         return element instanceof AhkNamedElement || element instanceof AhkFieldTarget
-                || element instanceof AhkLocalVariable;
+                || element instanceof AhkLocalVariable || element instanceof AhkModuleSymbol symbol
+                && symbol.kind() != AhkModuleSymbol.Kind.VARIABLE;
     }
 
     /**
@@ -110,7 +113,8 @@ public class AhkReferencesSearcher extends QueryExecutorBase<PsiReference, Refer
 
     /**
      * The file of the definition and the AutoHotkey files in the scope that include it directly (or, with
-     * {@code transitive}, directly or indirectly).
+     * {@code transitive}, directly or indirectly), and (v2.1) those that import it directly with
+     * {@code #Import} (a module file, or a module file that includes it).
      */
     public static @NotNull List<PsiFile> candidateFiles(@NotNull PsiFile definitionFile, @NotNull SearchScope scope,
                                                         boolean transitive) {
@@ -123,7 +127,7 @@ public class AhkReferencesSearcher extends QueryExecutorBase<PsiReference, Refer
                 PsiFile file = manager.findFile(virtualFile);
                 if (file == null || file.equals(original)) continue;
                 List<PsiFile> included = transitive ? includeClosure(file) : AhkInclude.includedFiles(file);
-                if (included.contains(original)) result.add(file);
+                if (included.contains(original) || imports(file, original)) result.add(file);
             }
         }
         return result;
@@ -159,6 +163,18 @@ public class AhkReferencesSearcher extends QueryExecutorBase<PsiReference, Refer
         return !file.isDirectory() && file.getFileType() == AhkFileType.INSTANCE;
     }
 
+    /** Does an {@code #Import} of the file load a module whose parts lie in {@code target}? */
+    private static boolean imports(@NotNull PsiFile file, @NotNull PsiFile target) {
+        for (AhkModules.Import imp : AhkModules.imports(file)) {
+            AhkModules.Module module = AhkModules.resolveModule(imp, AhkModules.moduleOf(imp.directive()));
+            if (module == null || module.home() == null) continue;
+            for (AhkModules.Part part : AhkModules.parts(module)) {
+                if (part.file().equals(target)) return true;
+            }
+        }
+        return false;
+    }
+
     /** The file and all files it includes, directly or indirectly (each once). */
     public static @NotNull List<PsiFile> includeClosure(@NotNull PsiFile file) {
         Set<PsiFile> seen = new LinkedHashSet<>();
@@ -180,11 +196,13 @@ public class AhkReferencesSearcher extends QueryExecutorBase<PsiReference, Refer
 
     /**
      * Is one of the targets of the reference the definition? With {@code visible} (rename), definition references
-     * are resolved over these files instead of the file and its direct includes. Fields are compared with equals
+     * are resolved over these files instead of the file and its direct includes (not in files with modules: their
+     * references are resolved by module). Fields are compared with equals
      * (new objects).
      */
     private static boolean pointsTo(PsiReference reference, PsiElement target, @Nullable List<PsiFile> visible) {
-        if (visible != null && reference instanceof AhkDefinitionReference definitionReference) {
+        if (visible != null && reference instanceof AhkDefinitionReference definitionReference
+                && !AhkModules.usesModules(reference.getElement().getContainingFile())) {
             for (PsiElement definition : definitionReference.definitionsIn(visible)) {
                 if (same(definition, target)) return true;
             }

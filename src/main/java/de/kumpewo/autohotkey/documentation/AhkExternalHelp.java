@@ -2,6 +2,8 @@ package de.kumpewo.autohotkey.documentation;
 
 import de.kumpewo.autohotkey.AhkBundle;
 import com.intellij.execution.ExecutionException;
+import com.intellij.ide.BrowserUtil;
+import de.kumpewo.autohotkey.parser.AhkLanguageLevel;
 import com.intellij.execution.configurations.GeneralCommandLine;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
@@ -27,7 +29,8 @@ import java.util.zip.CRC32;
  * <ul>
  *   <li>Entries from {@code docs.txt}: command line from the settings, {@code %s} = key. Empty = automatic:
  *       {@code hh.exe "mk:@MSITStore:<AutoHotkey.chm>::%s"} with the {@code AutoHotkey.chm} of the AutoHotkey
- *       installation.</li>
+ *       installation; for entries of language level v2.1 ({@link AhkHelpRepository.Topic#root} not empty) the one
+ *       next to the v2.1 interpreter ({@link #findChmV21()}).</li>
  *   <li>Entries from {@code extra.txt}: always {@code hh.exe} with the plugin's own {@code /help/extra.chm}, which
  *       is copied to the temporary directory first ({@link #extraChm}); the command line from the settings does not
  *       apply.</li>
@@ -70,7 +73,7 @@ public final class AhkExternalHelp {
     /** Starts the external help for an entry of docs.txt or extra.txt; errors are shown as a message dialog. */
     public static void open(@Nullable Project project, @NotNull AhkHelpRepository.Topic topic) {
         if (topic.fromDocs()) {
-            open(project, topic.externalKey());
+            open(project, topic.externalKey(), !topic.root().isEmpty());
         } else {
             openExtra(project, topic.externalKey());
         }
@@ -92,16 +95,25 @@ public final class AhkExternalHelp {
         start(project, defaultCommandLine(chm, key));
     }
 
-    /** Starts the external help of AutoHotkey (docs.txt) for the key; errors are shown as a message dialog. */
+    /** Starts the external help of AutoHotkey v2.0 (docs.txt) for the key; errors are shown as a message dialog. */
     public static void open(@Nullable Project project, @NotNull String key) {
+        open(project, key, false);
+    }
+
+    /**
+     * Starts the external help of AutoHotkey (docs.txt) for the key, with {@code v21} the {@code AutoHotkey.chm} of
+     * the v2.1 interpreter; a command line from the settings applies to both. Errors are shown as a message dialog.
+     */
+    public static void open(@Nullable Project project, @NotNull String key, boolean v21) {
         List<String> command;
         String template = AhkSettings.getInstance().getExternalHelpCommand();
         if (!template.isEmpty()) {
             command = commandLine(template, key);
         } else {
-            Path chm = findChm();
+            Path chm = v21 ? findChmV21() : findChm();
             if (chm == null) {
-                error(project, AhkBundle.message("help.external.chm.not.found", CHM));
+                error(project, v21 ? AhkBundle.message("help.external.chm.v21.not.found", CHM)
+                        : AhkBundle.message("help.external.chm.not.found", CHM));
                 return;
             }
             command = defaultCommandLine(chm, key);
@@ -113,24 +125,35 @@ public final class AhkExternalHelp {
     public static final String DOCS_START = "/docs/index.htm";
 
     /**
-     * Opens the AutoHotkey help itself (menu Help &gt; AutoHotkey Help), like Shift+F1: with a command line from the
-     * settings that one with {@link #DOCS_START} for {@code %s}, otherwise {@code hh.exe} with the
-     * {@code AutoHotkey.chm} of the installation, which opens at its own start page. Runs in the background; errors
-     * are shown as a message dialog.
+     * Opens the AutoHotkey help of a version itself (menu Help &gt; AutoHotkey v2.0 Help / AutoHotkey v2.1 Help),
+     * like Shift+F1: with a command line from the settings that one with {@link #DOCS_START} for {@code %s};
+     * otherwise {@code hh.exe} with the {@code AutoHotkey.chm} of the installation ({@link #findChm()}) or of the
+     * v2.1 interpreter ({@link #findChmV21()}), which opens at its own start page; without one the help shipped with
+     * the plugin in the default browser ({@link AhkBundledDocs}). Runs in the background; errors are shown as a
+     * message dialog.
      */
-    public static void openDocs(@Nullable Project project) {
+    public static void openDocs(@Nullable Project project, @NotNull AhkLanguageLevel level) {
         ApplicationManager.getApplication().executeOnPooledThread(() -> {
             String template = AhkSettings.getInstance().getExternalHelpCommand();
             if (!template.isEmpty()) {
                 start(project, commandLine(template, DOCS_START));
                 return;
             }
-            Path chm = findChm();
-            if (chm == null) {
-                error(project, AhkBundle.message("help.external.chm.not.found", CHM));
+            Path chm = level.dataLevel() == AhkLanguageLevel.V2_1 ? findChmV21() : findChm();
+            if (chm != null) {
+                start(project, List.of("hh.exe", chm.toString()));
                 return;
             }
-            start(project, List.of("hh.exe", chm.toString()));
+            try {
+                Path start = AhkBundledDocs.extract(level);
+                if (start == null) {
+                    error(project, AhkBundle.message("help.external.chm.not.found", CHM));
+                } else {
+                    BrowserUtil.browse(start.toFile());
+                }
+            } catch (IOException e) {
+                error(project, AhkBundle.message("help.bundled.failed", String.valueOf(e.getMessage())));
+            }
         });
     }
 
@@ -224,6 +247,22 @@ public final class AhkExternalHelp {
             if (Files.isRegularFile(candidate)) return candidate;
         }
         return null;
+    }
+
+    /**
+     * {@code AutoHotkey.chm} next to the v2.1 interpreter ({@link AhkSettings#findAutoHotkeyV21(int)}); {@code null}
+     * if there is none.
+     */
+    public static @Nullable Path findChmV21() {
+        String program = AhkSettings.getInstance().findAutoHotkeyV21(0);
+        if (program == null) return null;
+        try {
+            Path dir = Path.of(program).toAbsolutePath().getParent();
+            Path chm = dir == null ? null : dir.resolve(CHM);
+            return chm != null && Files.isRegularFile(chm) ? chm : null;
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     /** Shows an error dialog on the UI thread. */

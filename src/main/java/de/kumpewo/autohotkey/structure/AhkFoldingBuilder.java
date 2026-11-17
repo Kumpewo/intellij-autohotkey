@@ -32,6 +32,8 @@ import java.util.regex.Pattern;
  *       placeholder {@code "(...)"})</li>
  *   <li>runs of at least two whole-line comments (placeholder: the first comment line)</li>
  *   <li>runs of at least two {@code #Include}/{@code #IncludeAgain} lines (placeholder {@code #Include ...})</li>
+ *   <li>v2.1: each {@code #Module} region, from the end of the {@code #Module} line to the last code before
+ *       the next {@code #Module} or the end of the file (placeholder {@code ...})</li>
  *   <li>custom regions between {@code ;region [name]} and {@code ;endregion}, and between {@code ;{ [name]} and
  *       {@code ;}} (SciTE4AutoHotkey style); placeholder: the name, otherwise {@code ...}. The platform's custom
  *       folding providers don't know the comment character {@code ;}, so they are recognized here.</li>
@@ -59,7 +61,20 @@ public class AhkFoldingBuilder extends FoldingBuilderEx implements DumbAware {
         collect(root.getNode(), document, result, regions);
         commentRuns(root.getNode(), document, result);
         includeRuns(root.getNode(), document, result);
+        if (root instanceof com.intellij.psi.PsiFile file) moduleRegions(file, document, result);
         return result.toArray(FoldingDescriptor.EMPTY_ARRAY);
+    }
+
+    /** The regions of the {@code #Module} directives of a v2.1 file, without the whitespace at their end. */
+    private static void moduleRegions(com.intellij.psi.PsiFile file, Document document, List<FoldingDescriptor> result) {
+        for (de.kumpewo.autohotkey.module.AhkModules.Region region : de.kumpewo.autohotkey.module.AhkModules.regions(file)) {
+            if (region.directive() == null) continue;
+            int start = region.directive().getTextRange().getEndOffset();
+            int end = region.range().getEndOffset();
+            CharSequence text = document.getCharsSequence();
+            while (end > start && Character.isWhitespace(text.charAt(end - 1))) end--;
+            if (end > start) add(result, region.directive().getNode(), new TextRange(start, end), "...", document);
+        }
     }
 
     /** Braces, block comments, continuation sections and region markers (recursively, in document order). */

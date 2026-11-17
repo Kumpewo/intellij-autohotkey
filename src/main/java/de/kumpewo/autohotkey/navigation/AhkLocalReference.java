@@ -9,7 +9,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Reference from an occurrence of a local variable or parameter (use or definition) to its target
- * {@link AhkLocalVariable} (Z.27). Created by AhkDefinitionReferenceContributor only where {@link AhkLocals#resolve}
+ * {@link AhkLocalVariable}. Created by AhkDefinitionReferenceContributor only where {@link AhkLocals#resolve}
  * finds a local variable.
  */
 public final class AhkLocalReference extends PsiReferenceBase<PsiElement> {

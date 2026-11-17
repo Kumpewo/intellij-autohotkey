@@ -1,0 +1,21 @@
+; Signatures of AutoHotkey v2.1: only the differences to names/signatures.txt. Each line replaces ALL forms of its
+; name in signatures.txt (a name with several forms lists all of them here), "-Name" removes them.
+; Source: the syntax lines of help/v2.1/docs/ (v2.1-alpha.39). See AhkCommandInfo.java and AhkResources.java.
+
+#Import "[Export] ModuleName [as ModuleAlias] [{ *, ExportName ... }]"
+#Module ModuleName
+#StructPack [Setting]
+ATan2 Y, X
+CallbackCreate Function, [Options], [ParamSpec]
+DefineProp Obj, Name, Descriptor
+Edit [Filename]
+ImageSearch [&OutputVarX], [&OutputVarY], X1, Y1, X2, Y2, ImageFile
+ObjCreateWithDataPtr ClassObj, Address
+ObjGetDataPtr Obj
+ObjGetDataSize Obj
+ObjSetDataPtr Obj, Ptr
+PixelSearch [&OutputVarX], [&OutputVarY], X1, Y1, X2, Y2, ColorID, [Variation]
+PropRef Obj, Name
+Props Value
+WinGetAlwaysOnTop [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]
+WinGetEnabled [WinTitle], [WinText], [ExcludeTitle], [ExcludeText]

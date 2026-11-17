@@ -17,7 +17,7 @@ import java.util.List;
 /**
  * Quick documentation (Ctrl+Q, hover) from the help pages and external help (Shift+F1, {@link AhkExternalHelp}).
  * {@link #helpKey} decides which page belongs to a word; {@link AhkHelpRepository} whether there is one. Own
- * functions, methods and classes come first: their signature and doc comment ({@link AhkOwnDoc}, Z.22).
+ * functions, methods and classes come first: their signature and doc comment ({@link AhkOwnDoc}).
  */
 public class AhkDocumentationProvider extends AbstractDocumentationProvider implements ExternalDocumentationHandler {
 
@@ -39,14 +39,14 @@ public class AhkDocumentationProvider extends AbstractDocumentationProvider impl
             PsiElement qualifier = parent.getFirstChild();
             if (qualifier != null && qualifier != element
                     && qualifier.getNode().getElementType() == AhkTypes.REF_EXPR
-                    && AhkNames.nestedClass(qualifier.getText(), text) != null) {
+                    && AhkNames.of(element).nestedClass(qualifier.getText(), text) != null) {
                 return qualifier.getText() + "." + text;
             }
         } else if (parent.getNode().getElementType() == AhkTypes.CLASS) {
             PsiElement dot = PsiTreeUtil.skipWhitespacesAndCommentsBackward(element);
             if (dot != null && dot.getNode().getElementType() == AhkTypes.DOT) {
                 PsiElement outer = PsiTreeUtil.skipWhitespacesAndCommentsBackward(dot);
-                if (outer != null && AhkNames.nestedClass(outer.getText(), text) != null) {
+                if (outer != null && AhkNames.of(element).nestedClass(outer.getText(), text) != null) {
                     return outer.getText() + "." + text;
                 }
             }
@@ -89,7 +89,8 @@ public class AhkDocumentationProvider extends AbstractDocumentationProvider impl
             if (e == null || e instanceof AhkHelpElement) continue;
             String key = helpKey(e);
             if (key == null) continue;
-            List<AhkHelpRepository.Topic> topics = AhkHelpRepository.topics(key);
+            List<AhkHelpRepository.Topic> topics =
+                    AhkHelpRepository.topics(de.kumpewo.autohotkey.parser.AhkLanguageLevel.of(e), key);
             if (isMemberName(e)) {
                 if (topics.size() > 1) return narrow(e, topics);
             } else {
@@ -151,7 +152,7 @@ public class AhkDocumentationProvider extends AbstractDocumentationProvider impl
     }
 
     /**
-     * Own functions, methods and classes the token stands for (Z.22, {@link AhkOwnDoc#definitions}); the token under
+     * Own functions, methods and classes the token stands for ({@link AhkOwnDoc#definitions}); the token under
      * the caret first.
      */
     private static List<PsiElement> ownDefinitions(@Nullable PsiElement element, @Nullable PsiElement originalElement) {
@@ -163,7 +164,7 @@ public class AhkDocumentationProvider extends AbstractDocumentationProvider impl
     }
 
     /**
-     * Own definition (Z.22): its signature and doc comment, with several definitions an overview page with links.
+     * Own definition: its signature and doc comment, with several definitions an overview page with links.
      * Otherwise the help page; with several entries an overview page with links.
      */
     @Override
@@ -195,7 +196,7 @@ public class AhkDocumentationProvider extends AbstractDocumentationProvider impl
         return generateDoc(element, originalElement);
     }
 
-    /** Short info (Ctrl+hover): the signature of an own definition (Z.22), otherwise the name of the help entry. */
+    /** Short info (Ctrl+hover): the signature of an own definition, otherwise the name of the help entry. */
     @Override
     public @Nullable String getQuickNavigateInfo(PsiElement element, PsiElement originalElement) {
         if (AhkOwnDoc.isDocumented(element)) return AhkOwnDoc.escape(AhkOwnDoc.signature(element));
@@ -229,7 +230,7 @@ public class AhkDocumentationProvider extends AbstractDocumentationProvider impl
         return contextElement;
     }
 
-    /** Completion item of an own function, method or class (Z.22): the definition, for Ctrl+Q in the list. */
+    /** Completion item of an own function, method or class: the definition, for Ctrl+Q in the list. */
     @Override
     public @Nullable PsiElement getDocumentationElementForLookupItem(PsiManager psiManager, Object object,
                                                                      PsiElement element) {
@@ -237,7 +238,7 @@ public class AhkDocumentationProvider extends AbstractDocumentationProvider impl
     }
 
     /**
-     * Target of a link in the popup: {@code psi_element://ahkdef:offset:url} = an own definition (Z.22),
+     * Target of a link in the popup: {@code psi_element://ahkdef:offset:url} = an own definition,
      * {@code psi_element://page#anchor} = a help page.
      */
     @Override

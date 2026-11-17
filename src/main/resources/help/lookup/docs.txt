@@ -7,7 +7,6 @@ static	/docs/Functions.htm	static
 Files	/docs/lib/LoopFiles.htm	<null>
 Parse	/docs/lib/LoopParse.htm	<null>
 Reg	/docs/lib/LoopReg.htm	<null>
-struct	/docs/lib/Class.htm	<null>
 super	/docs/Objects.htm	Custom_Classes_super
 this	/docs/Objects.htm	Custom_Classes_method
 true	/docs/Concepts.htm	boolean

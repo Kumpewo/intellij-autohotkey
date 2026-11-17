@@ -1,17 +1,16 @@
 package de.kumpewo.autohotkey.highlighting;
 
 import com.intellij.openapi.editor.colors.TextAttributesKey;
+import com.intellij.psi.PsiElement;
+import de.kumpewo.autohotkey.AhkResources;
+import de.kumpewo.autohotkey.parser.AhkLanguageLevel;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -21,9 +20,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Name lists for highlighting (AhkAnnotator), completion and case adjustment. The lists are text files under
- * src/main/resources/names/ (one name per line or separated by spaces/commas, ";" starts a comment, case does not
- * matter).
+ * Name lists for highlighting (AhkAnnotator), completion and case adjustment, one set per language level
+ * ({@link #of}, {@link #get}). The lists are text files under src/main/resources/names/ (one name per line or
+ * separated by spaces/commas, ";" starts a comment, case does not matter); for v2.1 the files in names/v2.1/ hold
+ * only the differences (a name is added, "-Name" removes it, see {@link AhkResources#words}).
  * <p>
  * Each file belongs to a group; the group determines the context in which a name is recognized:
  * <ul>
@@ -35,39 +35,34 @@ import java.util.regex.Pattern;
  * </ul>
  * If a name is in several files of the same group, the file named first wins (order below).
  * <p>
- * Also loads members.txt (built-in class, base class and own members), used by the type declarations.
+ * Also loads members.txt (built-in class, base class and own members), used by the type declarations; it is
+ * generated from the help, so names/v2.1/members.txt is a complete copy.
  */
 public final class AhkNames {
 
-    private static final Map<String, TextAttributesKey> DIRECTIVES = load(new String[]{"directives"},
-            new TextAttributesKey[]{AhkColors.AHK_DIRECTIVE});
-    private static final Map<String, TextAttributesKey> NON_MEMBER = load(
-            new String[]{"variables", "classes", "functions"},
-            new TextAttributesKey[]{AhkColors.AHK_BUILTIN_VARIABLE, AhkColors.AHK_BUILTIN_CLASS,
-                    AhkColors.AHK_BUILTIN_FUNCTION});
-    private static final Map<String, TextAttributesKey> MEMBER = load(
-            new String[]{"methods", "properties"},
-            new TextAttributesKey[]{AhkColors.AHK_BUILTIN_METHOD, AhkColors.AHK_BUILTIN_PROPERTY});
-    /** Keys "outer.inner" (lower case). */
-    private static final Map<String, TextAttributesKey> NESTED_CLASSES = load(new String[]{"nested-classes"},
-            new TextAttributesKey[]{AhkColors.AHK_BUILTIN_CLASS});
+    /** The loaded sets per data level (V2_0, V2_1); loaded on first use. */
+    private static final Map<AhkLanguageLevel, AhkNames> SETS = Collections.synchronizedMap(new EnumMap<>(AhkLanguageLevel.class));
 
     /** Words directly after "Loop" that are colored as a subcommand (Loop Files/Parse/Read/Reg). */
     private static final List<String> LOOP_SUBCOMMAND_NAMES = List.of("Files", "Parse", "Read", "Reg");
     private static final Set<String> LOOP_SUBCOMMANDS = Set.of("files", "parse", "read", "reg");
 
+    /** The language level of this set. */
+    private final AhkLanguageLevel level;
+    private final Map<String, TextAttributesKey> directives;
+    private final Map<String, TextAttributesKey> nonMember;
+    private final Map<String, TextAttributesKey> member;
+    /** Keys "outer.inner" (lower case). */
+    private final Map<String, TextAttributesKey> nestedClasses;
     /** Names per file in their original spelling (for completion), without duplicates (case-insensitive). */
-    private static final Map<String, List<String>> ORIGINAL = loadOriginal(
-            "directives", "variables", "classes", "functions", "methods", "properties", "nested-classes", "keys");
-
-    /** Per file: lower-case name -> original spelling (from ORIGINAL). */
-    private static final Map<String, Map<String, String>> SPELLING = spellings(ORIGINAL);
-
+    private final Map<String, List<String>> original;
+    /** Per file: lower-case name -> original spelling (from {@link #original}). */
+    private final Map<String, Map<String, String>> spelling;
     /**
      * Built-in classes from members.txt (lower-case keys, order of the file): base class and own members.
      * Inherited members are provided by {@link #instanceMembers}.
      */
-    private static final Map<String, BuiltinClass> CLASSES = loadClasses();
+    private final Map<String, BuiltinClass> classes;
 
     /** A built-in class from members.txt; names spelled as in the file, {@code base} is null for Any. */
     public record BuiltinClass(@NotNull String name, @Nullable String base, @NotNull List<String> statics,
@@ -81,24 +76,52 @@ public final class AhkNames {
     public record Member(@NotNull String name, boolean method, @NotNull String owner, int depth) {
     }
 
-    private AhkNames() {
+    /** Loads all lists of the level. */
+    private AhkNames(AhkLanguageLevel level) {
+        this.level = level;
+        directives = load(new String[]{"directives"}, new TextAttributesKey[]{AhkColors.AHK_DIRECTIVE});
+        nonMember = load(new String[]{"variables", "classes", "functions"},
+                new TextAttributesKey[]{AhkColors.AHK_BUILTIN_VARIABLE, AhkColors.AHK_BUILTIN_CLASS,
+                        AhkColors.AHK_BUILTIN_FUNCTION});
+        member = load(new String[]{"methods", "properties"},
+                new TextAttributesKey[]{AhkColors.AHK_BUILTIN_METHOD, AhkColors.AHK_BUILTIN_PROPERTY});
+        nestedClasses = load(new String[]{"nested-classes"}, new TextAttributesKey[]{AhkColors.AHK_BUILTIN_CLASS});
+        original = loadOriginal("directives", "variables", "classes", "functions", "methods", "properties",
+                "nested-classes", "keys");
+        spelling = spellings(original);
+        classes = loadClasses();
+    }
+
+    /** The names of the level ({@link AhkLanguageLevel#OTHER} = those of v2.0). */
+    public static @NotNull AhkNames get(@NotNull AhkLanguageLevel level) {
+        return SETS.computeIfAbsent(level.dataLevel(), AhkNames::new);
+    }
+
+    /** The names of the language level of the element's file ({@link AhkLanguageLevel#of}). */
+    public static @NotNull AhkNames of(@Nullable PsiElement element) {
+        return get(AhkLanguageLevel.of(element));
+    }
+
+    /** Language level of this set. */
+    public @NotNull AhkLanguageLevel level() {
+        return level;
     }
 
     /** Built-in class (also nested, "Gui.Edit"), case-insensitive; otherwise null. */
-    public static @Nullable BuiltinClass builtinClass(@NotNull String name) {
-        return CLASSES.get(key(name));
+    public @Nullable BuiltinClass builtinClass(@NotNull String name) {
+        return classes.get(key(name));
     }
 
     /** All built-in classes from members.txt in the order of the file. */
-    public static @NotNull Collection<BuiltinClass> builtinClasses() {
-        return CLASSES.values();
+    public @NotNull Collection<BuiltinClass> builtinClasses() {
+        return classes.values();
     }
 
     /**
      * Instance members (methods/properties, without static) of the class including its base classes (Gui.Edit,
      * Gui.Control, Object, Any). Each name only once, the derived class wins. Unknown class: empty.
      */
-    public static @NotNull List<Member> instanceMembers(@NotNull String className) {
+    public @NotNull List<Member> instanceMembers(@NotNull String className) {
         List<Member> result = new ArrayList<>();
         Set<String> seen = new java.util.HashSet<>();
         Set<String> visited = new java.util.HashSet<>();
@@ -112,23 +135,23 @@ public final class AhkNames {
     }
 
     /** Color of a known directive (text with "#"), otherwise null. */
-    public static @Nullable TextAttributesKey directive(@NotNull String name) {
-        return DIRECTIVES.get(key(name));
+    public @Nullable TextAttributesKey directive(@NotNull String name) {
+        return directives.get(key(name));
     }
 
     /** Built-in variable, class or function (name not after a dot), otherwise null. */
-    public static @Nullable TextAttributesKey nonMember(@NotNull String name) {
-        return NON_MEMBER.get(key(name));
+    public @Nullable TextAttributesKey nonMember(@NotNull String name) {
+        return nonMember.get(key(name));
     }
 
     /** Built-in method or property (name after a dot), otherwise null. */
-    public static @Nullable TextAttributesKey member(@NotNull String name) {
-        return MEMBER.get(key(name));
+    public @Nullable TextAttributesKey member(@NotNull String name) {
+        return member.get(key(name));
     }
 
     /** Nested built-in class "outer.inner" (Gui.Button), otherwise null. */
-    public static @Nullable TextAttributesKey nestedClass(@NotNull String outer, @NotNull String inner) {
-        return NESTED_CLASSES.get(key(outer + "." + inner));
+    public @Nullable TextAttributesKey nestedClass(@NotNull String outer, @NotNull String inner) {
+        return nestedClasses.get(key(outer + "." + inner));
     }
 
     /** {@code Files}, {@code Parse}, {@code Read} or {@code Reg} (case-insensitive). */
@@ -140,8 +163,8 @@ public final class AhkNames {
      * All names of a list (file name without ".txt", e.g. "variables") spelled as in the file.
      * Used by completion; highlighting keeps working with the lower-case keys.
      */
-    public static @NotNull List<String> names(@NotNull String file) {
-        List<String> names = ORIGINAL.get(file);
+    public @NotNull List<String> names(@NotNull String file) {
+        List<String> names = original.get(file);
         if (names == null) throw new IllegalArgumentException("Unknown name list: " + file);
         return names;
     }
@@ -150,9 +173,9 @@ public final class AhkNames {
      * Spelling of a name in the first of the lists (file name without ".txt") that contains it; otherwise null.
      * Used for adjusting the case when formatting.
      */
-    public static @Nullable String spelling(@NotNull String name, @NotNull String... files) {
+    public @Nullable String spelling(@NotNull String name, @NotNull String... files) {
         for (String file : files) {
-            Map<String, String> spellings = SPELLING.get(file);
+            Map<String, String> spellings = spelling.get(file);
             if (spellings == null) throw new IllegalArgumentException("Unknown name list: " + file);
             String s = spellings.get(key(name));
             if (s != null) return s;
@@ -161,7 +184,7 @@ public final class AhkNames {
     }
 
     /** Inner names of the nested classes of {@code outer} (Gui: Button, Edit ...), original spelling. */
-    public static @NotNull List<String> nestedClassesOf(@NotNull String outer) {
+    public @NotNull List<String> nestedClassesOf(@NotNull String outer) {
         String prefix = key(outer) + ".";
         List<String> result = new ArrayList<>();
         for (String name : names("nested-classes")) {
@@ -187,7 +210,7 @@ public final class AhkNames {
     }
 
     /** Reads the given lists in their original spelling; the first spelling of a name wins. */
-    private static Map<String, List<String>> loadOriginal(String... files) {
+    private Map<String, List<String>> loadOriginal(String... files) {
         Map<String, List<String>> map = new LinkedHashMap<>();
         for (String file : files) {
             Map<String, String> unique = new LinkedHashMap<>();
@@ -198,39 +221,30 @@ public final class AhkNames {
     }
 
     /**
-     * Reads members.txt: "Class : Base" (Any without a base), followed by "Class static: ...",
-     * "Class methods: ...", "Class properties: ...".
+     * Reads members.txt of the level (complete file, see the class comment): "Class : Base" (Any without a base),
+     * followed by "Class static: ...", "Class methods: ...", "Class properties: ...".
      */
-    private static Map<String, BuiltinClass> loadClasses() {
-        String path = "/names/members.txt";
+    private Map<String, BuiltinClass> loadClasses() {
+        String path = AhkResources.complete(level, "/names", "members.txt");
+        String text = AhkResources.read(path);
+        if (text == null) throw new IllegalStateException("Name list missing: " + path);
         Map<String, String> names = new LinkedHashMap<>();
         Map<String, String> bases = new LinkedHashMap<>();
         Map<String, Map<String, List<String>>> members = new LinkedHashMap<>();
         Pattern classLine = Pattern.compile("(\\S+)\\s*:\\s*(\\S*)");
         Pattern memberLine = Pattern.compile("(\\S+)\\s+(static|methods|properties):\\s*(.*)");
-        try (InputStream in = AhkNames.class.getResourceAsStream(path)) {
-            if (in == null) throw new IllegalStateException("Name list missing: " + path);
-            BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                int comment = line.indexOf(';');
-                if (comment >= 0) line = line.substring(0, comment);
-                line = line.trim();
-                if (line.isEmpty()) continue;
-                Matcher m = memberLine.matcher(line);
-                if (m.matches()) {
-                    List<String> list = members.computeIfAbsent(key(m.group(1)), k -> new LinkedHashMap<>())
-                            .computeIfAbsent(m.group(2), k -> new ArrayList<>());
-                    for (String name : m.group(3).trim().split("\\s+")) if (!name.isEmpty()) list.add(name);
-                    continue;
-                }
-                m = classLine.matcher(line);
-                if (!m.matches()) throw new IllegalStateException("Unreadable line in " + path + ": " + line);
-                names.put(key(m.group(1)), m.group(1));
-                bases.put(key(m.group(1)), m.group(2).isEmpty() ? null : m.group(2));
+        for (String line : AhkResources.splitLines(text)) {
+            Matcher m = memberLine.matcher(line);
+            if (m.matches()) {
+                List<String> list = members.computeIfAbsent(key(m.group(1)), k -> new LinkedHashMap<>())
+                        .computeIfAbsent(m.group(2), k -> new ArrayList<>());
+                for (String name : m.group(3).trim().split("\\s+")) if (!name.isEmpty()) list.add(name);
+                continue;
             }
-        } catch (IOException e) {
-            throw new IllegalStateException("Name list not readable: " + path, e);
+            m = classLine.matcher(line);
+            if (!m.matches()) throw new IllegalStateException("Unreadable line in " + path + ": " + line);
+            names.put(key(m.group(1)), m.group(1));
+            bases.put(key(m.group(1)), m.group(2).isEmpty() ? null : m.group(2));
         }
         Map<String, BuiltinClass> map = new LinkedHashMap<>();
         for (Map.Entry<String, String> e : names.entrySet()) {
@@ -249,7 +263,7 @@ public final class AhkNames {
     }
 
     /** Reads the files of a group into one table name -> color; the first file wins. */
-    private static Map<String, TextAttributesKey> load(String[] files, TextAttributesKey[] colors) {
+    private Map<String, TextAttributesKey> load(String[] files, TextAttributesKey[] colors) {
         Map<String, TextAttributesKey> map = new LinkedHashMap<>();
         for (int i = 0; i < files.length; i++) {
             for (String name : readNames(files[i])) {
@@ -259,24 +273,8 @@ public final class AhkNames {
         return Collections.unmodifiableMap(map);
     }
 
-    /** Reads a name list from /names/&lt;file&gt;.txt; a missing file is a programming error. */
-    static @NotNull Iterable<String> readNames(String file) {
-        String path = "/names/" + file + ".txt";
-        List<String> names = new ArrayList<>();
-        try (InputStream in = AhkNames.class.getResourceAsStream(path)) {
-            if (in == null) throw new IllegalStateException("Name list missing: " + path);
-            BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                int comment = line.indexOf(';');
-                if (comment >= 0) line = line.substring(0, comment);
-                for (String name : line.split("[\\s,\"]+")) {
-                    if (!name.isEmpty()) names.add(name);
-                }
-            }
-        } catch (IOException e) {
-            throw new IllegalStateException("Name list not readable: " + path, e);
-        }
-        return names;
+    /** Reads a name list of the level (/names/&lt;file&gt;.txt plus the difference); a missing file is an error. */
+    @NotNull List<String> readNames(String file) {
+        return AhkResources.words(level, "/names", file + ".txt");
     }
 }

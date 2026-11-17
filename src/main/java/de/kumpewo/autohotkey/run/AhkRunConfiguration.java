@@ -32,11 +32,6 @@ import java.nio.file.Path;
  */
 public final class AhkRunConfiguration extends LocatableConfigurationBase<AhkRunConfigurationOptions> {
 
-    /** Message if no AutoHotkey program is found (configuration and start). */
-    static String noAutoHotkey() {
-        return AhkBundle.message("run.autohotkey.not.found");
-    }
-
     /** Where the compiled executable runs. */
     public enum ExeConsole {
         /** In a terminal (pseudo console) in the Run tool window: ANSI escape sequences, cursor control, input. */
@@ -154,8 +149,10 @@ public final class AhkRunConfiguration extends LocatableConfigurationBase<AhkRun
             }
             return;
         }
-        String exe = AhkSettings.getInstance().findAutoHotkey();
-        if (exe == null) throw new RuntimeConfigurationError(noAutoHotkey(), this::openSettings);
+        String exe = AhkSettings.getInstance().findAutoHotkey(script);
+        if (exe == null) {
+            throw new RuntimeConfigurationError(AhkSettings.getInstance().notFoundMessage(script), this::openSettings);
+        }
         if (!isFile(exe)) {
             throw new RuntimeConfigurationError(AhkBundle.message("run.exe.not.found", String.valueOf(exe)), this::openSettings);
         }

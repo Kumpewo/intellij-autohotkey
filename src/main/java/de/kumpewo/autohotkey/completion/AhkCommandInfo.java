@@ -3,7 +3,9 @@ package de.kumpewo.autohotkey.completion;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.psi.PsiElement;
+import de.kumpewo.autohotkey.AhkResources;
 import de.kumpewo.autohotkey.documentation.AhkDocComment;
+import de.kumpewo.autohotkey.parser.AhkLanguageLevel;
 import de.kumpewo.autohotkey.highlighting.AhkNames;
 import de.kumpewo.autohotkey.include.AhkInclude;
 import de.kumpewo.autohotkey.psi.AhkClass;
@@ -19,13 +21,9 @@ import de.kumpewo.autohotkey.psi.AhkParameterList;
 import de.kumpewo.autohotkey.psi.AhkTypes;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -34,8 +32,11 @@ import java.util.Map;
 /**
  * Signatures (names/signatures.txt and names/method-signatures.txt, generated from the help), parameter
  * values (names/values.txt) and options of option strings (names/options.txt), both maintained by hand, of the
- * built-in functions, methods and directives, plus the signatures of own functions and methods. Names are case-insensitive. A plain class with static tables, not an
- * extension class.
+ * built-in functions, methods and directives, plus the signatures of own functions and methods. Names are
+ * case-insensitive. A plain class with one set of tables per language level (loaded on first use), not an extension
+ * class. For v2.1, names/v2.1/ holds the differences of signatures.txt, values.txt and options.txt (a line replaces
+ * the v2.0 lines with the same key, "-Key" removes them, see {@link AhkResources#lines}; key = the name, for values
+ * and options the head before ":", for a group "@Group") and a complete method-signatures.txt (generated).
  * <p>
  * signatures.txt: {@code Name Param1, [Optional], ...}, one line per form (BlockInput has three).<br>
  * method-signatures.txt: {@code Class.Method Param1, [Optional], ...}.<br>
@@ -47,7 +48,7 @@ public final class AhkCommandInfo {
 
     /**
      * A parameter of a signature; optional = marked as optional in the help (in the file in [ ]); description = text
-     * of {@code @param} in the doc comment of an own function (Z.22), otherwise null.
+     * of {@code @param} in the doc comment of an own function, otherwise null.
      */
     public record Parameter(@NotNull String text, boolean optional, @Nullable String description) {
         /** Parameter without description (built-in forms). */
@@ -72,20 +73,38 @@ public final class AhkCommandInfo {
         }
     }
 
-    private static final Map<String, List<Signature>> SIGNATURES = loadSignatures("signatures");
-    /** Methods of the built-in classes (method-signatures.txt), key = method name in lower case. */
-    private static final Map<String, List<Signature>> METHOD_SIGNATURES = loadSignatures("method-signatures");
-    /** values.txt: single values of an argument. */
-    private static final Table VALUE_TABLE = loadTable("values");
-    /** options.txt: options inside an option string (Z.19 C11). */
-    private static final Table OPTION_TABLE = loadTable("options");
+    /**
+     * The tables of one language level.
+     *
+     * @param signatures       signatures.txt, key = name in lower case
+     * @param methodSignatures methods of the built-in classes (method-signatures.txt), key = method name in lower case
+     * @param values           values.txt: single values of an argument
+     * @param options          options.txt: options inside an option string
+     */
+    private record Tables(Map<String, List<Signature>> signatures, Map<String, List<Signature>> methodSignatures,
+                          Table values, Table options) {
+        /** Loads the files of the level. */
+        static Tables load(AhkLanguageLevel level) {
+            return new Tables(loadSignatures(level, "signatures"), loadSignatures(level, "method-signatures"),
+                    loadTable(level, "values"), loadTable(level, "options"));
+        }
+    }
+
+    /** Loaded tables per data level. */
+    private static final Map<AhkLanguageLevel, Tables> TABLES =
+            Collections.synchronizedMap(new EnumMap<>(AhkLanguageLevel.class));
 
     private AhkCommandInfo() {
     }
 
-    /** All built-in forms of {@code name} (empty if unknown). */
-    public static @NotNull List<Signature> signatures(@NotNull String name) {
-        return SIGNATURES.getOrDefault(key(name), List.of());
+    /** Tables of the level ({@link AhkLanguageLevel#OTHER} = those of v2.0). */
+    private static Tables tables(AhkLanguageLevel level) {
+        return TABLES.computeIfAbsent(level.dataLevel(), Tables::load);
+    }
+
+    /** All built-in forms of {@code name} at the language level (empty if unknown). */
+    public static @NotNull List<Signature> signatures(@NotNull AhkLanguageLevel level, @NotNull String name) {
+        return tables(level).signatures().getOrDefault(key(name), List.of());
     }
 
     /**
@@ -95,7 +114,47 @@ public final class AhkCommandInfo {
      */
     public static @NotNull List<Signature> signatures(@NotNull PsiFile file, @NotNull String name) {
         List<Signature> own = ownSignatures(file, name, false);
-        return own.isEmpty() ? signatures(name) : own;
+        return own.isEmpty() ? signatures(AhkLanguageLevel.of(file), name) : own;
+    }
+
+    /**
+     * Forms for the parameter info of a call at {@code context}: as {@link #signatures(PsiFile, String)}; in a v2.1
+     * file with modules the own functions are those the name resolves to in the module of {@code context}
+     * (own or imported, {@link de.kumpewo.autohotkey.module.AhkModules#resolve}).
+     */
+    public static @NotNull List<Signature> signatures(@NotNull PsiElement context, @NotNull String name) {
+        PsiFile file = context.getContainingFile();
+        if (!de.kumpewo.autohotkey.module.AhkModules.isActive(file) || !de.kumpewo.autohotkey.module.AhkModules.usesModules(file)) {
+            return signatures(file, name);
+        }
+        List<Signature> own = functionSignatures(de.kumpewo.autohotkey.module.AhkModules.resolve(context, name,
+                de.kumpewo.autohotkey.navigation.AhkDefinitionReference.finder(
+                        de.kumpewo.autohotkey.navigation.AhkDefinitionReference.Kind.FREE, name, null), false).targets());
+        return own.isEmpty() ? signatures(AhkLanguageLevel.of(file), name) : own;
+    }
+
+    /**
+     * Forms for {@code X.name(…)} where X is a v2.1 module: the exported functions of X, for {@code AHK} the
+     * built-in forms; {@code null} if X is no module.
+     */
+    public static @Nullable List<Signature> moduleSignatures(@NotNull PsiElement qualifier, @NotNull String name) {
+        var module = de.kumpewo.autohotkey.module.AhkModules.qualifierModule(qualifier,
+                n -> de.kumpewo.autohotkey.navigation.AhkDefinitionReference.finder(
+                        de.kumpewo.autohotkey.navigation.AhkDefinitionReference.Kind.FREE, n, null));
+        if (module == null) return null;
+        if (module.isBuiltin()) return signatures(AhkLanguageLevel.of(qualifier), name);
+        return functionSignatures(de.kumpewo.autohotkey.module.AhkModules.exports(module, name,
+                de.kumpewo.autohotkey.navigation.AhkDefinitionReference.finder(
+                        de.kumpewo.autohotkey.navigation.AhkDefinitionReference.Kind.FREE, name, null), false).targets());
+    }
+
+    /** Signatures of the functions among the targets. */
+    private static List<Signature> functionSignatures(List<PsiElement> targets) {
+        List<Signature> result = new ArrayList<>();
+        for (PsiElement target : targets) {
+            if (target instanceof AhkFunc func) result.add(ownSignature(func));
+        }
+        return result;
     }
 
     /**
@@ -113,9 +172,10 @@ public final class AhkCommandInfo {
      */
     public static @NotNull List<Signature> methodSignatures(@NotNull PsiFile file, @Nullable PsiElement qualifier,
                                                             @NotNull String name) {
-        List<Signature> all = METHOD_SIGNATURES.getOrDefault(key(name), List.of());
+        List<Signature> all = tables(AhkLanguageLevel.of(file)).methodSignatures().getOrDefault(key(name), List.of());
         List<String> classes = qualifierClasses(file, qualifier);
-        boolean ownDeclared = classes != null && classes.stream().anyMatch(c -> AhkNames.builtinClass(c) == null);
+        AhkNames names = AhkNames.of(file);
+        boolean ownDeclared = classes != null && classes.stream().anyMatch(c -> names.builtinClass(c) == null);
         List<Signature> result = new ArrayList<>(ownDeclared ? List.of() : ownSignatures(file, name, true));
         if (classes == null) {
             result.addAll(all);
@@ -146,14 +206,14 @@ public final class AhkCommandInfo {
 
     /**
      * Classes of the expression left of the dot: built-in class (also nested, "Gui.ListView") or a name declared
-     * with ;@declare-type or with {@code @param {Type}} in the doc comment of the enclosing function (Z.22);
+     * with ;@declare-type or with {@code @param {Type}} in the doc comment of the enclosing function;
      * null = unknown (all forms).
      */
     public static @Nullable List<String> qualifierClasses(@NotNull PsiFile file, @Nullable PsiElement qualifier) {
         if (qualifier == null) return null;
         String text = qualifier.getText();
         if (!text.matches("\\w+(\\.\\w+)*")) return null;
-        AhkNames.BuiltinClass builtin = AhkNames.builtinClass(text);
+        AhkNames.BuiltinClass builtin = AhkNames.of(file).builtinClass(text);
         AhkTypeDeclarations.Declared declared = qualifier instanceof AhkRefExpr
                 ? AhkTypeDeclarations.lookup(qualifier, text) : null;
         if (declared != null && (declared.explicit() || builtin == null)) return declared.classes();
@@ -188,7 +248,7 @@ public final class AhkCommandInfo {
     /**
      * Signature of an own function from its parameter list: {@code a}, {@code &a}, {@code args*}, {@code *} as
      * written; optional ({@code a?}, {@code a := 1}) in [ ], without the question mark. The description of a
-     * parameter comes from {@code @param} of the doc comment (Z.22).
+     * parameter comes from {@code @param} of the doc comment.
      */
     private static Signature signature(AhkFunc func, @Nullable String owner) {
         List<Parameter> parameters = new ArrayList<>();
@@ -224,18 +284,18 @@ public final class AhkCommandInfo {
      * with this method.
      */
     public static @NotNull Values values(@NotNull PsiFile file, @NotNull AhkArguments.Owner owner, int index) {
-        return lookup(VALUE_TABLE, file, owner, index, null);
+        return lookup(tables(AhkLanguageLevel.of(file)).values(), file, owner, index, null);
     }
 
     /**
-     * Options for an option string in argument {@code index} (options.txt, Z.19 C11), found like {@link #values}.
+     * Options for an option string in argument {@code index} (options.txt), found like {@link #values}.
      * Options ending with "*" take a value. With {@code firstArgument} (the text of a string literal as first
      * argument of a method call), an entry {@code Class.Method<firstArgument>} at {@code index - 1} is used
      * instead, if there is one ({@code MyGui.Add("Edit", "|")} = {@code Gui.AddEdit 1}).
      */
     public static @NotNull Values options(@NotNull PsiFile file, @NotNull AhkArguments.Owner owner, int index,
                                           @Nullable String firstArgument) {
-        return lookup(OPTION_TABLE, file, owner, index, firstArgument);
+        return lookup(tables(AhkLanguageLevel.of(file)).options(), file, owner, index, firstArgument);
     }
 
     /** Entries of the table for the owner and argument (see {@link #values} and {@link #options}). */
@@ -289,9 +349,9 @@ public final class AhkCommandInfo {
         return new Values(List.copyOf(result), typeText);
     }
 
-    /** Values for argument {@code index} (from 0) of {@code name} (empty if none are known). */
-    public static @NotNull List<String> values(@NotNull String name, int index) {
-        Map<Integer, List<String>> byIndex = VALUE_TABLE.entries().get(key(name));
+    /** Values for argument {@code index} (from 0) of {@code name} at the language level (empty if none are known). */
+    public static @NotNull List<String> values(@NotNull AhkLanguageLevel level, @NotNull String name, int index) {
+        Map<Integer, List<String>> byIndex = tables(level).values().entries().get(key(name));
         return byIndex == null ? List.of() : byIndex.getOrDefault(index, List.of());
     }
 
@@ -302,12 +362,12 @@ public final class AhkCommandInfo {
 
     /**
      * signatures.txt ({@code Name Parameters…}) or method-signatures.txt ({@code Class.Method Parameters…};
-     * class = everything before the last dot, key = method name).
+     * class = everything before the last dot, key = method name) of the level.
      */
-    private static Map<String, List<Signature>> loadSignatures(String file) {
+    private static Map<String, List<Signature>> loadSignatures(AhkLanguageLevel level, String file) {
         boolean methods = file.equals("method-signatures");
         Map<String, List<Signature>> map = new HashMap<>();
-        for (String line : readLines(file)) {
+        for (String line : readLines(level, file)) {
             int space = line.indexOf(' ');
             String name = space < 0 ? line : line.substring(0, space);
             String owner = null;
@@ -358,10 +418,10 @@ public final class AhkCommandInfo {
      * Reads values.txt or options.txt: lines {@code Name Position: Value ...}; in options.txt also groups
      * {@code @Group: Value ...}, inserted where {@code @Group} appears in a list (also in other groups).
      */
-    private static Table loadTable(String file) {
+    private static Table loadTable(AhkLanguageLevel level, String file) {
         Map<String, List<String>> groups = new HashMap<>();
         List<String> entries = new ArrayList<>();
-        for (String line : readLines(file)) {
+        for (String line : readLines(level, file)) {
             int colon = line.indexOf(':');
             if (colon < 0) throw new IllegalStateException(file + ".txt: ':' missing in: " + line);
             String head = line.substring(0, colon).trim();
@@ -404,23 +464,32 @@ public final class AhkCommandInfo {
         }
     }
 
-    /** Non-empty lines without comment (";" to the end of the line) from /names/&lt;file&gt;.txt. */
-    private static List<String> readLines(String file) {
-        String path = "/names/" + file + ".txt";
-        List<String> lines = new ArrayList<>();
-        try (InputStream in = AhkCommandInfo.class.getResourceAsStream(path)) {
-            if (in == null) throw new IllegalStateException("File missing: " + path);
-            BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                int comment = line.indexOf(';');
-                if (comment >= 0) line = line.substring(0, comment);
-                line = line.trim();
-                if (!line.isEmpty()) lines.add(line);
-            }
-        } catch (IOException e) {
-            throw new IllegalStateException("File not readable: " + path, e);
+    /**
+     * Non-empty lines without comment (";" to the end of the line) from /names/&lt;file&gt;.txt of the level:
+     * method-signatures.txt complete (generated), the others as v2.0 file plus difference (see the class comment).
+     */
+    private static List<String> readLines(AhkLanguageLevel level, String file) {
+        if (file.equals("method-signatures")) {
+            String path = AhkResources.complete(level, "/names", file + ".txt");
+            String text = AhkResources.read(path);
+            if (text == null) throw new IllegalStateException("File missing: " + path);
+            return AhkResources.splitLines(text);
         }
-        return lines;
+        return AhkResources.lines(level, "/names", file + ".txt",
+                file.equals("signatures") ? AhkCommandInfo::signatureKey : AhkCommandInfo::tableKey);
+    }
+
+    /** Key of a line of signatures.txt for merging the differences: the name (first word). */
+    static @NotNull String signatureKey(@NotNull String line) {
+        return line.trim().split("\\s+", 2)[0];
+    }
+
+    /**
+     * Key of a line of values.txt or options.txt for merging the differences: the head before ":"
+     * ({@code Name Position}, {@code @Group}) with single spaces.
+     */
+    static @NotNull String tableKey(@NotNull String line) {
+        int colon = line.indexOf(':');
+        return (colon >= 0 ? line.substring(0, colon) : line).trim().replaceAll("\\s+", " ");
     }
 }

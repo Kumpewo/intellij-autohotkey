@@ -17,17 +17,22 @@ import javax.swing.*;
 import java.nio.file.Path;
 
 /**
- * Settings page "Languages &amp; Frameworks > AutoHotkey": path to the AutoHotkey program, command line of the
+ * Settings page "Languages &amp; Frameworks > AutoHotkey": path to the AutoHotkey program and to the AutoHotkey
+ * v2.1 interpreter, command line of the
  * external help (Shift+F1), automatic validation with AutoHotkey, path to the compiler Ahk2Exe and the compression
- * of the compiled executable; below them a link to the user manual of the plugin.
+ * of the compiled executable, language level of files without {@code #Requires} and whether the Project view shows
+ * the language level of AutoHotkey files; below them a link to the user manual of the plugin.
  */
 public final class AhkSettingsConfigurable implements Configurable {
 
     private TextFieldWithBrowseButton path;
+    private TextFieldWithBrowseButton v21Path;
     private JBTextField helpCommand;
     private ComboBox<AhkSettings.ValidateTrigger> validateTrigger;
     private TextFieldWithBrowseButton ahk2ExePath;
     private ComboBox<AhkSettings.Compression> compression;
+    private ComboBox<de.kumpewo.autohotkey.parser.AhkLanguageLevel> languageLevel;
+    private JCheckBox showLevel;
     private JPanel panel;
 
     /** Name of the page in the settings tree. */
@@ -51,6 +56,17 @@ public final class AhkSettingsConfigurable implements Configurable {
                 AhkSettings.LAUNCHER_SCRIPT));
         hint.setComponentStyle(UIUtil.ComponentStyle.SMALL);
         hint.setFontColor(UIUtil.FontColor.BRIGHTER);
+        JBTextField v21Text = new JBTextField();
+        Path detectedV21 = AhkSettings.detectAutoHotkeyV21();
+        v21Text.getEmptyText().setText(detectedV21 == null
+                ? AhkBundle.message("settings.autohotkey.v21.not.found")
+                : AhkBundle.message("settings.automatic", detectedV21.toString()));
+        v21Path = new TextFieldWithBrowseButton(v21Text);
+        v21Path.addBrowseFolderListener(null, FileChooserDescriptorFactory.createSingleFileDescriptor("exe")
+                .withTitle(AhkBundle.message("settings.autohotkey.v21.choose")));
+        JBLabel v21Hint = new JBLabel(AhkBundle.message("settings.autohotkey.v21.hint"));
+        v21Hint.setComponentStyle(UIUtil.ComponentStyle.SMALL);
+        v21Hint.setFontColor(UIUtil.FontColor.BRIGHTER);
         helpCommand = new JBTextField();
         Path chm = de.kumpewo.autohotkey.documentation.AhkExternalHelp.findChm();
         helpCommand.getEmptyText().setText(chm == null
@@ -79,9 +95,18 @@ public final class AhkSettingsConfigurable implements Configurable {
         JBLabel compileHint = new JBLabel(AhkBundle.message("settings.compile.hint"));
         compileHint.setComponentStyle(UIUtil.ComponentStyle.SMALL);
         compileHint.setFontColor(UIUtil.FontColor.BRIGHTER);
+        languageLevel = new ComboBox<>(de.kumpewo.autohotkey.parser.AhkLanguageLevel.selectable());
+        languageLevel.setRenderer(SimpleListCellRenderer.create("",
+                value -> AhkBundle.message("settings.language.level." + value.name().toLowerCase(java.util.Locale.ROOT))));
+        JBLabel languageLevelHint = new JBLabel(AhkBundle.message("settings.language.level.hint"));
+        languageLevelHint.setComponentStyle(UIUtil.ComponentStyle.SMALL);
+        languageLevelHint.setFontColor(UIUtil.FontColor.BRIGHTER);
+        showLevel = new JCheckBox(AhkBundle.message("settings.language.level.project.view"));
         panel = FormBuilder.createFormBuilder()
                 .addLabeledComponent(AhkBundle.message("settings.autohotkey.path"), path)
                 .addComponentToRightColumn(hint)
+                .addLabeledComponent(AhkBundle.message("settings.autohotkey.v21.path"), v21Path)
+                .addComponentToRightColumn(v21Hint)
                 .addLabeledComponent(AhkBundle.message("settings.help.command"), helpCommand)
                 .addComponentToRightColumn(helpHint)
                 .addLabeledComponent(AhkBundle.message("settings.validate"), validateTrigger)
@@ -89,6 +114,9 @@ public final class AhkSettingsConfigurable implements Configurable {
                 .addLabeledComponent(AhkBundle.message("settings.ahk2exe.path"), ahk2ExePath)
                 .addLabeledComponent(AhkBundle.message("settings.compression"), compression)
                 .addComponentToRightColumn(compileHint)
+                .addLabeledComponent(AhkBundle.message("settings.language.level"), languageLevel)
+                .addComponentToRightColumn(languageLevelHint)
+                .addComponentToRightColumn(showLevel)
                 .addVerticalGap(10)
                 .addComponent(new com.intellij.ui.components.ActionLink(AhkBundle.message("settings.manual"),
                         (java.awt.event.ActionListener) e -> de.kumpewo.autohotkey.documentation.AhkManual.open(null)))
@@ -102,17 +130,24 @@ public final class AhkSettingsConfigurable implements Configurable {
     public boolean isModified() {
         AhkSettings settings = AhkSettings.getInstance();
         return !path.getText().trim().equals(settings.getAutoHotkeyPath())
+                || !v21Path.getText().trim().equals(settings.getAutoHotkeyV21Path())
                 || !helpCommand.getText().trim().equals(settings.getExternalHelpCommand())
                 || validateTrigger.getSelectedItem() != settings.getValidateTrigger()
                 || !ahk2ExePath.getText().trim().equals(settings.getAhk2ExePath())
-                || compression.getSelectedItem() != settings.getCompression();
+                || compression.getSelectedItem() != settings.getCompression()
+                || languageLevel.getSelectedItem() != settings.getDefaultLanguageLevel()
+                || showLevel.isSelected() != settings.isShowLevelInProjectView();
     }
 
-    /** Stores the fields; a new program path may change the library roots. */
+    /**
+     * Stores the fields; a new program path may change the library roots, another language level means parsing
+     * and highlighting the open files again.
+     */
     @Override
     public void apply() {
-        // other program = possibly another standard Lib folder: update the library "AutoHotkey Lib"
+        // other program (v2.0 or v2.1) = possibly another standard Lib folder: update the library "AutoHotkey Lib"
         String text = path.getText();
+        String v21Text = v21Path.getText();
         AhkSettings.getInstance().setExternalHelpCommand(helpCommand.getText());
         if (validateTrigger.getSelectedItem() instanceof AhkSettings.ValidateTrigger trigger) {
             AhkSettings.getInstance().setValidateTrigger(trigger);
@@ -121,28 +156,46 @@ public final class AhkSettingsConfigurable implements Configurable {
         if (compression.getSelectedItem() instanceof AhkSettings.Compression value) {
             AhkSettings.getInstance().setCompression(value);
         }
-        de.kumpewo.autohotkey.include.AhkLibraryRootsProvider.changeRoots(
-                () -> AhkSettings.getInstance().setAutoHotkeyPath(text));
+        if (languageLevel.getSelectedItem() instanceof de.kumpewo.autohotkey.parser.AhkLanguageLevel level
+                && level != AhkSettings.getInstance().getDefaultLanguageLevel()) {
+            AhkSettings.getInstance().setDefaultLanguageLevel(level);
+            com.intellij.util.FileContentUtil.reparseOpenedFiles();
+            de.kumpewo.autohotkey.level.AhkLevelDecorator.refreshAll();
+        }
+        if (showLevel.isSelected() != AhkSettings.getInstance().isShowLevelInProjectView()) {
+            AhkSettings.getInstance().setShowLevelInProjectView(showLevel.isSelected());
+            de.kumpewo.autohotkey.level.AhkLevelDecorator.refreshAll();
+        }
+        de.kumpewo.autohotkey.include.AhkLibraryRootsProvider.changeRoots(() -> {
+            AhkSettings.getInstance().setAutoHotkeyPath(text);
+            AhkSettings.getInstance().setAutoHotkeyV21Path(v21Text);
+        });
     }
 
     /** Fills the fields from the stored settings. */
     @Override
     public void reset() {
         path.setText(AhkSettings.getInstance().getAutoHotkeyPath());
+        v21Path.setText(AhkSettings.getInstance().getAutoHotkeyV21Path());
         helpCommand.setText(AhkSettings.getInstance().getExternalHelpCommand());
         validateTrigger.setSelectedItem(AhkSettings.getInstance().getValidateTrigger());
         ahk2ExePath.setText(AhkSettings.getInstance().getAhk2ExePath());
         compression.setSelectedItem(AhkSettings.getInstance().getCompression());
+        languageLevel.setSelectedItem(AhkSettings.getInstance().getDefaultLanguageLevel());
+        showLevel.setSelected(AhkSettings.getInstance().isShowLevelInProjectView());
     }
 
     /** Releases the UI components. */
     @Override
     public void disposeUIResources() {
         path = null;
+        v21Path = null;
         helpCommand = null;
         validateTrigger = null;
         ahk2ExePath = null;
         compression = null;
+        languageLevel = null;
+        showLevel = null;
         panel = null;
     }
 }

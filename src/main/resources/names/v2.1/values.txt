@@ -1,0 +1,6 @@
+; Parameter values of AutoHotkey v2.1: only the differences to names/values.txt. A line replaces the line with the
+; same "Name Position:" in values.txt, "-Name Position:" removes it. Source: help/v2.1/docs/ (v2.1-alpha.39).
+; See AhkCommandInfo.java and AhkResources.java.
+
+; help/v2.1/docs/lib/_StructPack.htm
+#StructPack 1: 0 1 2 4 8

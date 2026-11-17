@@ -22,12 +22,17 @@ More screenshots: [library completion](docs/images/include-completion.png),
   strings and hotkeys), parameter values (`CoordMode "Mouse"`), option strings (`MsgBox "YesNo Icon!"`,
   `Gui.Add("Edit", "w200 ReadOnly")`), labels after `goto`.
 - **Parameter info** (Ctrl+P) for built-in functions, directives, methods and own functions.
+- **AutoHotkey v2.1 (alpha, in development like v2.1 itself; v2.0 is fully supported):** files that require v2.1 get its built-in names, parameter info and help pages
+  (v2.1-alpha.39); of the new v2.1 syntax so far the operators `!~=`, `??=`, `?.`, `struct`, mandatory parameters after optional ones, modules (`#Module`/`#Import` as separate namespaces for navigation, completion, Find Usages and Rename, module files in the search path), function definition expressions and typed properties (`x : Int32`, `union`).
+  The level of the current file is shown in the status bar and after the file names in the Project view.
 - **Go to declaration** (Ctrl+B) for functions, classes, members, base classes, labels and `#Include` files,
   also into directly included files and the AutoHotkey library folders.
 - **Quick documentation** (Ctrl+Q, hover) from the AutoHotkey help and an **external help viewer** (Shift+F1).
 - **Doc comments** (`/** ... */` with `@param`, `@returns`, `@see` ...) for own functions, methods and classes,
   shown as quick documentation, in the completion list and in the parameter info.
 - **User manual** inside the IDE (*Help > AutoHotkey Plugin Manual*).
+- **AutoHotkey help** of v2.0 and v2.1 in the *Help* menu (installed `AutoHotkey.chm`, otherwise the copy shipped
+  with the plugin).
 - **Type hints** with `;@declare-type` comments for better completion and parameter info.
 - **Structure view, breadcrumbs, sticky lines, brace matching**, quotes and `%` typed in pairs.
 - **Code folding** of blocks, comments, continuation sections, `#Include` lines and `;region` ... `;endregion`.
@@ -51,6 +56,9 @@ More screenshots: [library completion](docs/images/include-completion.png),
 - **Compilation with Ahk2Exe** (*Code > Compile with Ahk2Exe*) for scripts that choose their base file with
   `;@Ahk2Exe-Base`; errors are clickable in the console. A run configuration can compile first and run the
   executable in a real console (terminal in the Run tool window or a separate console window).
+- **Deploying tools** (*Code > Deploy to Local Target...*): copies a tool to a fixed folder as described by a
+  `settings.ahk-plugin.ini` next to the script, optionally after compiling. **Versions** (*Code > Set Version...*):
+  changes `;@Ahk2Exe-SetVersion`, commits only the script and sets a version tag.
 
 Only AutoHotkey v2 is supported. Files that require another version (`#Requires AutoHotkey v1.1`) are left
 unparsed and only get a warning.
@@ -101,8 +109,8 @@ src/main/resources/
     META-INF/plugin.xml      Plugin descriptor with all extensions
     META-INF/pluginIcon.svg  Plugin logo (shown in the plugin list and on the Marketplace)
     messages/                All texts the user sees (AhkBundle.properties)
-    names/                   Name lists for highlighting, completion and parameter info
-    help/                    AutoHotkey help (docs/, v2.0.31), own pages and manual (extra/), lookup files,
+    names/                   Name lists for highlighting, completion and parameter info (v2.1/: differences)
+    help/                    AutoHotkey help (docs/, v2.0.31; v2.1/docs/, v2.1-alpha.39), own pages and manual (extra/), lookup files,
                              styles and the HTML Help project of extra.chm
     liveTemplates/           Bundled live templates
 src/test/                    Tests (AhkParsingTest, AhkPluginTest)

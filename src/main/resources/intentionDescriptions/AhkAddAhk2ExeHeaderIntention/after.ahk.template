@@ -1,10 +1,9 @@
 #Requires AutoHotkey v2.0
 <spot>;@Ahk2Exe-Base ..\v2\AutoHotkey64.exe</spot>
-Ahk2Exe_ProductName := "Tool"
-;@Ahk2Exe-SetProductName %A_PriorLine~U)(.+")(.*)".*$~$2%
-Ahk2Exe_ProductVersion := "1.0"
-;@Ahk2Exe-SetProductVersion %A_PriorLine~U)(.+")(.*)".*$~$2%
-;@Ahk2Exe-SetCopyright © 2026 Your Name
-;;@Ahk2Exe-SetMainIcon Tool.ico
+;@Ahk2Exe-SetProductName    Tool
+;@Ahk2Exe-SetVersion        1.0.0
+;@Ahk2Exe-SetDescription    Tool description
+;@Ahk2Exe-SetCopyright      © 2026 Your Name
+;;@Ahk2Exe-SetMainIcon      Tool.ico
 
 MsgBox "Hello"
