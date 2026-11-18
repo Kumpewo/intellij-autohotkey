@@ -5,7 +5,7 @@ import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.project.DumbAwareAction;
 import com.intellij.openapi.project.Project;
-import de.kumpewo.autohotkey.validate.AhkValidator;
+import de.kumpewo.autohotkey.validate.AhkTargetPresentation;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -15,16 +15,16 @@ import org.jetbrains.annotations.NotNull;
  */
 public class AhkCompileAction extends DumbAwareAction {
 
-    /** Visible and enabled for an AutoHotkey file on disk or with a selected AutoHotkey run configuration. */
+    /**
+     * Visible and enabled for an AutoHotkey file on disk or with a selected AutoHotkey run configuration; the text
+     * names the target ({@link AhkTargetPresentation}).
+     */
     @Override
     public void update(@NotNull AnActionEvent event) {
-        Project project = event.getProject();
-        boolean enabled = project != null
-                && AhkValidator.hasTarget(project, event.getData(CommonDataKeys.VIRTUAL_FILE));
-        event.getPresentation().setEnabledAndVisible(enabled);
+        AhkTargetPresentation.update(this, event, "action.AutoHotkey.Compile.target");
     }
 
-    /** {@link #update} only reads data keys and the selected run configuration. */
+    /** {@link #update} reads data keys, the selected run configuration and the {@code #Include} chain. */
     @Override
     public @NotNull ActionUpdateThread getActionUpdateThread() {
         return ActionUpdateThread.BGT;

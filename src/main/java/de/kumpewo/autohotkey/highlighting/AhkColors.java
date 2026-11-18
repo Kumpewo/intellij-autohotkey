@@ -100,6 +100,10 @@ public class AhkColors {
             createTextAttributesKey("AHK_HOTSTRING",
                     DefaultLanguageHighlighterColors.KEYWORD);
 
+    // replacement text of a hotstring (::btw::by the way), like a string by default
+    public static final TextAttributesKey AHK_HOTSTRING_TEXT =
+            createTextAttributesKey("AHK_HOTSTRING_TEXT", STRING);
+
     // line after ";@ignore-next-line" (AhkIgnoredLineAnnotator): marked background, normal text color
     public static final TextAttributesKey AHK_IGNORED_LINE =
             createTextAttributesKey("AHK_IGNORED_LINE",
@@ -109,4 +113,8 @@ public class AhkColors {
     public static final TextAttributesKey AHK_STRING_ESCAPE =
             createTextAttributesKey("AHK_STRING_ESCAPE",
                     DefaultLanguageHighlighterColors.VALID_STRING_ESCAPE);
+
+    // key syntax in send text: {Enter}, ^c, {Raw} in a hotstring replacement text (AhkSendKeysAnnotator)
+    public static final TextAttributesKey AHK_SEND_KEY =
+            createTextAttributesKey("AHK_SEND_KEY", AHK_STRING_ESCAPE);
 }

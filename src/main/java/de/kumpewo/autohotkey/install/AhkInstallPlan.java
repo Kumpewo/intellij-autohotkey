@@ -27,7 +27,7 @@ import java.util.stream.Stream;
  *       (without one: error). A target is a folder if it ends with {@code \} or {@code /}, if it exists as a folder,
  *       or if the source has a wildcard (then an existing file of that name is an error); the file keeps its
  *       name.</li>
- *   <li>Sources: relative to the tool folder, never outside ({@code ..}, absolute paths and drive letters are
+ *   <li>Sources: relative to the project root, never outside ({@code ..}, absolute paths and drive letters are
  *       errors); wildcards {@code *} and {@code ?} only in the file name, not recursive, only files. A missing file or
  *       a wildcard without match is an error, unless the file will be created by the compilation
  *       ({@code willExist}).</li>
@@ -87,11 +87,11 @@ public final class AhkInstallPlan {
      * Resolves and checks the configuration.
      *
      * @param config    the read {@code settings.ahk-plugin.ini}
-     * @param toolDir   folder of the script and of the {@code settings.ahk-plugin.ini}
+     * @param root      the project root, folder of the {@code settings.ahk-plugin.ini}
      * @param env       environment variables (case-insensitive lookup, {@code null} = undefined)
-     * @param willExist files that do not exist yet but will before copying (the compiled executable)
+     * @param willExist files that do not exist yet but will before copying (the compiled executables)
      */
-    public static @NotNull AhkInstallPlan create(@NotNull AhkInstallConfig config, @NotNull Path toolDir,
+    public static @NotNull AhkInstallPlan create(@NotNull AhkInstallConfig config, @NotNull Path root,
                                                  @NotNull Function<String, String> env,
                                                  @NotNull Collection<Path> willExist) {
         List<String> errors = new ArrayList<>();
@@ -114,14 +114,14 @@ public final class AhkInstallPlan {
         }
         AhkInstallPlan plan = new AhkInstallPlan(destination, message);
         plan.errors.addAll(errors);
-        Path dir = toolDir.toAbsolutePath().normalize();
+        Path dir = root.toAbsolutePath().normalize();
         for (AhkInstallConfig.Entry entry : config.entries()) {
             plan.addEntry(entry, dir, env, config.destination() != null, willExist);
         }
         return plan;
     }
 
-    private void addEntry(AhkInstallConfig.Entry entry, Path toolDir, Function<String, String> env,
+    private void addEntry(AhkInstallConfig.Entry entry, Path root, Function<String, String> env,
                           boolean hasDestination, Collection<Path> willExist) {
         String where = AhkBundle.message("install.where", entry.line(), entry.source());
         // source
@@ -134,7 +134,7 @@ public final class AhkInstallPlan {
             errors.add(AhkBundle.message("install.source.invalid", where));
             return;
         }
-        Path folder = path(folderPart.isEmpty() ? toolDir.toString() : toolDir.resolve(folderPart).toString());
+        Path folder = path(folderPart.isEmpty() ? root.toString() : root.resolve(folderPart).toString());
         if (folder == null) {
             errors.add(AhkBundle.message("install.source.invalid", where));
             return;
@@ -189,6 +189,22 @@ public final class AhkInstallPlan {
             steps.add(new Step(file, folderTarget ? target.resolve(file.getFileName().toString()) : target,
                     entry.keepExisting()));
         }
+    }
+
+    /**
+     * The source of a copy line resolved against the project root if it names an executable ({@code .exe}, any case)
+     * without wildcards; {@code null} for other sources and for paths that are not allowed (like a source: relative
+     * and never outside the root). Whether the file exists is not checked here.
+     */
+    static @Nullable Path executable(@NotNull String written, @NotNull Path root) {
+        String source = written.replace('/', '\\');
+        if (source.isEmpty() || source.startsWith("\\") || source.endsWith("\\") || source.contains(":")
+                || source.contains("*") || source.contains("?") || hasDotDot(source)
+                || !source.toLowerCase(java.util.Locale.ROOT).endsWith(".exe")) {
+            return null;
+        }
+        Path relative = path(source);
+        return relative == null ? null : root.toAbsolutePath().normalize().resolve(relative).normalize();
     }
 
     /** True if the last segment of the path is {@code .} or {@code ..}, which always names a folder. */

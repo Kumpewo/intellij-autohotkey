@@ -1,6 +1,6 @@
 .gradle
 .idea
 .intellijPlatform
-@claude
+claude-input
 build
 /src/main/gen/

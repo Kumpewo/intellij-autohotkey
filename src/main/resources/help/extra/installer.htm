@@ -12,12 +12,14 @@
 
 <p>Tools you use every day should not run from the project folder: every compilation there would replace the version you rely on. Two actions help:</p>
 <ul>
-  <li><a href="#Deploy"><em>Deploy to Local Target...</em></a> copies a tool to a fixed place (for example <code>C:\bin</code>), optionally after compiling it.</li>
-  <li><a href="#Version"><em>Set Version...</em></a> changes the version of the tool in its script, commits only this file and sets a Git tag.</li>
+  <li><a href="#Deploy"><em>Deploy to Local Target...</em></a> copies the tool to a fixed place (for example <code>C:\bin</code>), optionally after compiling it.</li>
+  <li><a href="#Version"><em>Set Version...</em></a> sets the version of the tool in its scripts, commits the project and sets a Git tag.</li>
 </ul>
-<p>The two are independent: you decide when a version is worth a number and when it is deployed. Both are in the <em>Code</em> menu and in the context menus of the editor and the Project view. Like <a href="validate.htm#Target">Validate</a> and <a href="compile.htm#Target">Compile</a> they apply to the script of the selected AutoHotkey run configuration if the current file is that script or included by it, otherwise to the current file. The folder of that script is the <em>tool folder</em>; the settings of both actions are in the file <code>settings.ahk-plugin.ini</code> there.</p>
+<p>The two are independent: you decide when a version is worth a number and when it is deployed. Both first save all modified files, also <code>settings.ahk-plugin.ini</code>, so that Deploy reads and Set Version commits what you see in the editor. Both are in the <em>Code</em> menu and in the context menus of the editor and the Project view.</p>
+<p id="Project">They follow one rule: <strong>one tool = one project</strong>. A tool may consist of several scripts and executables, for example a GUI and a console variant, but it is one unit with one version, deployed together. So both actions always work on the whole project, whatever file is open, and their menu entries name it (<em>Deploy 'MyTool' to Local Target...</em>). They appear in every project that contains an AutoHotkey file or a <code>settings.ahk-plugin.ini</code>; no file has to be open. Tools that have nothing in common but the language get a project each; the overhead of a project is small.</p>
 
 <h2 id="Ini">settings.ahk-plugin.ini</h2>
+<p>The settings of <em>Deploy</em> are in the file <code>settings.ahk-plugin.ini</code> in the project root; <em>Set Version</em> only reads its section <a href="#Exclude"><code>[SetVersion]</code></a> and also works without the file:</p>
 <pre>[Install]
 Destination=C:\bin
 Message=Close the running tool first.`nThen press Deploy.
@@ -26,16 +28,17 @@ GenerateOverview=true
 CompileBeforeInstall=true
 
 [Overwrite]
-mytool.exe=mytool.exe
+mytool.exe=.
+console\mytool-console.exe=.
 pictures\*.png=pictures
 
 [KeepExisting]
 mytool.ini=%APPDATA%\mytool\
 
-[Version]
-TagPrefix=mytool</pre>
-<p><em>Create settings.ahk-plugin.ini</em> (in the same menus) writes a documented default file into the tool folder: every option is explained in comments and commented out, so the defaults apply until you remove a <code>;</code>. A commented-out switch shows the value that changes its default (usually <code>true</code>), so removing the <code>;</code> is all it takes. Examples use the name of the script. If the file exists, the plugin asks before overwriting it. <em>Deploy to Local Target...</em> offers the same when the file is missing.</p>
-<p>Comments are lines starting with <code>;</code> (spaces before it are allowed); a <code>;</code> later in a line is part of the value. Section and key names are case-insensitive. Values may be enclosed in double quotes, which are removed. Every key, and every source in a section, may appear only once. Unknown sections and keys are errors.</p>
+[SetVersion]
+scratch\=exclude</pre>
+<p><em>Create Settings...</em> (in the same menus, as long as the project root has no such file) writes a documented default <code>settings.ahk-plugin.ini</code> into the project root and opens it: every option is explained in comments and commented out, so the defaults apply until you remove a <code>;</code>. A commented-out switch shows the value that changes its default (usually <code>true</code>), so removing the <code>;</code> is all it takes. Examples use the name of the project. <em>Deploy to Local Target...</em> offers the same when the file is missing.</p>
+<p>Comments are lines starting with <code>;</code> (spaces before it are allowed); a <code>;</code> later in a line is part of the value. Section and key names are case-insensitive. Keys and values may be enclosed in double quotes, which are removed; spaces inside a file name are kept (<code>my console\my console.exe=.</code>), only <code>=</code> cannot be part of it. Every key, and every source in a section, may appear only once. Unknown sections and keys are errors. A mistake of the file itself (unknown section, a line without <code>=</code>, a line twice) stops every action; a mistake in a section only stops the action that uses it (<code>[Install]</code>, <code>[Overwrite]</code> and <code>[KeepExisting]</code>: Deploy; <code>[SetVersion]</code>: Set Version).</p>
 
 <h3 id="Install">[Install]</h3>
 <table class="info">
@@ -43,53 +46,86 @@ TagPrefix=mytool</pre>
   <tr><td><code>Destination</code></td><td>Absolute folder for relative targets, usable as <code>%DESTINATION%</code> (it wins over an environment variable of that name). May be omitted; then all targets must be absolute.</td></tr>
   <tr><td><code>Message</code></td><td>Text shown in the confirmation, for example "close the running tool first". <code>`n</code> is a line break; <code>%DESTINATION%</code> and environment variables are resolved, <code>%%</code> is a percent sign.</td></tr>
   <tr><td><code>RequiresAdmin</code></td><td><code>true</code>: all files are copied by one elevated process (one UAC prompt); the confirmation then always shows a prominent notice. The plugin does not find out by itself whether administrator rights are needed; without them copying into a protected folder fails with an error.</td></tr>
-  <tr><td><code>GenerateOverview</code></td><td>Show an overview in the confirmation (default <code>true</code>): the destination, "compile mytool.ahk" if compiling, and the lines of <code>[Overwrite]</code> and <code>[KeepExisting]</code> as written, without comments.</td></tr>
-  <tr><td><code>CompileBeforeInstall</code></td><td>Compile the script first, like <a href="compile.htm">Compile with Ahk2Exe</a> (the script needs <code>;@Ahk2Exe-Base</code>). A compilation error stops the deployment before anything is copied.</td></tr>
+  <tr><td><code>GenerateOverview</code></td><td>Show an overview in the confirmation (default <code>true</code>): the destination, "compile mytool.ahk" for each script to compile, and the lines of <code>[Overwrite]</code> and <code>[KeepExisting]</code> as written, without comments.</td></tr>
+  <tr><td><code>CompileBeforeInstall</code></td><td>Compile what is copied (default <code>true</code>): see <a href="#Compile">Compiling before copying</a>.</td></tr>
 </table>
-<p>Missing switches are <code>false</code>, except <code>GenerateOverview</code>.</p>
+<p>Missing switches are <code>false</code>, except <code>GenerateOverview</code> and <code>CompileBeforeInstall</code>.</p>
 
 <h3 id="Copy">[Overwrite] and [KeepExisting]</h3>
 <p>Each line is <code>source=target</code>. <code>[Overwrite]</code> replaces existing files; <code>[KeepExisting]</code> only copies if the target does not exist yet (for configuration files the user may have changed) and reports the others as skipped.</p>
 <ul>
-  <li><strong>Source:</strong> a file relative to the tool folder, never outside of it (<code>..</code> and absolute paths are not allowed). The wildcards <code>*</code> and <code>?</code> are allowed in the file name, not in folder names; they are not recursive and match only files. A missing file or a wildcard without a match is an error, except for the executable that <code>CompileBeforeInstall</code> creates.</li>
+  <li><strong>Source:</strong> a file relative to the project root, never outside of it (<code>..</code> and absolute paths are not allowed). The wildcards <code>*</code> and <code>?</code> are allowed in the file name, not in folder names; they are not recursive and match only files. A missing file or a wildcard without a match is an error, except for the executables that the compilation creates.</li>
   <li><strong>Target:</strong> absolute, or relative to <code>Destination</code>. Environment variables of the IDE (<code>%APPDATA%</code>) and <code>%DESTINATION%</code> are resolved. The target is a <strong>folder</strong> if it ends with <code>\</code>, <code>/</code>, <code>.</code> or <code>..</code>, if it is <code>Destination</code> itself (<code>.</code> or <code>%DESTINATION%</code>, also before it exists), or if it already exists as a folder; the file keeps its name. Otherwise it is the new file name. With a wildcard in the source the target is always a folder. Missing folders are created.</li>
   <li><strong>Several targets for one file:</strong> a source may appear only once per section; use wildcards to name it again: <code>tool.exe=dest1</code>, <code>tool.ex?=dest2</code>, <code>tool.e?e=dest3</code>.</li>
 </ul>
 
-<h3 id="VersionSection">[Version]</h3>
-<table class="info">
-  <tr><th>Key</th><th>Meaning</th></tr>
-  <tr><td><code>TagPrefix</code></td><td>First part of the version tags <code>&lt;TagPrefix&gt;/v&lt;version&gt;</code>, e.g. <code>mytool</code>. Without it <em>Set Version</em> sets no tag. The folder name is not used, because it may contain characters that Git does not allow in tags, and after renaming the folder the plugin would no longer find the old tags.</td></tr>
-</table>
+<h3 id="Compile">Compiling before copying</h3>
+<p>By default (<code>CompileBeforeInstall=true</code>) the plugin compiles what is copied, and only that. Every source of <code>[Overwrite]</code> and <code>[KeepExisting]</code> that names an executable (<code>.exe</code>, without wildcards) and has a script of the same name next to it is compiled from that script with Ahk2Exe before anything is copied, like <a href="compile.htm">Compile with Ahk2Exe</a>:</p>
+<ul>
+  <li><code>mytool.exe</code> is compiled from <code>mytool.ahk</code>, <code>console\mytool-console.exe</code> from <code>console\mytool-console.ahk</code>. Each script is compiled once, in the order of the lines, every time (there is no check whether an executable is up to date).</li>
+  <li>Such a script needs a line <code>;@Ahk2Exe-Base</code>, and a line <code>;@Ahk2Exe-ExeName</code> in it must not name another file. Otherwise the deployment stops before anything happens: add the line to the script, or remove the executable from the settings.</li>
+  <li>An executable without a script of the same name is just copied; it must exist. Lines with wildcards (<code>*.exe</code>) are never compiled.</li>
+  <li>A compilation error stops the deployment before anything is copied.</li>
+</ul>
+<p>With <code>CompileBeforeInstall=false</code> nothing is compiled and the executables are copied as they are; the confirmation warns if an executable is older than the scripts next to it.</p>
 
 <h2 id="Deploy">Deploy to Local Target</h2>
-<p><em>Deploy to Local Target...</em> needs <code>settings.ahk-plugin.ini</code> with at least one line in <code>[Overwrite]</code> or <code>[KeepExisting]</code>. The plugin then</p>
+<p><em>Deploy to Local Target...</em> needs <code>settings.ahk-plugin.ini</code> in the project root with at least one line in <code>[Overwrite]</code> or <code>[KeepExisting]</code>. The plugin then</p>
 <ol>
-  <li>reads the file and checks everything: sources, targets, variables. Any problem is shown at once and nothing happens;</li>
+  <li>reads the file and checks everything: sources, targets, variables, the scripts to compile. Any problem is shown at once and nothing happens;</li>
   <li>always asks for confirmation (with the notice about administrator rights, the message, the overview and warnings; see below);</li>
-  <li>compiles (if <code>CompileBeforeInstall=true</code>) and copies, in this order;</li>
+  <li>compiles (unless <code>CompileBeforeInstall=false</code>) and copies, in this order;</li>
   <li>shows a report in the Run tool window: what was compiled, copied and skipped. At the first failure the remaining steps are stopped; nothing is rolled back.</li>
 </ol>
-<p>The confirmation warns if the script or another <code>.ahk</code> file of the tool folder is newer than the executable (with <code>CompileBeforeInstall=false</code>; the executable is the file named by <code>;@Ahk2Exe-ExeName</code>, otherwise the script name with <code>.exe</code>), and if the tool folder has <a href="#Uncommitted">uncommitted changes</a>. Deploying never commits or tags anything.</p>
+<p>The confirmation warns if an executable is older than the scripts next to it (with <code>CompileBeforeInstall=false</code>), and if the project has <a href="#Uncommitted">uncommitted changes</a>. Deploying never commits or tags anything.</p>
 <p>Copying writes the content into the target: a new file gets the permissions of its folder, an overwritten file keeps its own. The modification time of the source is kept. Environment variables are always resolved in the IDE, also with <code>RequiresAdmin=true</code>, so <code>%APPDATA%</code> is your folder even if the elevated process runs as another administrator.</p>
 <p>There is no step to stop a running tool or to run a program before or after the deployment; use <code>Message</code> to remind yourself.</p>
 
+<h3 id="Package">A tool with several programs</h3>
+<p>A tool may consist of scripts that are deployed as they are and of programs that are compiled. Example: a script started by the Windows Task Scheduler (easy to change and restart) and two compiled variants of the tool, one with a GUI and one for the console:</p>
+<pre>MyTool\                        ; the project root
+  settings.ahk-plugin.ini
+  watch.ahk                    ; ;@Ahk2Exe-SetVersion 1.4.0 (not compiled)
+  mytool.ahk                   ; ;@Ahk2Exe-Base ..., ;@Ahk2Exe-SetVersion 1.4.0
+  console\mytool-console.ahk   ; ;@Ahk2Exe-Base ..., ;@Ahk2Exe-SetVersion 1.4.0
+  lib\shared.ahk               ; included by both variants</pre>
+<pre>[Install]
+Destination=C:\bin\mytool
+CompileBeforeInstall=true
+
+[Overwrite]
+watch.ahk=.
+mytool.exe=.
+console\mytool-console.exe=.</pre>
+<ul>
+  <li><strong>Deploy</strong> compiles both variants and copies everything, whatever file is open.</li>
+  <li><strong>Versions:</strong> all three scripts carry the line <code>;@Ahk2Exe-SetVersion</code>; <em>Set Version...</em> changes all of them at once, also in <code>watch.ahk</code>, which is not compiled. <code>lib\shared.ahk</code> needs no line.</li>
+  <li><strong>Validate and Compile</strong> use the script of the selected AutoHotkey run configuration, from whatever file is open. To test both variants independently, create a run configuration for each and select the one you work on; without a run configuration they use the current file.</li>
+</ul>
+
 <h3 id="Uncommitted">Uncommitted changes</h3>
-<p>The confirmation shows "The tool folder has uncommitted changes" when Git reports changes in the tool folder. The deployed version then does not match any commit: you cannot find out later which code it was built from, and a version tag points to a commit without these changes. Commit first (or use <a href="#Version">Set Version</a>) if the deployed version should be reproducible.</p>
+<p>The confirmation shows "The project has uncommitted changes" when Git reports changes in the project. The deployed version then does not match any commit: you cannot find out later which code it was built from, and a version tag points to a commit without these changes. Commit first (or use <a href="#Version">Set Version</a>) if the deployed version should be reproducible.</p>
 
 <h2 id="Version">Set Version</h2>
-<p>The version lives in the script, in the compiler directive that sets the file and product version of the executable:</p>
+<p>The version lives in the scripts, in the compiler directive that sets the file and product version of the executable:</p>
 <pre>;@Ahk2Exe-SetVersion 1.0.2</pre>
-<p><em>Set Version...</em> reads this line and shows a dialog:</p>
+<p><em>Set Version...</em> reads this line in every AutoHotkey file of the project (excluded folders are skipped; files without the line are left alone) and shows a dialog:</p>
 <ul>
+  <li>the current version and the scripts that get the new one. If the scripts have different versions, the dialog says so; the highest counts as the current one, and all get the new version;</li>
   <li>the next <strong>patch</strong>, <strong>minor</strong> or <strong>major</strong> version (<code>1.0.2</code> becomes <code>1.0.3</code>, <code>1.1.0</code> or <code>2.0.0</code>; a text after the numbers such as <code>-beta</code> and a leading <code>v</code> are dropped), or any <strong>other</strong> version (without a leading <code>v</code>, which is unusual for Windows versions, and without spaces, commas, <code>%</code>, <code>;</code> and <code>`</code>);</li>
-  <li><strong>Commit</strong> the script: only this file is committed, other staged changes stay staged and other changed files stay as they are;</li>
-  <li><strong>Create tag</strong> <code>&lt;TagPrefix&gt;/v&lt;version&gt;</code>: an annotated tag on the new commit (only together with the commit, so that the tag contains the new version). An existing tag is refused: choose another version;</li>
-  <li>the message of commit and tag, proposed as "Release mytool v1.0.3".</li>
+  <li><strong>Commit the project and create tag</strong> <code>v&lt;version&gt;</code>: commits all changes of the project together with the new version and sets an annotated tag on that commit, so the tag marks exactly the sources of the deployed tool. Staged changes outside the project stay staged. An existing tag is refused: choose another version;</li>
+  <li>the message of commit and tag, proposed as "Release MyTool v1.0.3".</li>
 </ul>
-<p>The plugin then changes the line in the editor (<em>Undo</em> takes it back), saves the file, commits and tags, and reports the result in a notification. Without Git, or if the tool folder is not in a repository, only the line is changed. Without <code>settings.ahk-plugin.ini</code> or without <code>TagPrefix</code> there is no tag. The dialog warns if the script has other uncommitted changes (they are committed together with the version) and if other files of the tool folder have changes (they are not committed).</p>
-<p>The line is read as Ahk2Exe reads it: <code>;@Ahk2Exe-SetVersion</code> in any case at the start of the line (spaces before it allowed), then the version; a comment after spaces (<code>;@Ahk2Exe-SetVersion 1.0.2 ; comment</code>) is not part of it. Lines in block comments <code>/* */</code> and between <code>;@Ahk2Exe-IgnoreBegin</code> and <code>;@Ahk2Exe-IgnoreEnd</code> do not count. The script must have exactly one such line, with the version written out (a version computed with <code>%...%</code> cannot be changed). Ahk2Exe turns a text such as <code>1.0.2-dev</code> into the binary version <code>1.0.2.0</code>.</p>
-<p>One repository can hold all your tools, one folder each, without branches per tool; the tag prefix tells the tools apart. Code shared by several tools usually lies in a library folder outside the repository; a deployed <code>.exe</code> contains the library as it was when it was compiled, a deployed <code>.ahk</code> uses the current library.</p>
+<p id="Clean">Commit and tag are only possible if every file of the project is either versioned or ignored (<code>.gitignore</code>): a new file nobody added yet would be missing in the tagged state. Otherwise the check box is disabled and the dialog names these files; add them to Git or to <code>.gitignore</code> and set the version again. Uncommitted changes of versioned files are listed in the dialog and committed together with the version. Without Git, or if the project is not in a repository, the check box is disabled as well. Without the check box only the lines are changed.</p>
+<p id="Exclude">Scripts that should keep their own version line, such as experiments or old variants, are listed in the section <code>[SetVersion]</code> of <code>settings.ahk-plugin.ini</code>:</p>
+<pre>[SetVersion]
+scratch\=exclude
+old\mytool-v1.ahk=exclude
+test\*.ahk=exclude</pre>
+<p>Each line is <code>path=exclude</code>. The path is relative to the project root and names files like a source of <code>[Overwrite]</code> (<code>*</code> and <code>?</code> only in the last name, no <code>..</code>); ending with <code>\</code> it names a folder with everything below it, as in <code>.gitignore</code> (but always from the project root). <code>test\*.ahk</code> only names the files directly in <code>test</code>. Excluded scripts are left out silently. They still count for commit and tag: to keep files out of Git, list them in <code>.gitignore</code>.</p>
+<p>The plugin then changes the lines in the editor (one <em>Undo</em> takes them all back), saves the files, commits and tags, and reports the result in a notification.</p>
+<p>The line is read as Ahk2Exe reads it: <code>;@Ahk2Exe-SetVersion</code> in any case at the start of the line (spaces before it allowed), then the version; a comment after spaces (<code>;@Ahk2Exe-SetVersion 1.0.2 ; comment</code>) is not part of it. Lines in block comments <code>/* */</code> and between <code>;@Ahk2Exe-IgnoreBegin</code> and <code>;@Ahk2Exe-IgnoreEnd</code> do not count. A script may have only one such line, with the version written out (a version computed with <code>%...%</code> cannot be changed). Ahk2Exe turns a text such as <code>1.0.2-dev</code> into the binary version <code>1.0.2.0</code>.</p>
+<p>Code shared by several tools usually lies in a library folder outside the project; a deployed <code>.exe</code> contains the library as it was when it was compiled, a deployed <code>.ahk</code> uses the current library.</p>
 
 <h2 id="Related">Related</h2>
 <p><a href="index.htm">Plugin manual</a>, <a href="compile.htm">Compiling with Ahk2Exe</a>, <a href="validate.htm">Validating</a></p>

@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
  * case) and whitespace; a comment {@code  ; ...} after whitespace is not part of the value; the value is trimmed,
  * quotes belong to it. Lines in block comments {@code /* ... * /} and between {@code ;@Ahk2Exe-IgnoreBegin} and
  * {@code ;@Ahk2Exe-IgnoreEnd} are ignored, as by Ahk2Exe. Also the next version ({@link #bump}) and the tag name
- * ({@link #tagName}).
+ * ({@link #tagName}) and the order of versions ({@link #compare}).
  */
 public final class AhkVersionDirective {
 
@@ -148,9 +148,39 @@ public final class AhkVersionDirective {
         return !version.isEmpty() && !INVALID.matcher(version).find();
     }
 
-    /** Tag name {@code <prefix>/v<version>} (a leading {@code v} of the version is not doubled). */
-    public static @NotNull String tagName(@NotNull String prefix, @NotNull String version) {
+    /** Tag name {@code v<version>} (a leading {@code v} of the version is not doubled). */
+    public static @NotNull String tagName(@NotNull String version) {
         String v = version.startsWith("v") || version.startsWith("V") ? version.substring(1) : version;
-        return prefix + "/v" + v;
+        return "v" + v;
+    }
+
+    /**
+     * Compares two versions by the numbers at their start (missing numbers are 0), then as text; negative if
+     * {@code a} is lower. A version without numbers is lower than one with numbers.
+     */
+    public static int compare(@NotNull String a, @NotNull String b) {
+        long[] x = numbers(a);
+        long[] y = numbers(b);
+        if (x == null || y == null) return x == null ? (y == null ? a.compareTo(b) : -1) : 1;
+        for (int i = 0; i < 4; i++) {
+            if (x[i] != y[i]) return Long.compare(x[i], y[i]);
+        }
+        return a.compareTo(b);
+    }
+
+    /** The four numbers at the start of the version (missing ones 0), {@code null} without a number. */
+    private static long @Nullable [] numbers(@NotNull String version) {
+        Matcher m = NUMBERS.matcher(version.strip());
+        if (!m.find()) return null;
+        long[] result = new long[4];
+        for (int i = 0; i < 4; i++) {
+            String group = m.group(i + 1);
+            try {
+                result[i] = group == null ? 0 : Long.parseLong(group);
+            } catch (NumberFormatException e) {
+                result[i] = Long.MAX_VALUE;
+            }
+        }
+        return result;
     }
 }

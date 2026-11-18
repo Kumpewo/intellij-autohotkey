@@ -153,7 +153,7 @@ public final class AhkCompiler {
     }
 
     /**
-     * Compiles the target of {@code file} (call on the EDT): saves the AutoHotkey documents, checks the base
+     * Compiles the target of {@code file} (call on the EDT): saves all modified documents, checks the base
      * directive and runs Ahk2Exe in the background. Without base directive a notification offers to insert one
      * ({@link #notifyNoBase}); without Ahk2Exe a hint is shown in the editor or, without an editor, a message dialog.
      */
@@ -162,7 +162,7 @@ public final class AhkCompiler {
         AhkValidator.Target target = AhkValidator.target(project, file);
         if (target == null) return;
         VirtualFile script = target.script();
-        AhkValidator.saveAhkDocuments();
+        AhkValidator.saveAllDocuments();
         Document document = FileDocumentManager.getInstance().getDocument(script);
         if (document == null) return;
         if (!hasBaseDirective(document.getCharsSequence())) {

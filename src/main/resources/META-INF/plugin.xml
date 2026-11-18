@@ -145,6 +145,9 @@ the editor.</p>
                    implementationClass="de.kumpewo.autohotkey.annotation.AhkAnnotator"/>
         <annotator language="AutoHotkey"
                    implementationClass="de.kumpewo.autohotkey.annotation.AhkBlockBraceAnnotator"/>
+        <!-- keys in the replacement text of hotstrings: {Enter}, ^c; unknown key names -->
+        <annotator language="AutoHotkey"
+                   implementationClass="de.kumpewo.autohotkey.annotation.AhkSendKeysAnnotator"/>
         <!-- doc comments: unknown @param / classes, deprecated definitions struck out -->
         <annotator language="AutoHotkey"
                    implementationClass="de.kumpewo.autohotkey.annotation.AhkDocCommentAnnotator"/>
@@ -340,49 +343,48 @@ the editor.</p>
             <add-to-group group-id="NewGroup" anchor="after" relative-to-action="NewFile"/>
         </action>
         <!-- Validation with AutoHotkey /validate (AhkValidator) -->
-        <action id="AutoHotkey.Validate" class="de.kumpewo.autohotkey.validate.AhkValidateAction" icon="/icons/autohotkey.png">
+        <action id="AutoHotkey.Validate" class="de.kumpewo.autohotkey.validate.AhkValidateAction" icon="/icons/autohotkey-action.png">
             <keyboard-shortcut keymap="$default" first-keystroke="alt shift V"/>
-            <add-to-group group-id="CodeMenu" anchor="last"/>
-            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
-            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
         </action>
         <!-- Compilation into an executable with Ahk2Exe (AhkCompiler) -->
-        <action id="AutoHotkey.Compile" class="de.kumpewo.autohotkey.compile.AhkCompileAction" icon="/icons/autohotkey.png">
-            <add-to-group group-id="CodeMenu" anchor="last"/>
-            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
-            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
-        </action>
+        <action id="AutoHotkey.Compile" class="de.kumpewo.autohotkey.compile.AhkCompileAction" icon="/icons/autohotkey-action.png"/>
         <!-- Copying a tool to its local target as described by settings.ahk-plugin.ini (install/AhkInstaller) -->
-        <action id="AutoHotkey.Install" class="de.kumpewo.autohotkey.install.AhkInstallAction" icon="/icons/autohotkey.png">
-            <add-to-group group-id="CodeMenu" anchor="last"/>
-            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
-            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
-        </action>
+        <action id="AutoHotkey.Install" class="de.kumpewo.autohotkey.install.AhkInstallAction" icon="/icons/autohotkey-action.png"/>
         <!-- Documented default settings.ahk-plugin.ini (install/AhkSettingsFile) -->
-        <action id="AutoHotkey.CreateSettings" class="de.kumpewo.autohotkey.install.AhkCreateSettingsAction" icon="/icons/autohotkey.png">
-            <add-to-group group-id="CodeMenu" anchor="last"/>
-            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
-            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
-        </action>
+        <action id="AutoHotkey.CreateSettings" class="de.kumpewo.autohotkey.install.AhkCreateSettingsAction" icon="/icons/autohotkey-action.png"/>
         <!-- Version line ;@Ahk2Exe-SetVersion, commit and tag (install/AhkSetVersion) -->
-        <action id="AutoHotkey.SetVersion" class="de.kumpewo.autohotkey.install.AhkSetVersionAction" icon="/icons/autohotkey.png">
+        <action id="AutoHotkey.SetVersion" class="de.kumpewo.autohotkey.install.AhkSetVersionAction" icon="/icons/autohotkey-action.png"/>
+        <!--
+            The AutoHotkey entries of the Code menu and of the editor and project view context menus, in the order of
+            work: Validate, Compile, Create Settings, Set Version, Deploy; enclosed in separators, because other plugins
+            may append their entries. The platform collapses adjacent separators, so both lines appear as soon as one
+            of the entries is visible, whichever it is.
+        -->
+        <group id="AutoHotkey.CodeActions">
+            <separator/>
+            <reference ref="AutoHotkey.Validate"/>
+            <reference ref="AutoHotkey.Compile"/>
+            <reference ref="AutoHotkey.CreateSettings"/>
+            <reference ref="AutoHotkey.SetVersion"/>
+            <reference ref="AutoHotkey.Install"/>
+            <separator/>
             <add-to-group group-id="CodeMenu" anchor="last"/>
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
             <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
-        </action>
+        </group>
         <!-- Attach the debugger to a running script (AhkAttach) -->
-        <action id="AutoHotkey.AttachDebugger" class="de.kumpewo.autohotkey.debug.AhkAttachAction" icon="/icons/autohotkey.png">
+        <action id="AutoHotkey.AttachDebugger" class="de.kumpewo.autohotkey.debug.AhkAttachAction" icon="/icons/autohotkey-action.png">
             <add-to-group group-id="RunMenu" anchor="after" relative-to-action="XDebugger.AttachToProcess"/>
         </action>
         <!-- User manual of the plugin (help/extra/, AhkManual) -->
-        <action id="AutoHotkey.Manual" class="de.kumpewo.autohotkey.documentation.AhkManualAction" icon="/icons/autohotkey.png">
+        <action id="AutoHotkey.Manual" class="de.kumpewo.autohotkey.documentation.AhkManualAction" icon="/icons/autohotkey-action.png">
             <add-to-group group-id="HelpMenu" anchor="after" relative-to-action="HelpTopics"/>
         </action>
         <!-- Help of AutoHotkey v2.0 and v2.1 (AhkExternalHelp.openDocs) -->
-        <action id="AutoHotkey.Help" class="de.kumpewo.autohotkey.documentation.AhkHelpAction" icon="/icons/autohotkey.png">
+        <action id="AutoHotkey.Help" class="de.kumpewo.autohotkey.documentation.AhkHelpAction" icon="/icons/autohotkey-action.png">
             <add-to-group group-id="HelpMenu" anchor="after" relative-to-action="AutoHotkey.Manual"/>
         </action>
-        <action id="AutoHotkey.HelpV21" class="de.kumpewo.autohotkey.documentation.AhkHelpAction$V21" icon="/icons/autohotkey.png">
+        <action id="AutoHotkey.HelpV21" class="de.kumpewo.autohotkey.documentation.AhkHelpAction$V21" icon="/icons/autohotkey-action.png">
             <add-to-group group-id="HelpMenu" anchor="after" relative-to-action="AutoHotkey.Help"/>
         </action>
     </actions>

@@ -2,37 +2,36 @@ package de.kumpewo.autohotkey.install;
 
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.project.DumbAwareAction;
 import com.intellij.openapi.project.Project;
-import de.kumpewo.autohotkey.validate.AhkValidator;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Action "Create settings.ahk-plugin.ini" (Code menu, editor and project view context menus): writes the documented
- * default file with all options commented out next to the script of the selected AutoHotkey run configuration,
- * otherwise next to the current AutoHotkey file ({@link AhkSettingsFile}); asks before overwriting an existing one.
+ * Action "Create Settings..." (Code menu, editor and project view context menus): writes the documented default
+ * {@code settings.ahk-plugin.ini} with all options commented out into the project root and opens it
+ * ({@link AhkSettingsFile}).
  */
 public final class AhkCreateSettingsAction extends DumbAwareAction {
 
-    /** Visible and enabled for an AutoHotkey file on disk or with a selected AutoHotkey run configuration. */
+    /**
+     * Visible in an AutoHotkey context ({@link AhkProjectRoot#isAvailable}) as long as the project root has no
+     * {@code settings.ahk-plugin.ini}; the text names the project ({@link AhkProjectRoot#update}).
+     */
     @Override
     public void update(@NotNull AnActionEvent event) {
-        Project project = event.getProject();
-        event.getPresentation().setEnabledAndVisible(project != null
-                && AhkValidator.hasTarget(project, event.getData(CommonDataKeys.VIRTUAL_FILE)));
+        AhkProjectRoot.update(this, event, "action.AutoHotkey.CreateSettings.target", true);
     }
 
-    /** {@link #update} only reads data keys and the selected run configuration. */
+    /** {@link #update} reads data keys, the selected run configuration and the project root. */
     @Override
     public @NotNull ActionUpdateThread getActionUpdateThread() {
         return ActionUpdateThread.BGT;
     }
 
-    /** Creates the file (after confirmation if it exists) and opens it. */
+    /** Creates the file and opens it. */
     @Override
     public void actionPerformed(@NotNull AnActionEvent event) {
         Project project = event.getProject();
-        if (project != null) AhkSettingsFile.create(project, event.getData(CommonDataKeys.VIRTUAL_FILE));
+        if (project != null) AhkSettingsFile.create(project);
     }
 }

@@ -2,69 +2,96 @@ package de.kumpewo.autohotkey.install;
 
 import com.intellij.notification.NotificationGroupManager;
 import com.intellij.notification.NotificationType;
+import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.roots.ProjectFileIndex;
 import com.intellij.openapi.ui.Messages;
+import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import de.kumpewo.autohotkey.AhkBundle;
+import de.kumpewo.autohotkey.AhkFileType;
 import de.kumpewo.autohotkey.validate.AhkValidator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * "Set Version...": changes the version of a tool in its line {@code ;@Ahk2Exe-SetVersion} ({@link AhkVersionDirective}),
- * then optionally commits only this file and sets the annotated tag {@code <TagPrefix>/v<version>} on the new commit
- * (prefix from {@code [Version]} of {@link AhkInstallConfig settings.ahk-plugin.ini}). The script is the target of
- * Validate/Compile. Order: check ({@link #prepare}, in the background, runs Git) → dialog ({@link AhkSetVersionDialog})
- * → change the line in the document (undoable) and save → commit → tag (background) → notification. Works without Git
- * (then only the line is changed) and without {@code settings.ahk-plugin.ini} (then without tag).
+ * "Set Version...": sets the version of the tool of the project (one tool = one project) in every AutoHotkey file of
+ * the project that has a line {@code ;@Ahk2Exe-SetVersion} ({@link AhkVersionDirective}), then optionally commits all
+ * changes of the project and sets the annotated tag {@code v<version>} on the new commit, so that the tag marks the
+ * sources of the deployed tool. Commit and tag are only offered if every file of the project is either versioned or
+ * ignored (Git). Order: check ({@link #prepare}, in the background, runs Git) → dialog ({@link AhkSetVersionDialog})
+ * → change the lines in the documents (undoable) and save → commit → tag (background) → notification. Needs no
+ * {@code settings.ahk-plugin.ini}; if there is one, the files named in its section {@code [SetVersion]} are left out
+ * silently ({@link AhkInstallConfig#excludes}), and only mistakes of the file itself or of that section stop. Works
+ * without Git (then only the lines are changed). Excluded files still count for commit and tag (Git ignores files
+ * only through {@code .gitignore}).
  */
 public final class AhkSetVersion {
 
-    /** Paths of the scripts whose version is being set (a second start for the same script is ignored). */
+    /** Project roots whose version is being set (a second start for the same project is ignored). */
     private static final Set<String> RUNNING = ConcurrentHashMap.newKeySet();
 
     private AhkSetVersion() {
     }
 
     /**
+     * A script with a version line.
+     *
+     * @param file the script
+     * @param name its path relative to the project root (for messages)
+     * @param line its version line
+     */
+    public record Script(@NotNull Path file, @NotNull String name, @NotNull AhkVersionDirective.Line line) {
+    }
+
+    /**
      * Everything checked before the dialog.
      *
-     * @param script        the script
-     * @param toolDir       its folder
-     * @param line          the version line, {@code null} if there is none (then {@code errors} is not empty)
-     * @param tagPrefix     {@code TagPrefix} of {@code [Version]}, {@code null} = no tag possible
-     * @param repository    Git is installed and the tool folder lies in a repository
-     * @param scriptChanged the script has uncommitted changes (they would be committed with the version)
-     * @param otherChanges  other files of the tool folder have uncommitted changes (they stay uncommitted)
-     * @param tags          existing tags with the prefix (case-insensitive)
-     * @param errors        problems that prevent setting the version
+     * @param root       the project root
+     * @param tool       name of the tool (the project name), for messages
+     * @param scripts    the scripts with a version line, sorted by path
+     * @param errors     problems that prevent setting the version
+     * @param warnings   hints shown in the dialog (e.g. different versions)
+     * @param repository Git is installed and the project root lies in a repository
+     * @param untracked  files of the project that are neither versioned nor ignored (then no commit is possible)
+     * @param changed    versioned files of the project with uncommitted changes (they are committed with the version)
+     * @param tags       existing version tags {@code v*} (case-insensitive)
      */
-    public record Prepared(@NotNull Path script, @NotNull Path toolDir, @Nullable AhkVersionDirective.Line line,
-                           @Nullable String tagPrefix, boolean repository, boolean scriptChanged, boolean otherChanges,
-                           @NotNull Set<String> tags, @NotNull List<String> errors) {
+    public record Prepared(@NotNull Path root, @NotNull String tool, @NotNull List<Script> scripts,
+                           @NotNull List<String> errors, @NotNull List<String> warnings, boolean repository,
+                           @NotNull List<String> untracked, @NotNull List<String> changed, @NotNull Set<String> tags) {
 
-        /** The current version, empty without a line. */
+        /** The current version: the highest of the scripts, empty without scripts. */
         public @NotNull String current() {
-            return line == null ? "" : line.value();
+            String current = "";
+            for (Script script : scripts) {
+                String value = script.line().value();
+                if (current.isEmpty() || AhkVersionDirective.compare(value, current) > 0) current = value;
+            }
+            return current;
         }
 
-        /** The file name of the script. */
-        public @NotNull String fileName() {
-            return script.getFileName().toString();
+        /** Can the version be committed and tagged (Git repository, no untracked files)? */
+        public boolean canCommit() {
+            return repository && untracked.isEmpty();
         }
 
         /** Does the tag exist already? */
@@ -74,10 +101,7 @@ public final class AhkSetVersion {
 
         /** Proposed commit and tag message for the version. */
         public @NotNull String message(@NotNull String version) {
-            return tagPrefix != null
-                    ? AhkBundle.message("version.commit.message.release", tagPrefix,
-                            AhkVersionDirective.tagName(tagPrefix, version).substring(tagPrefix.length() + 1))
-                    : AhkBundle.message("version.commit.message", version, fileName());
+            return AhkBundle.message("version.commit.message", tool, AhkVersionDirective.tagName(version));
         }
     }
 
@@ -85,78 +109,94 @@ public final class AhkSetVersion {
      * What the user chose in the dialog.
      *
      * @param version the new version
-     * @param commit  commit the script
-     * @param tag     the tag to set, {@code null} = none (only with {@code commit})
+     * @param commit  commit the project and set the tag {@link #tag}
+     * @param tag     the tag {@code v<version>}
      * @param message commit and tag message
      */
-    public record Choice(@NotNull String version, boolean commit, @Nullable String tag, @NotNull String message) {
+    public record Choice(@NotNull String version, boolean commit, @NotNull String tag, @NotNull String message) {
     }
 
     /**
-     * Reads the version line and the settings and asks Git (not on the EDT).
+     * Reads the version lines (without the files excluded in {@code settings.ahk-plugin.ini}, if there is one in the
+     * root) and asks Git (not on the EDT).
      *
-     * @param script     the script
-     * @param scriptText its saved text
+     * @param root       the project root
+     * @param tool       name of the tool (the project name)
+     * @param texts      the saved texts of the AutoHotkey files of the project
      * @param gitEnabled false = behave as if Git were missing (tests)
      */
-    public static @NotNull Prepared prepare(@NotNull Path script, @NotNull String scriptText, boolean gitEnabled)
-            throws IOException {
-        Path toolDir = script.toAbsolutePath().getParent();
+    public static @NotNull Prepared prepare(@NotNull Path root, @NotNull String tool, @NotNull Map<Path, String> texts,
+                                            boolean gitEnabled) {
+        Path dir = root.toAbsolutePath().normalize();
         List<String> errors = new ArrayList<>();
-        String tagPrefix = null;
-        Path ini = toolDir.resolve(AhkInstallConfig.FILE_NAME);
+        List<String> warnings = new ArrayList<>();
+        List<Script> scripts = new ArrayList<>();
+        AhkInstallConfig config = AhkInstallConfig.parse("");
+        Path ini = dir.resolve(AhkInstallConfig.FILE_NAME);
         if (Files.isRegularFile(ini)) {
-            AhkInstallConfig config = AhkInstallConfig.parse(AhkInstaller.readText(ini));
-            errors.addAll(config.errors());
-            tagPrefix = config.tagPrefix();
+            try {
+                config = AhkInstallConfig.parse(AhkInstaller.readText(ini));
+                errors.addAll(config.versionErrors());
+            } catch (IOException e) {
+                errors.add(e.toString());
+            }
         }
-        String fileName = script.getFileName().toString();
-        List<AhkVersionDirective.Line> lines = AhkVersionDirective.find(scriptText);
-        AhkVersionDirective.Line line = null;
-        if (lines.isEmpty()) {
-            errors.add(AhkBundle.message("version.line.missing", fileName));
-        } else if (lines.size() > 1) {
-            List<String> numbers = new ArrayList<>();
-            for (AhkVersionDirective.Line l : lines) numbers.add(String.valueOf(l.line() + 1));
-            errors.add(AhkBundle.message("version.line.several", fileName, String.join(", ", numbers)));
-        } else if (lines.get(0).computed()) {
-            errors.add(AhkBundle.message("version.line.computed", fileName, lines.get(0).line() + 1));
-        } else {
-            line = lines.get(0);
+        Map<Path, String> sorted = new java.util.TreeMap<>(texts);
+        for (Map.Entry<Path, String> entry : sorted.entrySet()) {
+            String name = AhkInstaller.relative(dir, entry.getKey().toAbsolutePath().normalize());
+            if (config.excludes(name)) continue;
+            List<AhkVersionDirective.Line> lines = AhkVersionDirective.find(entry.getValue());
+            if (lines.isEmpty()) continue;
+            if (lines.size() > 1) {
+                List<String> numbers = new ArrayList<>();
+                for (AhkVersionDirective.Line l : lines) numbers.add(String.valueOf(l.line() + 1));
+                errors.add(AhkBundle.message("version.line.several", name, String.join(", ", numbers)));
+            } else if (lines.get(0).computed()) {
+                errors.add(AhkBundle.message("version.line.computed", name, lines.get(0).line() + 1));
+            } else {
+                scripts.add(new Script(entry.getKey(), name, lines.get(0)));
+            }
         }
-        AhkInstallGit git = new AhkInstallGit(toolDir);
+        if (scripts.isEmpty() && errors.isEmpty()) errors.add(AhkBundle.message("version.line.missing"));
+        Set<String> versions = new LinkedHashSet<>();
+        for (Script script : scripts) versions.add(script.line().value());
+        if (versions.size() > 1) {
+            List<String> each = new ArrayList<>();
+            for (Script script : scripts) each.add(script.name() + " " + script.line().value());
+            warnings.add(AhkBundle.message("version.dialog.different", String.join(", ", each)));
+        }
+        AhkInstallGit git = new AhkInstallGit(dir);
         boolean repository = gitEnabled && git.inRepository();
-        boolean scriptChanged = repository && git.hasChanges(fileName);
-        boolean otherChanges = repository && git.hasOtherChanges(fileName);
+        List<String> untracked = new ArrayList<>();
+        List<String> changed = new ArrayList<>();
         Set<String> tags = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
-        if (repository && tagPrefix != null) {
-            AhkInstallGit.Result result = git.run("tag", "-l", tagPrefix + "/*");
+        if (repository) {
+            for (String line : git.status()) {
+                if (line.length() < 4) continue;
+                (line.startsWith("??") ? untracked : changed).add(line.substring(3));
+            }
+            AhkInstallGit.Result result = git.run("tag", "-l", "v*");
             if (result.ok()) {
                 for (String tag : result.stdout().split("\\R")) {
                     if (!tag.isBlank()) tags.add(tag.strip());
                 }
             }
         }
-        return new Prepared(script, toolDir, line, tagPrefix, repository, scriptChanged, otherChanges, tags, errors);
+        return new Prepared(dir, tool, scripts, errors, warnings, repository, untracked, changed, tags);
     }
 
     /**
-     * Commits the script and sets the tag as chosen (the new version is already saved); {@code null} on success,
-     * otherwise the error. The tag is only checked with Git here ({@code git check-ref-format}).
+     * Commits all changes of the project and sets the tag as chosen (the new version is already saved); {@code null}
+     * on success, otherwise the error. The tag is only checked with Git here ({@code git check-ref-format}).
      */
     static @Nullable String commitAndTag(@NotNull Prepared prepared, @NotNull Choice choice) {
-        AhkInstallGit git = new AhkInstallGit(prepared.toolDir());
-        if (choice.tag() != null && !git.isValidTag(choice.tag())) {
-            return AhkBundle.message("version.tag.invalid", choice.tag());
-        }
-        if (choice.commit()) {
-            String error = git.commitFile(prepared.fileName(), choice.message());
-            if (error != null) return AhkBundle.message("version.commit.failed", error);
-        }
-        if (choice.tag() != null) {
-            String error = git.tag(choice.tag(), choice.message());
-            if (error != null) return AhkBundle.message("version.tag.failed", choice.tag(), error);
-        }
+        if (!choice.commit()) return null;
+        AhkInstallGit git = new AhkInstallGit(prepared.root());
+        if (!git.isValidTag(choice.tag())) return AhkBundle.message("version.tag.invalid", choice.tag());
+        String error = git.commitAll(choice.message());
+        if (error != null) return AhkBundle.message("version.commit.failed", error);
+        error = git.tag(choice.tag(), choice.message());
+        if (error != null) return AhkBundle.message("version.tag.failed", choice.tag(), error);
         return null;
     }
 
@@ -170,70 +210,94 @@ public final class AhkSetVersion {
     }
 
     /**
-     * Sets the version of the target of {@code file} (call on the EDT): saves the AutoHotkey documents, checks in the
-     * background, shows the dialog, changes the line, then commits and tags in the background.
+     * The AutoHotkey files of the project under the root (content, without excluded folders), call in a read action.
      */
-    public static void run(@NotNull Project project, @Nullable VirtualFile file) {
-        if (project.isDisposed()) return;
-        AhkValidator.Target target = AhkValidator.target(project, file);
-        if (target == null) return;
-        VirtualFile scriptFile = target.script();
-        Path script = Path.of(scriptFile.getPath());
-        String title = AhkBundle.message("version.title", scriptFile.getName());
-        AhkValidator.saveAhkDocuments();
-        if (!RUNNING.add(script.toString())) return;
-        new Task.Backgroundable(project, AhkBundle.message("version.progress.check", scriptFile.getName()), true) {
+    static @NotNull List<Path> projectScripts(@NotNull Project project, @NotNull Path root) {
+        List<Path> result = new ArrayList<>();
+        ProjectFileIndex.getInstance(project).iterateContent(file -> {
+            if (!file.isDirectory() && file.isInLocalFileSystem() && file.getFileType() == AhkFileType.INSTANCE) {
+                try {
+                    Path path = file.toNioPath().toAbsolutePath().normalize();
+                    if (path.startsWith(root)) result.add(path);
+                } catch (UnsupportedOperationException | InvalidPathException ignored) {
+                    // not a local file
+                }
+            }
+            return true;
+        });
+        return result;
+    }
+
+    /**
+     * Sets the version of the project (call on the EDT): saves all modified documents, checks in the background,
+     * shows the dialog, changes the lines, then commits and tags in the background.
+     */
+    public static void run(@NotNull Project project) {
+        Path root = AhkProjectRoot.path(project);
+        if (root == null) return;
+        Path dir = root.toAbsolutePath().normalize();
+        String tool = project.getName();
+        String title = AhkBundle.message("version.title", tool);
+        AhkValidator.saveAllDocuments();
+        String key = dir.toString();
+        if (!RUNNING.add(key)) return;
+        new Task.Backgroundable(project, AhkBundle.message("version.progress.check", tool), true) {
             private Prepared prepared;
             private String failure;
 
             @Override
             public void run(@NotNull ProgressIndicator indicator) {
+                List<Path> files = ReadAction.compute(() -> project.isDisposed() ? List.of()
+                        : projectScripts(project, dir));
+                Map<Path, String> texts = new LinkedHashMap<>();
                 try {
-                    prepared = prepare(script, AhkInstaller.readText(script), true);
+                    for (Path file : files) texts.put(file, AhkInstaller.readText(file));
                 } catch (IOException e) {
                     failure = e.toString();
+                    return;
                 }
+                prepared = prepare(dir, tool, texts, true);
             }
 
             @Override
             public void onThrowable(@NotNull Throwable error) {
-                RUNNING.remove(script.toString());
+                RUNNING.remove(key);
                 super.onThrowable(error);
             }
 
             @Override
             public void onCancel() {
-                RUNNING.remove(script.toString());
+                RUNNING.remove(key);
             }
 
             @Override
             public void onSuccess() {
                 if (project.isDisposed()) {
-                    RUNNING.remove(script.toString());
+                    RUNNING.remove(key);
                     return;
                 }
                 if (failure != null || !prepared.errors().isEmpty()) {
-                    RUNNING.remove(script.toString());
+                    RUNNING.remove(key);
                     String text = failure != null ? failure : "- " + String.join("\n- ", prepared.errors());
                     Messages.showErrorDialog(project, AhkBundle.message("version.errors", text), title);
                     return;
                 }
                 AhkSetVersionDialog dialog = new AhkSetVersionDialog(project, title, prepared);
                 if (!dialog.showAndGet()) {
-                    RUNNING.remove(script.toString());
+                    RUNNING.remove(key);
                     return;
                 }
                 Choice choice = dialog.choice();
-                if (!write(project, scriptFile, prepared, choice.version())) {
-                    RUNNING.remove(script.toString());
-                    Messages.showErrorDialog(project, AhkBundle.message("version.line.changed",
-                            scriptFile.getName()), title);
+                String changed = write(project, prepared, choice.version());
+                if (changed != null) {
+                    RUNNING.remove(key);
+                    Messages.showErrorDialog(project, AhkBundle.message("version.line.changed", changed), title);
                     return;
                 }
                 if (!choice.commit()) {
-                    RUNNING.remove(script.toString());
-                    AhkSetVersion.notify(project, AhkBundle.message("version.done", scriptFile.getName(), choice.version()),
-                            NotificationType.INFORMATION);
+                    RUNNING.remove(key);
+                    AhkSetVersion.notify(project, AhkBundle.message("version.done", tool, choice.version(),
+                            prepared.scripts().size()), NotificationType.INFORMATION);
                     return;
                 }
                 finish(project, prepared, choice);
@@ -241,22 +305,35 @@ public final class AhkSetVersion {
         }.queue();
     }
 
-    /** Writes the new version into the document of the script (undoable) and saves it; false if the line changed. */
-    private static boolean write(@NotNull Project project, @NotNull VirtualFile scriptFile, @NotNull Prepared prepared,
-                                 @NotNull String version) {
-        Document document = FileDocumentManager.getInstance().getDocument(scriptFile);
-        if (document == null || !document.isWritable()) return false;
-        AhkVersionDirective.Line line = currentLine(document.getCharsSequence(), prepared.current());
-        if (line == null) return false;
-        WriteCommandAction.runWriteCommandAction(project, AhkBundle.message("version.command"), null,
-                () -> document.replaceString(line.valueStart(), line.valueEnd(), version));
-        FileDocumentManager.getInstance().saveDocument(document);
-        return true;
+    /**
+     * Writes the new version into the documents of all scripts (one undoable command) and saves them; nothing is
+     * changed and the name of the script is returned if one of the lines changed meanwhile or is read-only.
+     */
+    private static @Nullable String write(@NotNull Project project, @NotNull Prepared prepared,
+                                          @NotNull String version) {
+        List<Document> documents = new ArrayList<>();
+        List<AhkVersionDirective.Line> lines = new ArrayList<>();
+        for (Script script : prepared.scripts()) {
+            VirtualFile file = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(script.file());
+            Document document = file == null ? null : FileDocumentManager.getInstance().getDocument(file);
+            AhkVersionDirective.Line line = document == null || !document.isWritable() ? null
+                    : currentLine(document.getCharsSequence(), script.line().value());
+            if (line == null) return script.name();
+            documents.add(document);
+            lines.add(line);
+        }
+        WriteCommandAction.runWriteCommandAction(project, AhkBundle.message("version.command"), null, () -> {
+            for (int i = 0; i < documents.size(); i++) {
+                documents.get(i).replaceString(lines.get(i).valueStart(), lines.get(i).valueEnd(), version);
+            }
+        });
+        for (Document document : documents) FileDocumentManager.getInstance().saveDocument(document);
+        return null;
     }
 
     /** Commits and tags in the background, then reports in a notification. */
     private static void finish(@NotNull Project project, @NotNull Prepared prepared, @NotNull Choice choice) {
-        new Task.Backgroundable(project, AhkBundle.message("version.progress", prepared.fileName()), false) {
+        new Task.Backgroundable(project, AhkBundle.message("version.progress", prepared.tool()), false) {
             private String error;
 
             @Override
@@ -266,20 +343,18 @@ public final class AhkSetVersion {
 
             @Override
             public void onFinished() {
-                RUNNING.remove(prepared.script().toString());
+                RUNNING.remove(prepared.root().toString());
             }
 
             @Override
             public void onSuccess() {
                 if (project.isDisposed()) return;
                 if (error != null) {
-                    AhkSetVersion.notify(project, AhkBundle.message("version.done.failed", prepared.fileName(),
+                    AhkSetVersion.notify(project, AhkBundle.message("version.done.failed", prepared.tool(),
                             choice.version(), error), NotificationType.ERROR);
                 } else {
-                    AhkSetVersion.notify(project, choice.tag() != null
-                            ? AhkBundle.message("version.done.tagged", prepared.fileName(), choice.version(), choice.tag())
-                            : AhkBundle.message("version.done.committed", prepared.fileName(), choice.version()),
-                            NotificationType.INFORMATION);
+                    AhkSetVersion.notify(project, AhkBundle.message("version.done.tagged", prepared.tool(),
+                            choice.version(), choice.tag()), NotificationType.INFORMATION);
                 }
             }
         }.queue();

@@ -844,6 +844,113 @@ public class AhkPluginTest extends BasePlatformTestCase {
         assertColor(null, "x := 1 ; a§`nb\n");
     }
 
+    public void testHotstringReplacementText() {
+        TextAttributesKey text = AhkColors.AHK_HOTSTRING_TEXT;
+        assertEquals(AhkColors.STRING, text.getFallbackAttributeKey());
+        assertEquals(text, lexerColor("::btw::§by the way\n"));
+        assertEquals(text, lexerColor(":*:btw::by the §way ; comment\n"));
+        assertEquals(AhkColors.COMMENT, lexerColor(":*:btw::by the way §; comment\n"));
+        assertEquals(text, lexerColor("::btw::\n§(\nby the way\n)\n"));
+        assertEquals(AhkColors.AHK_HOTSTRING, lexerColor("§::btw::by the way\n"));
+        // :X: executes code: no replacement text
+        assertNull(lexerColor(":X:btw::§a()\n"));
+        // escape sequences in the replacement text like in strings
+        assertColor(AhkColors.AHK_STRING_ESCAPE, "::btw::by§`nthe way\n");
+        assertColor(AhkColors.AHK_STRING_ESCAPE, "::btw::a§`;b\n");
+    }
+
+    public void testSendKeysInHotstringText() {
+        assertEquals(AhkColors.AHK_STRING_ESCAPE, AhkColors.AHK_SEND_KEY.getFallbackAttributeKey());
+        assertEquals(List.of("{Enter}", "{Tab 3}", "{Shift down}", "^c", "+", "{Tab}", "!+a"),
+                sendKeys("::x::a{Enter}b{Tab 3}{Shift down}^c +{Tab} !+a\n"));
+        assertEquals(List.of("{{}", "{}}", "{!}", "{ä}", "{U+20AC}", "{vk41}", "{sc01E}", "{vk41sc01E}", "{ASC 0133}",
+                        "{Click 100 200}", "{F12}", "{esc}", "{Ctrl DownTemp}"),
+                sendKeys("::x::{{}{}}{!}{ä}{U+20AC}{vk41}{sc01E}{vk41sc01E}{ASC 0133}{Click 100 200}{F12}{esc}"
+                        + "{Ctrl DownTemp}\n"));
+        // {Blind} only at the beginning; after {Raw}/{Text} everything is literal; escape sequences are skipped
+        assertEquals(List.of("{Blind^}", "{Enter}", "{Raw}"), sendKeys("::x::{Blind^}{Enter}{Raw}{Tab}^c\n"));
+        assertEquals(List.of("{Text}"), sendKeys("::x::a{Text}{Tab}\n"));
+        assertEquals(List.of("+"), sendKeys("::x::a`{Tab} +`n `^c\n"));
+        // brace without closing brace and modifier at the end: nothing
+        assertEquals(List.of(), sendKeys("::x::a{b c++\n"));
+        // raw/text mode: option in the head, #Hotstring above, continuation section (text mode by default)
+        assertEquals(List.of(), sendKeys(":R:x::{Enter}\n"));
+        assertEquals(List.of(), sendKeys(":*T:x::{Enter}\n"));
+        assertEquals(List.of("{Enter}"), sendKeys(":SIR0:x::{Enter}\n"));
+        assertEquals(List.of("{Tab}", "{Tab}"), sendKeys("::a::{Tab}\n#Hotstring c r\n::b::{Enter}\n:T0:c::{Tab}\n"));
+        assertEquals(List.of("{Esc}"), sendKeys("#Hotstring R\n#Hotstring NoMouse\n#Hotstring R0\n::a::{Esc}\n"));
+        assertEquals(List.of(), sendKeys("::x::\n(\n{Enter}\n)\n"));
+        assertEquals(List.of("{Enter}"), sendKeys(":T0:x::\n(\n{Enter}\n)\n"));
+        // :X: executes code: only the string of Send counts
+        assertEquals(List.of("{Enter}"), sendKeys(":X:x::Send(\"{Enter}\")\n"));
+    }
+
+    public void testSendKeysUnknownInHotstringTextWarns() {
+        myFixture.configureByText("a.ahk", "#Requires AutoHotkey v2\n"
+                + "::a::x<warning descr=\"Unknown key name 'Entr'; AutoHotkey ignores it\">{Entr}</warning>"
+                + "<warning descr=\"Unknown option 'xyz'; AutoHotkey ignores the key\">{Enter xyz}</warning>"
+                + "<warning descr=\"{Blind} only works at the beginning\">{Blind}</warning>\n"
+                + ":R:b::{Entr}\n");
+        myFixture.checkHighlighting(true, false, false);
+    }
+
+    public void testSendKeysInSendStrings() {
+        assertEquals(List.of("{Enter}", "^c"), sendKeys("Send \"a{Enter}^c\"\n"));
+        assertEquals(List.of("{Tab 2}"), sendKeys("SendInput(\"{Tab 2}\")\n"));
+        assertEquals(List.of("{Blind}", "{Ctrl down}", "{Ctrl up}"),
+                sendKeys("x := 1\nSendEvent \"{Blind}{Ctrl down}\" x '{Ctrl up}'\n"));
+        assertEquals(List.of("{Esc}"), sendKeys("ControlSend \"{Esc}\", \"{Enter}\", \"ahk_id 1\"\n"));
+        assertEquals(List.of("{Raw}"), sendKeys("SendPlay(c ? \"{Raw}{Tab}\" : \"\")\n"));
+        // escaped quote and backtick are no keys
+        assertEquals(List.of("+a"), sendKeys("Send\"`\"{Tab`\" +a\"\n"));
+        // not: SendText, other functions, nested calls, index, method of an object
+        assertEquals(List.of(), sendKeys("SendText \"{Enter}\"\n"));
+        assertEquals(List.of(), sendKeys("MsgBox \"{Enter}\"\n"));
+        assertEquals(List.of(), sendKeys("Send Format(\"{1}\", 2)\n"));
+        assertEquals(List.of(), sendKeys("Send keys[\"{Entr}\"]\n"));
+        assertEquals(List.of(), sendKeys("obj.Send(\"{Enter}\")\n"));
+    }
+
+    public void testSendKeysUnknownInSendStringWarns() {
+        myFixture.configureByText("a.ahk", "#Requires AutoHotkey v2\n"
+                + "Send \"x<warning descr=\"Unknown key name 'Entr'; AutoHotkey ignores it\">{Entr}</warning>\"\n"
+                + "MsgBox \"{Entr}\"\n");
+        myFixture.checkHighlighting(true, false, false);
+    }
+
+    /** Texts with the color "Key in send text" in the code (with "#Requires AutoHotkey v2" in front). */
+    private List<String> sendKeys(String code) {
+        String text = "#Requires AutoHotkey v2\n" + code;
+        myFixture.configureByText("a.ahk", text);
+        List<String> keys = new ArrayList<>();
+        for (HighlightInfo info : myFixture.doHighlighting()) {
+            if (info.forcedTextAttributesKey == AhkColors.AHK_SEND_KEY) {
+                keys.add(text.substring(info.getStartOffset(), info.getEndOffset()));
+            }
+        }
+        return keys;
+    }
+
+    /** Color of the lexer-based highlighting at the marker (§), {@code null} without a color. */
+    private static TextAttributesKey lexerColor(String codeWithMarker) {
+        int offset = codeWithMarker.indexOf('§');
+        assertTrue("marker missing", offset >= 0);
+        String code = codeWithMarker.replace("§", "");
+        de.kumpewo.autohotkey.highlighting.AhkSyntaxHighlighter highlighter =
+                new de.kumpewo.autohotkey.highlighting.AhkSyntaxHighlighter();
+        com.intellij.lexer.Lexer lexer = highlighter.getHighlightingLexer();
+        lexer.start(code);
+        while (lexer.getTokenType() != null) {
+            if (lexer.getTokenStart() <= offset && offset < lexer.getTokenEnd()) {
+                TextAttributesKey[] keys = highlighter.getTokenHighlights(lexer.getTokenType());
+                return keys.length == 0 ? null : keys[0];
+            }
+            lexer.advance();
+        }
+        fail("no token at the marker: " + codeWithMarker);
+        return null;
+    }
+
     public void testLoopSubcommand() {
         assertColor(AhkColors.AHK_FLOWCONTROL, "Loop §Read \"a.txt\"\n  a()\n");
         assertColor(AhkColors.AHK_FLOWCONTROL, "Loop §Reg \"HKCU\\\\Software\"\n  a()\n");
@@ -2309,7 +2416,7 @@ public class AhkPluginTest extends BasePlatformTestCase {
         // every color of the preview can be configured
         assertTrue(keys.containsAll(java.util.Objects.requireNonNull(
                 page.getAdditionalHighlightingTagToDescriptorMap()).values()));
-        assertEquals(21, keys.size());
+        assertEquals(23, keys.size());
     }
 
     public void testCompletionIncludePaths() throws Exception {
@@ -2559,6 +2666,10 @@ public class AhkPluginTest extends BasePlatformTestCase {
         return new String(de.kumpewo.autohotkey.validate.AhkValidator.withWarnToStdOut(content), charset);
     }
 
+    /**
+     * Validate/Compile target: the script of the selected AutoHotkey run configuration from any file (one tool = one
+     * project), otherwise the file itself; the menu text names it.
+     */
     public void testValidationTargetIsTheScriptOfTheSelectedRunConfiguration() throws Exception {
         java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("ahk");
         java.nio.file.Path main = java.nio.file.Files.writeString(dir.resolve("main.ahk"), "#Include part.ahk\n");
@@ -2593,10 +2704,30 @@ public class AhkPluginTest extends BasePlatformTestCase {
             assertEquals(mainFile, de.kumpewo.autohotkey.validate.AhkValidator.target(getProject(), mainFile).script());
             assertEquals(mainFile, de.kumpewo.autohotkey.validate.AhkValidator.target(getProject(), deepFile).script());
             assertEquals(mainFile, de.kumpewo.autohotkey.validate.AhkValidator.target(getProject(), null).script());
-            // a script that does not belong to the run configuration (project with many small scripts): itself
+            // also a script that the run configuration does not include: the run configuration wins
             target = de.kumpewo.autohotkey.validate.AhkValidator.target(getProject(), otherFile);
-            assertEquals(otherFile, target.script());
-            assertNull(target.configuration());
+            assertEquals(mainFile, target.script());
+            assertEquals("Main", target.configuration());
+            // the menu text names the target: the run configuration, otherwise the file
+            var validate = new de.kumpewo.autohotkey.validate.AhkValidateAction();
+            var presentation = targetPresentation(validate, otherFile);
+            assertTrue(presentation.isEnabledAndVisible());
+            assertEquals(AhkBundle.message("action.AutoHotkey.Validate.target", "Main"), presentation.getText());
+            assertTrue(presentation.getDescription(), presentation.getDescription().endsWith(
+                    AhkBundle.message("action.target.configuration", "Main", mainFile.getPresentableUrl())));
+            runManager.setSelectedConfiguration(null);
+            presentation = targetPresentation(validate, otherFile);
+            assertEquals(AhkBundle.message("action.AutoHotkey.Validate.target", "other.ahk"), presentation.getText());
+            assertTrue(presentation.getDescription(), presentation.getDescription().endsWith(
+                    AhkBundle.message("action.target.script", otherFile.getPresentableUrl())));
+            runManager.setSelectedConfiguration(settings);
+            // a long name is shortened in the text, not in the description; '_' is no mnemonic
+            String longName = "A_very_long_name_of_a_run_configuration_for_the_tool";
+            settings.setName(longName);
+            presentation = targetPresentation(validate, partFile);
+            String shortened = longName.substring(0, 39) + "…";
+            assertEquals(AhkBundle.message("action.AutoHotkey.Validate.target", shortened), presentation.getText());
+            assertTrue(presentation.getDescription().contains(longName));
             // a missing script falls back to the file itself
             configuration.setScriptPath(dir.resolve("missing.ahk").toString());
             assertEquals(partFile, de.kumpewo.autohotkey.validate.AhkValidator.target(getProject(), partFile).script());
@@ -2604,6 +2735,25 @@ public class AhkPluginTest extends BasePlatformTestCase {
             runManager.removeConfiguration(settings);
             runManager.setSelectedConfiguration(selectedBefore);
         }
+    }
+
+    /** The description of the menu actions shows a script in the project relative to the project root. */
+    public void testTargetPathRelativeToProjectRoot() {
+        var file = myFixture.addFileToProject("tools/my tool/main.ahk", "x := 1\n").getVirtualFile();
+        assertEquals("tools" + java.io.File.separator + "my tool" + java.io.File.separator + "main.ahk",
+                de.kumpewo.autohotkey.validate.AhkTargetPresentation.path(getProject(), file));
+    }
+
+    /** Presentation of {@code action} after its update for {@code file} (as in a context menu of that file). */
+    private com.intellij.openapi.actionSystem.Presentation targetPresentation(
+            com.intellij.openapi.actionSystem.AnAction action, com.intellij.openapi.vfs.VirtualFile file) {
+        var context = com.intellij.openapi.actionSystem.impl.SimpleDataContext.builder()
+                .add(com.intellij.openapi.actionSystem.CommonDataKeys.PROJECT, getProject())
+                .add(com.intellij.openapi.actionSystem.CommonDataKeys.VIRTUAL_FILE, file)
+                .build();
+        var event = com.intellij.testFramework.TestActionEvent.createTestEvent(action, context);
+        action.update(event);
+        return event.getPresentation();
     }
 
     /**
@@ -4255,6 +4405,31 @@ public class AhkPluginTest extends BasePlatformTestCase {
                 "<link href=\"x.css\" rel=\"stylesheet\">\n<p>x</p>");
         assertTrue(withoutHead.startsWith("<style>"));
         assertFalse(withoutHead.contains("<link"));
+    }
+
+    /**
+     * The first column of info tables does not wrap if its lines are short (otherwise the popup makes it only as wide
+     * as the header); long cells, other columns and other tables stay unchanged.
+     */
+    public void testHelpInfoTableFirstColumnNowrap() {
+        String page = de.kumpewo.autohotkey.documentation.AhkHelpRepository.getPage("docs/variables.htm");
+        assertNotNull(page);
+        assertTrue(page.matches("(?s).*<td nowrap=\"nowrap\">A_ScriptFullPath</td>.*"));
+        assertTrue(page.matches("(?s).*<td nowrap=\"nowrap\">A_CoordModeToolTip<br>.*"));
+        String html = """
+                <table class="info">
+                  <tr><th>Name</th><th>Description</th></tr>
+                  <tr><td>A_Short</td><td>Text</td></tr>
+                  <tr><td>A long sentence that goes on and on</td><td>Text</td></tr>
+                  <tr><td nowrap>Given</td><td>Text</td></tr>
+                </table>
+                <table><tr><td>Other</td></tr></table>""";
+        String result = de.kumpewo.autohotkey.documentation.AhkHelpRepository.withNowrapFirstColumn(html);
+        assertTrue(result, result.contains("<th nowrap=\"nowrap\">Name</th><th>Description</th>"));
+        assertTrue(result, result.contains("<td nowrap=\"nowrap\">A_Short</td><td>Text</td>"));
+        assertTrue(result, result.contains("<td>A long sentence that goes on and on</td>"));
+        assertTrue(result, result.contains("<td nowrap>Given</td>"));
+        assertTrue(result, result.contains("<table><tr><td>Other</td></tr></table>"));
     }
 
     /**

@@ -115,7 +115,7 @@ public class AhkAnnotator implements Annotator {
             return;
         }
 
-        if (type == AhkTypes.STRING || type == AhkTypes.UNCLOSED_STRING) {
+        if (type == AhkTypes.STRING || type == AhkTypes.UNCLOSED_STRING || type == AhkTypes.HOTSTRING_TEXT) {
             annotateEscapes(element, holder);
         }
 
@@ -274,7 +274,10 @@ public class AhkAnnotator implements Annotator {
                         de.kumpewo.autohotkey.navigation.AhkDefinitionReference.Kind.FREE, n, null));
     }
 
-    /** Colors escape sequences (backtick + character from ESCAPE_CHARS) in a string; unknown ones stay uncolored. */
+    /**
+     * Colors escape sequences (backtick + character from ESCAPE_CHARS) in a string or the replacement text of a
+     * hotstring; unknown ones stay uncolored.
+     */
     private static void annotateEscapes(PsiElement string, AnnotationHolder holder) {
         String text = string.getText();
         int start = string.getTextRange().getStartOffset();

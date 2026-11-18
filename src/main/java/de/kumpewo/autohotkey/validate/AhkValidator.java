@@ -29,6 +29,10 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiErrorElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
+import com.intellij.openapi.vfs.VirtualFileManager;
+import com.intellij.psi.util.CachedValueProvider;
+import com.intellij.psi.util.CachedValuesManager;
+import com.intellij.psi.util.PsiModificationTracker;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.ui.JBColor;
 import de.kumpewo.autohotkey.AhkBundle;
@@ -68,7 +72,7 @@ import java.util.regex.Pattern;
  * {@link AhkErrorFilter}).
  * <p>
  * Validated is the script of the selected AutoHotkey run configuration (the main script; an included file alone
- * usually fails), otherwise the file itself ({@link #target}). All modified AutoHotkey documents are saved first.
+ * usually fails), otherwise the file itself ({@link #target}). All modified documents are saved first.
  * AutoHotkey gets a temporary copy of the script next to the original ({@link #copyPath}) with the line
  * {@code #Warn All, StdOut} appended ({@link #withWarnToStdOut}): it overrides every other {@code #Warn} mode, so no
  * warning opens a dialog, and the line numbers stay the same. The path of the copy is replaced by the original one
@@ -156,20 +160,19 @@ public final class AhkValidator {
     }
 
     /**
-     * What to validate (or compile) for {@code file}: the main script of the selected run configuration if
-     * {@code file} belongs to it (it is the script itself or is included by it, also indirectly) or is no AutoHotkey
-     * file (e.g. nothing selected); otherwise the file itself. So in a project that collects many small scripts, the
-     * action applies to the current script, not to the one whose run configuration was selected last.
+     * What to validate (or compile) for {@code file}: the main script of the selected AutoHotkey run configuration if
+     * there is one (one tool = one project: from any file, also from an included one, which may use definitions of
+     * files included before it); otherwise the file itself if it is an AutoHotkey file. A project with several
+     * independent scripts (e.g. a GUI and a console variant) gets one run configuration per script, or none.
      */
     public static @Nullable Target target(@NotNull Project project, @Nullable VirtualFile file) {
         Target main = mainScript(project);
-        if (!canValidate(file)) return main;
-        if (main != null && (file.equals(main.script()) || includes(project, main.script(), file))) return main;
-        return new Target(file, null);
+        if (main != null) return main;
+        return canValidate(file) ? new Target(file, null) : null;
     }
 
     /**
-     * Saves the AutoHotkey documents and validates the target of {@code file} (call on the EDT). Without an
+     * Saves all documents and validates the target of {@code file} (call on the EDT). Without an
      * AutoHotkey executable only a manual start shows a message. A validation of the same script that is still
      * running is not started again.
      */
@@ -187,7 +190,7 @@ public final class AhkValidator {
             }
             return;
         }
-        saveAhkDocuments();
+        saveAllDocuments();
         Map<VirtualFile, Long> stamps = new HashMap<>();
         FileDocumentManager documents = FileDocumentManager.getInstance();
         for (VirtualFile checked : file == null || file.equals(script) ? List.of(script) : List.of(script, file)) {
@@ -252,17 +255,15 @@ public final class AhkValidator {
     }
 
     /**
-     * Saves all modified AutoHotkey documents (the script and the files it includes are read from disk). Also used
-     * by the compilation (AhkCompiler); while it saves, AhkValidateTriggers does not start a validation.
+     * Saves all modified documents, not only the AutoHotkey ones (the script and the files it includes are read from
+     * disk, Deploy reads {@code settings.ahk-plugin.ini}, and Set Version commits the whole project). Used before
+     * every action: Validate, Compile, Deploy, Set Version; while it saves, AhkValidateTriggers does not start a
+     * validation.
      */
-    public static void saveAhkDocuments() {
-        FileDocumentManager documents = FileDocumentManager.getInstance();
+    public static void saveAllDocuments() {
         saving = true;
         try {
-            for (Document document : documents.getUnsavedDocuments()) {
-                VirtualFile file = documents.getFile(document);
-                if (file != null && file.getFileType() == AhkFileType.INSTANCE) documents.saveDocument(document);
-            }
+            FileDocumentManager.getInstance().saveAllDocuments();
         } finally {
             saving = false;
         }
@@ -394,17 +395,28 @@ public final class AhkValidator {
     private static boolean includes(@NotNull Project project, @NotNull VirtualFile script, @NotNull VirtualFile file) {
         PsiFile start = PsiManager.getInstance(project).findFile(script);
         if (start == null) return false;
+        // cached: the menu actions ask for their target every time a menu opens
+        Set<VirtualFile> included = CachedValuesManager.getCachedValue(start, () -> CachedValueProvider.Result.create(
+                includedFiles(start), PsiModificationTracker.MODIFICATION_COUNT,
+                VirtualFileManager.VFS_STRUCTURE_MODIFICATIONS));
+        return included.contains(file);
+    }
+
+    /** All files that {@code start} includes, also indirectly (without {@code start} itself unless included). */
+    private static Set<VirtualFile> includedFiles(@NotNull PsiFile start) {
+        Set<VirtualFile> result = new HashSet<>();
         Set<PsiFile> visited = new HashSet<>();
         Deque<PsiFile> queue = new ArrayDeque<>(List.of(start));
         while (!queue.isEmpty()) {
             PsiFile current = queue.poll();
             if (!visited.add(current)) continue;
             for (PsiFile included : AhkInclude.includedFiles(current)) {
-                if (file.equals(included.getVirtualFile())) return true;
+                VirtualFile virtualFile = included.getVirtualFile();
+                if (virtualFile != null) result.add(virtualFile);
                 queue.add(included);
             }
         }
-        return false;
+        return Set.copyOf(result);
     }
 
     /** The first error message in the output (warnings are skipped), or {@code null}. */

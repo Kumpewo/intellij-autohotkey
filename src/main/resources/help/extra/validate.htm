@@ -20,11 +20,12 @@
 <p>Requirement: AutoHotkey v2 installed (the same program as for <a href="running.htm#Program">running</a>).</p>
 
 <h2 id="Target">Which script is validated</h2>
-<p>If an AutoHotkey run configuration is selected in the toolbar and the current file is its script or is included by it with <code>#Include</code> (also indirectly), <strong>that script</strong> (the main script) is validated. An included file alone usually fails, because it lacks the definitions of the main script. In all other cases the current file is validated: without such a run configuration, and for a file that does not belong to it, for example in a project that collects many small scripts. Without a current file (e.g. a folder selected in the project view) the script of the run configuration is used.</p>
+<p>If an AutoHotkey run configuration is selected in the toolbar, <strong>its script</strong> (the main script) is validated, whatever file is open (<a href="installer.htm#Project">one tool = one project</a>). An included file alone usually fails, because it may use definitions of files included before it. Without such a run configuration the current file is validated. For a tool with several independent scripts, for example a GUI and a console variant, create one run configuration per script and select the one you work on, or none.</p>
+<p>The menu entry names the target, so you see what it applies to before you click: <em>Validate 'Main' with AutoHotkey</em> with the name of the run configuration, <em>Validate 'script.ahk' with AutoHotkey</em> with the file. Names longer than 40 characters are shortened. <a href="compile.htm">Compile</a> uses the same target and names it in the same way; <a href="installer.htm">Deploy, Set Version and Create Settings</a> always work on the whole project and name the project.</p>
 
 <h2 id="Process">What happens</h2>
 <ol>
-  <li>All modified AutoHotkey files are saved.</li>
+  <li>All modified files are saved (not only AutoHotkey files).</li>
   <li>The plugin writes a copy of the script next to it, <code><i>name</i>.~validate.ahk</code>, with the line <code>#Warn All, StdOut</code> appended. Being the last <code>#Warn</code>, it overrides the warning mode of the script, so a warning can never open a message box and block the validation. The line numbers stay the same.</li>
   <li>AutoHotkey runs in the background: <code><i>program</i> /ErrorStdOut /validate <i>copy</i></code>, in the folder of the script (so <code>A_ScriptDir</code>, <code>Lib</code> folders and relative <code>#Include</code> paths are right).</li>
   <li>The copy is deleted. In the output, its name is replaced by the name of the original.</li>

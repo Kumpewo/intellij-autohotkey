@@ -11,31 +11,37 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * Contents of a {@code settings.ahk-plugin.ini} next to a script (the tool folder), read by {@link #parse}. It holds
- * the settings of the installer ({@link AhkInstaller}) and of "Set Version" ({@link AhkSetVersion}):
+ * Contents of the {@code settings.ahk-plugin.ini} in the project root (one tool = one project), read by
+ * {@link #parse}. It holds the settings of the installer ({@link AhkInstaller}):
  * <ul>
  *   <li>{@code [Install]}: {@code Destination}, {@code Message}, {@code RequiresAdmin}, {@code GenerateOverview}
- *       (default true), {@code CompileBeforeInstall}; missing switches are false.</li>
+ *       and {@code CompileBeforeInstall} (both default true); the other switches default to false.</li>
  *   <li>{@code [Overwrite]} and {@code [KeepExisting]}: lines {@code source=target}; the source is relative to the
- *       tool folder (wildcards {@code *} and {@code ?} in the file name), the target absolute or relative to
+ *       project root (wildcards {@code *} and {@code ?} in the file name), the target absolute or relative to
  *       {@code Destination}. {@code [KeepExisting]} only copies if the target does not exist yet.</li>
- *   <li>{@code [Version]}: {@code TagPrefix}, the first part of the version tags {@code <TagPrefix>/v<version>}.</li>
+ *   <li>{@code [SetVersion]}: lines {@code path=exclude} for "Set Version..." ({@link AhkSetVersion}); the path is
+ *       relative to the project root and names files like a source of {@code [Overwrite]} (wildcards in the last
+ *       name), or, ending with {@code \}, a folder with everything below it. Matching scripts keep their version.
+ *       </li>
  * </ul>
  * Comments are lines starting with {@code ;} (leading whitespace allowed); a {@code ;} later in a line is text.
- * Values are trimmed, and one pair of enclosing double quotes is removed (like Windows INI files). Section and key
- * names are case-insensitive. Mistakes (unknown section or key, line without {@code =}, a key or source twice in a
- * section, a switch that is neither true nor false) are collected in {@link #errors()}; resolving paths and checking
- * files is the job of {@link AhkInstallPlan}.
+ * Keys and values are trimmed, and one pair of enclosing double quotes is removed (like Windows INI files);
+ * spaces inside a key (a file name) are kept. Section and key
+ * names are case-insensitive. Mistakes of the file itself (unknown section, line without {@code =}, a key or source
+ * twice in a section) stop every action; mistakes of a section only stop the action that uses it: {@link #errors()}
+ * for the installer (unknown key, a switch that is neither true nor false, missing target), {@link #versionErrors()}
+ * for "Set Version..." (invalid path, value other than {@code exclude}). Resolving paths and checking files is the
+ * job of {@link AhkInstallPlan} and {@link AhkInstaller}.
  */
 public final class AhkInstallConfig {
 
-    /** File name of the configuration in the tool folder. */
+    /** File name of the configuration in the project root. */
     public static final String FILE_NAME = "settings.ahk-plugin.ini";
 
     /**
      * One line {@code source=target} of {@code [Overwrite]} or {@code [KeepExisting]}.
      *
-     * @param source       source as written (relative to the tool folder)
+     * @param source       source as written (relative to the project root)
      * @param target       target as written (environment variables not yet resolved)
      * @param keepExisting true for {@code [KeepExisting]}
      * @param line         1-based line in the file
@@ -47,10 +53,17 @@ public final class AhkInstallConfig {
     private @Nullable String message;
     private boolean requiresAdmin;
     private boolean generateOverview = true;
-    private @Nullable String tagPrefix;
-    private boolean compile;
+    private boolean compile = true;
     private final List<Entry> entries = new ArrayList<>();
-    private final List<String> errors = new ArrayList<>();
+    private final List<String> exclusions = new ArrayList<>();
+    private final List<Problem> problems = new ArrayList<>();
+
+    /** Which action a mistake stops: {@code FILE} = every action (a mistake of the file itself). */
+    private enum Scope { FILE, INSTALL, VERSION }
+
+    /** A mistake in the file, in file order. */
+    private record Problem(@NotNull Scope scope, @NotNull String text) {
+    }
 
     private AhkInstallConfig() {
     }
@@ -75,12 +88,10 @@ public final class AhkInstallConfig {
         return generateOverview;
     }
 
-    /** {@code TagPrefix} of {@code [Version]} as written, {@code null} if missing or empty. */
-    public @Nullable String tagPrefix() {
-        return tagPrefix;
-    }
-
-    /** {@code CompileBeforeInstall}: compile the script first. */
+    /**
+     * {@code CompileBeforeInstall} (default true): first compile the executables of the copy lines (each source that
+     * names an {@code .exe} without wildcards and has a script of the same name next to it).
+     */
     public boolean compile() {
         return compile;
     }
@@ -90,9 +101,52 @@ public final class AhkInstallConfig {
         return entries;
     }
 
-    /** Mistakes in the file, empty if it is valid. */
+    /** The paths of {@code [SetVersion]} with the value {@code exclude}, with {@code \} as separator. */
+    public @NotNull List<String> exclusions() {
+        return exclusions;
+    }
+
+    /** Mistakes that stop the installer (of the file itself and of its sections) in file order; empty if valid. */
     public @NotNull List<String> errors() {
-        return errors;
+        return problems(Scope.INSTALL);
+    }
+
+    /** Mistakes that stop "Set Version..." (of the file itself and of {@code [SetVersion]}) in file order. */
+    public @NotNull List<String> versionErrors() {
+        return problems(Scope.VERSION);
+    }
+
+    /** The mistakes of the file itself and of the given scope, in file order. */
+    private @NotNull List<String> problems(@NotNull Scope scope) {
+        List<String> result = new ArrayList<>();
+        for (Problem problem : problems) {
+            if (problem.scope() == Scope.FILE || problem.scope() == scope) result.add(problem.text());
+        }
+        return result;
+    }
+
+    /**
+     * Is the file excluded from "Set Version..." by a line of {@code [SetVersion]}? Names are compared
+     * case-insensitively.
+     *
+     * @param relative path of the file relative to the project root, separator {@code \} or {@code /}
+     */
+    public boolean excludes(@NotNull String relative) {
+        String[] segments = relative.replace('/', '\\').split("\\\\");
+        for (String exclusion : exclusions) {
+            boolean folder = exclusion.endsWith("\\");
+            String[] pattern = (folder ? exclusion.substring(0, exclusion.length() - 1) : exclusion).split("\\\\");
+            // a file pattern names the file itself, a folder pattern any file below the folder
+            if (folder ? segments.length <= pattern.length : segments.length != pattern.length) continue;
+            boolean match = true;
+            for (int i = 0; i < pattern.length && match; i++) {
+                match = i == pattern.length - 1
+                        ? AhkInstallPlan.wildcard(pattern[i]).matcher(segments[i]).matches()
+                        : pattern[i].equalsIgnoreCase(segments[i]);
+            }
+            if (match) return true;
+        }
+        return false;
     }
 
     /** Reads the text of a {@code settings.ahk-plugin.ini}. */
@@ -103,7 +157,7 @@ public final class AhkInstallConfig {
     }
 
     /** Sections of the file. */
-    private enum Section { NONE, INSTALL, OVERWRITE, KEEP_EXISTING, VERSION }
+    private enum Section { NONE, INSTALL, OVERWRITE, KEEP_EXISTING, SET_VERSION }
 
     private void read(String text) {
         Section section = Section.NONE;
@@ -120,11 +174,11 @@ public final class AhkInstallConfig {
                     case "install" -> Section.INSTALL;
                     case "overwrite" -> Section.OVERWRITE;
                     case "keepexisting" -> Section.KEEP_EXISTING;
-                    case "version" -> Section.VERSION;
+                    case "setversion" -> Section.SET_VERSION;
                     default -> null;
                 };
                 if (section == null) {
-                    errors.add(AhkBundle.message("install.ini.section.unknown", lineNumber, line));
+                    problem(Scope.FILE, AhkBundle.message("install.ini.section.unknown", lineNumber, line));
                     section = Section.NONE;
                     seen.clear();
                     // the lines of an unknown section are skipped without further errors
@@ -136,30 +190,60 @@ public final class AhkInstallConfig {
             }
             int eq = line.indexOf('=');
             if (section == Section.NONE) {
-                errors.add(AhkBundle.message("install.ini.outside.section", lineNumber));
+                problem(Scope.FILE, AhkBundle.message("install.ini.outside.section", lineNumber));
                 continue;
             }
             if (eq <= 0) {
-                errors.add(AhkBundle.message("install.ini.no.equals", lineNumber, line));
+                problem(Scope.FILE, AhkBundle.message("install.ini.no.equals", lineNumber, line));
                 continue;
             }
-            String key = line.substring(0, eq).strip();
+            String key = unquote(line.substring(0, eq).strip());
             String value = unquote(line.substring(eq + 1).strip());
             String normalized = key.replace('/', '\\').toLowerCase(Locale.ROOT);
             if (!seen.add(normalized)) {
-                errors.add(AhkBundle.message("install.ini.duplicate", lineNumber, key));
+                problem(Scope.FILE, AhkBundle.message("install.ini.duplicate", lineNumber, key));
                 continue;
             }
             if (section == Section.INSTALL) {
                 setInstallKey(key, value, lineNumber);
-            } else if (section == Section.VERSION) {
-                setVersionKey(key, value, lineNumber);
+            } else if (section == Section.SET_VERSION) {
+                addExclusion(key, value, lineNumber);
             } else if (value.isEmpty()) {
-                errors.add(AhkBundle.message("install.ini.target.empty", lineNumber, key));
+                problem(Scope.INSTALL, AhkBundle.message("install.ini.target.empty", lineNumber, key));
             } else {
                 entries.add(new Entry(key, value, section == Section.KEEP_EXISTING, lineNumber));
             }
         }
+    }
+
+    /**
+     * Checks a line of {@code [SetVersion]}: the value must be {@code exclude} (any case); the path must be relative
+     * to the project root, without {@code ..}, drive or wildcards in folder names, and must not be the root itself.
+     */
+    private void addExclusion(String key, String value, int line) {
+        if (!value.equalsIgnoreCase("exclude")) {
+            problem(Scope.VERSION, AhkBundle.message("install.ini.exclude.value", line, key, value));
+            return;
+        }
+        String path = key.replace('/', '\\');
+        String inner = path.endsWith("\\") ? path.substring(0, path.length() - 1) : path;
+        int slash = inner.lastIndexOf('\\');
+        String folderPart = slash < 0 ? "" : inner.substring(0, slash);
+        boolean invalid = inner.isEmpty() || inner.startsWith("\\") || inner.contains(":") || inner.contains("\\\\")
+                || folderPart.contains("*") || folderPart.contains("?");
+        for (String segment : inner.split("\\\\")) {
+            if (segment.equals("..") || segment.equals(".")) invalid = true;
+        }
+        if (invalid) {
+            problem(Scope.VERSION, AhkBundle.message("install.ini.exclude.invalid", line, key));
+        } else {
+            exclusions.add(path);
+        }
+    }
+
+    /** Records a mistake. */
+    private void problem(@NotNull Scope scope, @NotNull String text) {
+        problems.add(new Problem(scope, text));
     }
 
     /** Removes one pair of enclosing double quotes. */
@@ -174,16 +258,8 @@ public final class AhkInstallConfig {
             case "message" -> message = value.isEmpty() ? null : value;
             case "requiresadmin" -> requiresAdmin = bool(key, value, line, false);
             case "generateoverview" -> generateOverview = bool(key, value, line, true);
-            case "compilebeforeinstall" -> compile = bool(key, value, line, false);
-            default -> errors.add(AhkBundle.message("install.ini.key.unknown", line, key));
-        }
-    }
-
-    private void setVersionKey(String key, String value, int line) {
-        if (key.equalsIgnoreCase("TagPrefix")) {
-            tagPrefix = value.isEmpty() ? null : value;
-        } else {
-            errors.add(AhkBundle.message("install.ini.key.unknown", line, key));
+            case "compilebeforeinstall" -> compile = bool(key, value, line, true);
+            default -> problem(Scope.INSTALL, AhkBundle.message("install.ini.key.unknown", line, key));
         }
     }
 
@@ -192,7 +268,7 @@ public final class AhkInstallConfig {
         if (value.isEmpty()) return defaultValue;
         if (value.equalsIgnoreCase("true")) return true;
         if (value.equalsIgnoreCase("false")) return false;
-        errors.add(AhkBundle.message("install.ini.bool", line, key, value));
+        problem(Scope.INSTALL, AhkBundle.message("install.ini.bool", line, key, value));
         return defaultValue;
     }
 }

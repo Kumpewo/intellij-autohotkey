@@ -2,28 +2,27 @@ package de.kumpewo.autohotkey.install;
 
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.project.DumbAwareAction;
 import com.intellij.openapi.project.Project;
-import de.kumpewo.autohotkey.validate.AhkValidator;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Action "Set Version..." (Code menu, editor and project view context menus): changes the line
- * {@code ;@Ahk2Exe-SetVersion} of the script of the selected AutoHotkey run configuration, otherwise of the current
- * AutoHotkey file, and optionally commits and tags it ({@link AhkSetVersion}).
+ * Action "Set Version..." (Code menu, editor and project view context menus): sets the version in every script of the
+ * project with a line {@code ;@Ahk2Exe-SetVersion} and optionally commits the project and sets the tag
+ * {@code v<version>} ({@link AhkSetVersion}).
  */
 public final class AhkSetVersionAction extends DumbAwareAction {
 
-    /** Visible and enabled for an AutoHotkey file on disk or with a selected AutoHotkey run configuration. */
+    /**
+     * Visible in an AutoHotkey context ({@link AhkProjectRoot#isAvailable}); the text names the project
+     * ({@link AhkProjectRoot#update}).
+     */
     @Override
     public void update(@NotNull AnActionEvent event) {
-        Project project = event.getProject();
-        event.getPresentation().setEnabledAndVisible(project != null
-                && AhkValidator.hasTarget(project, event.getData(CommonDataKeys.VIRTUAL_FILE)));
+        AhkProjectRoot.update(this, event, "action.AutoHotkey.SetVersion.target", false);
     }
 
-    /** {@link #update} only reads data keys and the selected run configuration. */
+    /** {@link #update} reads data keys, the selected run configuration and the project root. */
     @Override
     public @NotNull ActionUpdateThread getActionUpdateThread() {
         return ActionUpdateThread.BGT;
@@ -33,6 +32,6 @@ public final class AhkSetVersionAction extends DumbAwareAction {
     @Override
     public void actionPerformed(@NotNull AnActionEvent event) {
         Project project = event.getProject();
-        if (project != null) AhkSetVersion.run(project, event.getData(CommonDataKeys.VIRTUAL_FILE));
+        if (project != null) AhkSetVersion.run(project);
     }
 }

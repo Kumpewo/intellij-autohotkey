@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Lexer-based highlighting: only strings, numbers, comments, hotkeys and hotstrings. Everything that depends on
+ * Lexer-based highlighting: only strings, numbers, comments, hotkeys, hotstrings and their replacement text. Everything that depends on
  * the role of a name (keywords, built-ins, definitions) is colored by {@code AhkAnnotator}.
  */
 public class AhkSyntaxHighlighter extends SyntaxHighlighterBase {
@@ -29,6 +29,7 @@ public class AhkSyntaxHighlighter extends SyntaxHighlighterBase {
         ATTRIBUTES.put(AhkTypes.HOTKEY, AhkColors.AHK_HOTKEY);
         ATTRIBUTES.put(AhkTypes.REMAP_KEY, AhkColors.AHK_HOTKEY);
         ATTRIBUTES.put(AhkTypes.HOTSTRING, AhkColors.AHK_HOTSTRING);
+        ATTRIBUTES.put(AhkTypes.HOTSTRING_TEXT, AhkColors.AHK_HOTSTRING_TEXT);
     }
 
     /** The lexer used for highlighting (the same as for parsing). */

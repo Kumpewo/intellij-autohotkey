@@ -38,12 +38,14 @@ public class AhkColorSettingsPage implements ColorSettingsPage {
                 {"declaration.class", AhkColors.AHK_CLASS},
                 {"declaration.hotkey", AhkColors.AHK_HOTKEY},
                 {"declaration.hotstring", AhkColors.AHK_HOTSTRING},
+                {"declaration.hotstring.text", AhkColors.AHK_HOTSTRING_TEXT},
                 {"builtin.function", AhkColors.AHK_BUILTIN_FUNCTION},
                 {"builtin.variable", AhkColors.AHK_BUILTIN_VARIABLE},
                 {"builtin.class", AhkColors.AHK_BUILTIN_CLASS},
                 {"builtin.method", AhkColors.AHK_BUILTIN_METHOD},
                 {"builtin.property", AhkColors.AHK_BUILTIN_PROPERTY},
                 {"special.escape", AhkColors.AHK_STRING_ESCAPE},
+                {"special.send.key", AhkColors.AHK_SEND_KEY},
                 {"special.declared", AhkColors.AHK_DECLARED_TYPE},
                 {"special.private", AhkColors.AHK_PRIVATE_MEMBER},
                 {"special.ignored", AhkColors.AHK_IGNORED_LINE},
@@ -74,7 +76,8 @@ public class AhkColorSettingsPage implements ColorSettingsPage {
                 <DIRECTIVE>#requires</DIRECTIVE> AutoHotkey v2.0
                 <DIRECTIVE>#SingleInstance</DIRECTIVE> force
 
-                <HOTSTRING>:*:btw::by the way</HOTSTRING>
+                <HOTSTRING>:*:btw::</HOTSTRING>by the way<ESC>`n</ESC>
+                <HOTSTRING>::sig::</HOTSTRING>Regards<SEND_KEY>{Enter 2}</SEND_KEY>Name<SEND_KEY>+{Tab}^s</SEND_KEY>
                 <HOTKEY>^m::</HOTKEY><BUILTIN_FUNCTION>MsgBox</BUILTIN_FUNCTION>("Hi<ESC>`n</ESC>Line 2 with <ESC>`"</ESC>quote<ESC>`"</ESC>")
 
                 ;@declare-private _*
@@ -127,11 +130,13 @@ public class AhkColorSettingsPage implements ColorSettingsPage {
         map.put("BUILTIN_PROPERTY", AhkColors.AHK_BUILTIN_PROPERTY);
         map.put("FLOW", AhkColors.AHK_FLOWCONTROL);
         map.put("ESC", AhkColors.AHK_STRING_ESCAPE);
+        map.put("SEND_KEY", AhkColors.AHK_SEND_KEY);
         map.put("DIRECTIVE", AhkColors.AHK_DIRECTIVE);
         map.put("RESERVED", AhkColors.AHK_RESERVED);
         map.put("RESERVED_VALUE", AhkColors.AHK_RESERVED_VALUE);
         map.put("HOTKEY", AhkColors.AHK_HOTKEY);
         map.put("HOTSTRING", AhkColors.AHK_HOTSTRING);
+        map.put("HOTSTRING_TEXT", AhkColors.AHK_HOTSTRING_TEXT);
         map.put("DECLARED", AhkColors.AHK_DECLARED_TYPE);
         map.put("PRIVATE", AhkColors.AHK_PRIVATE_MEMBER);
         map.put("LABEL", AhkColors.AHK_LABEL);

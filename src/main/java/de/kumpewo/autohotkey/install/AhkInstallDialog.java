@@ -35,11 +35,15 @@ final class AhkInstallDialog extends DialogWrapper {
 
     private final Project project;
     private final AhkInstaller.Prepared prepared;
+    /** Name of the tool in the question without overview (the project name). */
+    private final String tool;
 
-    AhkInstallDialog(@NotNull Project project, @NotNull String title, @NotNull AhkInstaller.Prepared prepared) {
+    AhkInstallDialog(@NotNull Project project, @NotNull String title, @NotNull String tool,
+                     @NotNull AhkInstaller.Prepared prepared) {
         super(project);
         this.project = project;
         this.prepared = prepared;
+        this.tool = tool;
         setTitle(title);
         setOKButtonText(AhkBundle.message("install.dialog.ok"));
         init();
@@ -63,11 +67,9 @@ final class AhkInstallDialog extends DialogWrapper {
             form.addComponent(label(AhkBundle.message("install.dialog.overview")));
             form.addComponent(code(prepared.overview()));
         } else if (text == null) {
-            String folder = prepared.toolDir().getFileName() == null ? prepared.toolDir().toString()
-                    : prepared.toolDir().getFileName().toString();
             form.addComponent(label(prepared.plan().destination() == null
-                    ? AhkBundle.message("install.dialog.question.targets", folder, AhkInstallConfig.FILE_NAME)
-                    : AhkBundle.message("install.dialog.question", folder, prepared.plan().destination())));
+                    ? AhkBundle.message("install.dialog.question.targets", tool, AhkInstallConfig.FILE_NAME)
+                    : AhkBundle.message("install.dialog.question", tool, prepared.plan().destination())));
         }
         for (String warning : prepared.warnings()) {
             JBLabel label = label(warning);

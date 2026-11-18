@@ -14,10 +14,10 @@ import java.util.List;
 
 /**
  * Git on the command line ({@code git} from the PATH; no Git plugin, the plugin only depends on platform modules),
- * run in the tool folder: the warning about uncommitted changes of the installer ({@link AhkInstaller}) and commit and
- * tag of "Set Version" ({@link AhkSetVersion}). A commit only concerns the given file
- * ({@code git commit -m <message> -- <file>}), so that other staged changes are not committed; the tag is annotated
- * and set on HEAD.
+ * run in the project root: the warning about uncommitted changes of the installer ({@link AhkInstaller}) and commit and
+ * tag of "Set Version" ({@link AhkSetVersion}). A commit concerns all versioned files under the project root
+ * ({@code git commit -m <message> -- .}), so that staged changes outside of it are not committed; the tag is
+ * annotated and set on HEAD.
  */
 public final class AhkInstallGit {
 
@@ -26,7 +26,7 @@ public final class AhkInstallGit {
 
     private final Path folder;
 
-    /** Git commands in the tool folder. */
+    /** Git commands in the folder (the project root). */
     public AhkInstallGit(@NotNull Path folder) {
         this.folder = folder;
     }
@@ -44,7 +44,7 @@ public final class AhkInstallGit {
         }
     }
 
-    /** Runs {@code git <args>} in the tool folder; a program that cannot be started gives exit code -1. */
+    /** Runs {@code git <args>} in the folder; a program that cannot be started gives exit code -1. */
     public @NotNull Result run(@NotNull String... args) {
         List<String> command = new ArrayList<>();
         command.add("git");
@@ -60,28 +60,29 @@ public final class AhkInstallGit {
         }
     }
 
-    /** Is Git installed and the tool folder inside a working tree? */
+    /** Is Git installed and the folder inside a working tree? */
     public boolean inRepository() {
         Result result = run("rev-parse", "--is-inside-work-tree");
         return result.ok() && result.stdout().strip().equals("true");
     }
 
-    /** Does the tool folder have uncommitted changes (also untracked files)? */
+    /** Does the folder have uncommitted changes (also untracked files)? */
     public boolean hasChanges() {
-        Result result = run("status", "--porcelain", "--", ".");
-        return result.ok() && !result.stdout().isBlank();
+        return !status().isEmpty();
     }
 
-    /** Does the file of the tool folder have uncommitted changes (or is it untracked)? */
-    public boolean hasChanges(@NotNull String fileName) {
-        Result result = run("status", "--porcelain", "--", fileName);
-        return result.ok() && !result.stdout().isBlank();
-    }
-
-    /** Does the tool folder have uncommitted changes in other files than the given one? */
-    public boolean hasOtherChanges(@NotNull String fileName) {
-        Result result = run("status", "--porcelain", "--", ".", ":(exclude)" + fileName);
-        return result.ok() && !result.stdout().isBlank();
+    /**
+     * The lines of {@code git status --porcelain} for the folder, untracked files one by one ({@code ?? path});
+     * ignored files are not listed. Empty if Git fails.
+     */
+    public @NotNull List<String> status() {
+        Result result = run("status", "--porcelain", "--untracked-files=all", "--", ".");
+        List<String> lines = new ArrayList<>();
+        if (!result.ok()) return lines;
+        for (String line : result.stdout().split("\\R")) {
+            if (!line.isBlank()) lines.add(line);
+        }
+        return lines;
     }
 
     /** Is the tag name valid for Git ({@code git check-ref-format})? */
@@ -95,14 +96,11 @@ public final class AhkInstallGit {
     }
 
     /**
-     * Commits only the file of the tool folder (also if it was untracked) with the message; other staged changes stay
-     * staged. Nothing to commit is no error. Returns {@code null} on success, otherwise the error text of Git.
+     * Commits all changes of versioned files under the folder with the message; staged changes outside of it stay
+     * staged, untracked files are not added. Returns {@code null} on success, otherwise the error text of Git.
      */
-    public @Nullable String commitFile(@NotNull String fileName, @NotNull String message) {
-        Result add = run("add", "--", fileName);
-        if (!add.ok()) return add.text();
-        if (run("diff", "--cached", "--quiet", "--", fileName).ok()) return null;
-        Result commit = run("commit", "-m", message, "--only", "--", fileName);
+    public @Nullable String commitAll(@NotNull String message) {
+        Result commit = run("commit", "-m", message, "--", ".");
         return commit.ok() ? null : commit.text();
     }
 

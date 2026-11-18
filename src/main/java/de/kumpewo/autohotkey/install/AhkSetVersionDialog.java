@@ -21,12 +21,14 @@ import javax.swing.JPanel;
 import javax.swing.event.DocumentEvent;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Dialog of "Set Version...": the current version, the next patch, minor or major version or a free one, check boxes
- * for commit and tag (disabled without Git; the tag also without {@code TagPrefix} and without commit, because the
- * tag must point to the commit with the new version), the editable message, and warnings about other uncommitted
- * changes. Validates the version and that the tag does not exist yet.
+ * Dialog of "Set Version...": the current version and the scripts that get the new one, the next patch, minor or
+ * major version or a free one, one check box "Commit the project and create tag v…" (disabled without Git and while
+ * files of the project are neither versioned nor ignored, with a hint), the editable message, and the uncommitted
+ * changes that are committed with the version. Validates the version and that the tag does not exist yet.
  */
 final class AhkSetVersionDialog extends DialogWrapper {
 
@@ -40,7 +42,6 @@ final class AhkSetVersionDialog extends DialogWrapper {
     private JBRadioButton customButton;
     private JBTextField custom;
     private JBCheckBox commit;
-    private JBCheckBox tag;
     private JBTextField message;
     /** The last proposed message; while the field shows it, it follows the version. */
     private String proposed;
@@ -62,10 +63,8 @@ final class AhkSetVersionDialog extends DialogWrapper {
     @NotNull AhkSetVersion.Choice choice() {
         String version = version();
         boolean doCommit = commit.isEnabled() && commit.isSelected();
-        boolean doTag = doCommit && tag.isEnabled() && tag.isSelected() && prepared.tagPrefix() != null;
         String text = message.getText().strip();
-        return new AhkSetVersion.Choice(version, doCommit,
-                doTag ? AhkVersionDirective.tagName(prepared.tagPrefix(), version) : null,
+        return new AhkSetVersion.Choice(version, doCommit, AhkVersionDirective.tagName(version),
                 text.isEmpty() ? prepared.message(version) : text);
     }
 
@@ -80,8 +79,13 @@ final class AhkSetVersionDialog extends DialogWrapper {
     @Override
     protected @Nullable JComponent createCenterPanel() {
         FormBuilder form = FormBuilder.createFormBuilder();
-        form.addComponent(new JBLabel(AhkBundle.message("version.dialog.current", prepared.current(),
-                prepared.fileName(), prepared.line() == null ? 0 : prepared.line().line() + 1)));
+        form.addComponent(new JBLabel(AhkBundle.message("version.dialog.current", prepared.current())));
+        List<String> scripts = new ArrayList<>();
+        for (AhkSetVersion.Script script : prepared.scripts()) {
+            scripts.add(script.name() + " (" + (script.line().line() + 1) + ")");
+        }
+        form.addComponent(hint(AhkBundle.message("version.dialog.scripts", String.join(", ", scripts))));
+        for (String warning : prepared.warnings()) form.addComponent(warning(warning));
         ButtonGroup group = new ButtonGroup();
         patchButton = radio(group, "version.dialog.patch", patch);
         minorButton = radio(group, "version.dialog.minor", minor);
@@ -101,20 +105,16 @@ final class AhkSetVersionDialog extends DialogWrapper {
             minorButton.setEnabled(false);
             majorButton.setEnabled(false);
         }
-        commit = new JBCheckBox(AhkBundle.message("version.dialog.commit", prepared.fileName()), prepared.repository());
-        commit.setEnabled(prepared.repository());
-        tag = new JBCheckBox("", prepared.repository() && prepared.tagPrefix() != null);
-        tag.setEnabled(prepared.repository() && prepared.tagPrefix() != null);
-        form.addVerticalGap(JBUI.scale(6)).addComponent(commit).addComponent(tag);
+        commit = new JBCheckBox("", prepared.canCommit());
+        commit.setEnabled(prepared.canCommit());
+        form.addVerticalGap(JBUI.scale(6)).addComponent(commit);
         if (!prepared.repository()) {
             form.addComponent(hint(AhkBundle.message("version.dialog.no.git")));
-        } else if (prepared.tagPrefix() == null) {
-            form.addComponent(hint(AhkBundle.message("version.dialog.no.prefix", AhkInstallConfig.FILE_NAME)));
+        } else if (!prepared.untracked().isEmpty()) {
+            form.addComponent(hint(AhkBundle.message("version.dialog.untracked", list(prepared.untracked()))));
+        } else if (!prepared.changed().isEmpty()) {
+            form.addComponent(warning(AhkBundle.message("version.dialog.changed", list(prepared.changed()))));
         }
-        if (prepared.scriptChanged()) {
-            form.addComponent(warning(AhkBundle.message("version.dialog.script.changed", prepared.fileName())));
-        }
-        if (prepared.otherChanges()) form.addComponent(warning(AhkBundle.message("version.dialog.other.changes")));
         proposed = prepared.message(version());
         message = new JBTextField(proposed, 40);
         form.addLabeledComponent(AhkBundle.message("version.dialog.message"), message);
@@ -123,7 +123,6 @@ final class AhkSetVersionDialog extends DialogWrapper {
             button.addActionListener(e -> update());
         }
         commit.addActionListener(e -> update());
-        tag.addActionListener(e -> update());
         custom.getDocument().addDocumentListener(new DocumentAdapter() {
             @Override
             protected void textChanged(@NotNull DocumentEvent e) {
@@ -144,15 +143,18 @@ final class AhkSetVersionDialog extends DialogWrapper {
         return button;
     }
 
-    /** Updates the tag check box, its text and the proposed message after a change. */
+    /** At most five entries of a list, then an ellipsis with the number of the others. */
+    static @NotNull String list(@NotNull List<String> items) {
+        if (items.size() <= 5) return String.join(", ", items);
+        return String.join(", ", items.subList(0, 5)) + ", … (+" + (items.size() - 5) + ")";
+    }
+
+    /** Updates the text of the check box (the tag) and the proposed message after a change. */
     private void update() {
-        if (tag == null) return;
+        if (commit == null || message == null) return;
         String version = version();
-        boolean canTag = prepared.repository() && prepared.tagPrefix() != null && commit.isSelected();
-        tag.setEnabled(canTag);
-        tag.setText(prepared.tagPrefix() == null ? AhkBundle.message("version.dialog.tag.none")
-                : AhkBundle.message("version.dialog.tag", AhkVersionDirective.tagName(prepared.tagPrefix(),
-                        version.isEmpty() ? "?" : version)));
+        commit.setText(AhkBundle.message("version.dialog.commit",
+                AhkVersionDirective.tagName(version.isEmpty() ? "?" : version)));
         message.setEnabled(commit.isEnabled() && commit.isSelected());
         if (message.getText().equals(proposed)) {
             proposed = prepared.message(version);
@@ -170,8 +172,8 @@ final class AhkSetVersionDialog extends DialogWrapper {
             return new ValidationInfo(AhkBundle.message("version.unchanged"), customButton.isSelected() ? custom : null);
         }
         AhkSetVersion.Choice choice = choice();
-        if (choice.tag() != null && prepared.tagExists(choice.tag())) {
-            return new ValidationInfo(AhkBundle.message("version.tag.exists", choice.tag()), tag);
+        if (choice.commit() && prepared.tagExists(choice.tag())) {
+            return new ValidationInfo(AhkBundle.message("version.tag.exists", choice.tag()), commit);
         }
         return null;
     }

@@ -21,7 +21,7 @@ public final class AhkRunConfigurationType extends ConfigurationTypeBase {
 
     public AhkRunConfigurationType() {
         super(ID, "AutoHotkey", AhkBundle.message("run.type.description"),
-                NotNullLazyValue.createValue(() -> AhkIcons.FILE));
+                NotNullLazyValue.createValue(() -> AhkIcons.INTERPRETER));
         addFactory(new Factory(this));
     }
 

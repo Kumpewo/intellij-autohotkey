@@ -1,4 +1,6 @@
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 plugins {
     id("org.jetbrains.kotlin.jvm")
@@ -46,6 +48,30 @@ intellijPlatform {
     }
 }
 
+// Local builds: ./gradlew buildPlugin -Plocal appends a build stamp to the version in gradle.properties, e.g.
+// 2.0.0.20261117.1530 (date and time as two numbers, each within the int range of the IDE's version comparison).
+// The IDE then sees it as newer than the release 2.0.0 and older than the next release 2.0.1, so updates from the
+// Marketplace keep working. project.version stays unchanged (the change notes are taken from its CHANGELOG
+// section); only the version in plugin.xml and the name of the ZIP file get the stamp. A ValueSource is evaluated
+// on every build, so the configuration cache does not reuse an old stamp.
+abstract class BuildStamp : ValueSource<String, ValueSourceParameters.None> {
+    override fun obtain(): String =
+        LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd.HHmm"))
+}
+
+val localBuild = providers.gradleProperty("local").isPresent
+val pluginVersion: String = if (localBuild) {
+    "${project.version}.${providers.of(BuildStamp::class) {}.get()}"
+} else {
+    project.version.toString()
+}
+
+intellijPlatform {
+    pluginConfiguration {
+        version = pluginVersion
+    }
+}
+
 sourceSets {
     main {
         java {
@@ -78,6 +104,11 @@ tasks {
     }
     compileKotlin {
         dependsOn(generateParser, generateLexer)
+    }
+
+    // the ZIP of a local build carries the stamp, so it never replaces the ZIP of a release
+    buildPlugin {
+        archiveVersion = pluginVersion
     }
 
 }

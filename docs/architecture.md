@@ -61,7 +61,7 @@ Shared knowledge is concentrated in a few places so that highlighting, completio
 
 | Class | Role |
 |-------|------|
-| `AhkLanguage`, `AhkFileType`, `AhkFile`, `AhkIcons` | language, file type `.ahk`, PSI file, icon |
+| `AhkLanguage`, `AhkFileType`, `AhkFile`, `AhkIcons` | language, file type `.ahk`, PSI file, file icon and interpreter icon (run configuration type; actions in `plugin.xml` use `icons/autohotkey-action.png`) |
 | `src/main/grammar/Ahk.flex` | lexer: strings, comments, hotkeys, hotstrings, continuation lines, keywords |
 | `parser/AhkLexerAdapter` | wraps the generated JFlex lexer |
 | `src/main/grammar/Ahk.bnf` | grammar: statements, expressions (Pratt), classes, switch, directives |
@@ -137,8 +137,8 @@ The generated PSI classes extend hand-written mixins (`mixin=` in the grammar):
 
 ## Highlighting and inspections (`highlighting/`, `annotation/`)
 
-- `AhkSyntaxHighlighter` colors only what the lexer knows for sure: strings, numbers, comments, hotkeys and
-  hotstrings. Keys are defined in `AhkColors`, defaults in `colorSchemes/AhkDefault.xml`, the settings page is
+- `AhkSyntaxHighlighter` colors only what the lexer knows for sure: strings, numbers, comments, hotkeys,
+  hotstrings and their replacement text. Keys are defined in `AhkColors`, defaults in `colorSchemes/AhkDefault.xml`, the settings page is
   `AhkColorSettingsPage`.
 - `AhkAnnotator` does the semantic coloring on the PSI tree: keywords by token type, directives, and identifiers
   by role (free-standing name, name after the dot, nested class `Gui.Button`, `default` in a switch, loop
@@ -147,6 +147,10 @@ The generated PSI classes extend hand-written mixins (`mixin=` in the grammar):
   `nested-classes`, `keys`, `members`), one set per language level (`AhkNames.get(level)`,
   `AhkNames.of(element)`), on first use. The tables live outside of the extension classes because extension classes
   must not use static initialization and annotators run in parallel.
+- `AhkSendKeysAnnotator` colors the keys in the replacement text of hotstrings and in string literals in the first
+  argument of `Send`/`SendInput`/`SendEvent`/`SendPlay`/`ControlSend` (`{Enter}`, `^c`) and warns about
+  unknown key names; the key syntax of Send is parsed by `AhkSendKeys` (raw/text mode from the hotstring options
+  and the `#Hotstring` directives of the file, cached per file).
 - Further annotators each check one rule: `AhkBlockBraceAnnotator` (nothing after `{`), `AhkElseBodyAnnotator`,
   `AhkBadCommentAnnotator`, `AhkDeclAnnotator` (`global` without a name), `AhkModuleAnnotator` (`#Module`/`#Import`: v2.1 only, where they
   are allowed, module name; the arguments of `#Import` are normal tokens, see `Ahk.flex`, and the element
@@ -311,6 +315,8 @@ AutoHotkey files (AutoHotkey allows non-ASCII characters in names, e.g. a `§` p
   first. Per language level: for v2.1 the lines of `help/lookup/v2.1/docs.txt` replace all entries of their word,
   and the pages come from `help/v2.1/` (`Topic.root`). It loads pages as resources (path in lower case), cuts the
   page between `<body>` and the anchor,
+  adds `nowrap` to short first cells of `table.info` rows (`withNowrapFirstColumn`, at most 30 characters per line;
+  the popup breaks words anywhere and CSS cannot select the first column),
   replaces stylesheet links by an inline style block (CSS from `help/styles/`, a copy of the styles of the
   AutoHotkey help, so that `help/docs/` can be replaced by a new version of the help at any time) and rewrites links between
   pages to `psi_element://`.
@@ -434,8 +440,8 @@ custom folding providers only know `//`, `#` and `/*` as comment prefixes, so th
 
 ## Validation with AutoHotkey (`validate/`)
 
-- `AhkValidator.target` picks the script: the one of the selected `AhkRunConfiguration` (`RunManager`), otherwise
-  the file itself. `AhkValidator` saves all modified AutoHotkey documents, writes a copy next to the script
+- `AhkValidator.target` picks the script: the one of the selected `AhkRunConfiguration` (`RunManager`) from any
+  file (one tool = one project), otherwise the file itself. `AhkValidator` saves all modified documents (`saveAllDocuments`), writes a copy next to the script
   (`copyPath`) with `#Warn All, StdOut` appended (`withWarnToStdOut`, keeps encoding and line separator) and runs
   `AutoHotkey [launcher.ahk] /ErrorStdOut /validate copy` (command line from `AhkRunState.createCommandLine`) as a
   background task with a timeout (in case a dialog blocks it). `restorePaths` maps the copy back to the original
@@ -445,6 +451,12 @@ custom folding providers only know `//`, `#` and `/*` as comment prefixes, so th
 - `AhkValidation` (project light service) keeps the result per file together with the document's modification
   stamp; a result is ignored as soon as the document changes. `AhkValidationAnnotator` marks the error line,
   `AhkSyntaxErrorAnnotator` adds "(AutoHotkey accepts this code)" to the parser's syntax errors.
+- `AhkTargetPresentation` sets the menu text of the actions that use `AhkValidator.target` (Validate, Compile)
+  in their `update`: bundle key `action.<id>.target` with the name of the run configuration or file (shortened to 40
+  characters, no mnemonic), description with the script relative to its content root (`path`). The project actions
+  (Deploy, Set Version, Create Settings) name the project (`AhkProjectRoot.update`).
+  `AhkValidator.includes` caches the files included by the main script (`CachedValuesManager`, PSI and VFS
+  structure changes) for the result of an included file.
 - `AhkValidateAction` is the menu action; `AhkValidateTriggers` (application listener for
   `FileDocumentManagerListener` and `AnActionListener`) starts the validation after saving or after
   *Reformat Code*, according to `AhkSettings.ValidateTrigger`.
@@ -452,7 +464,7 @@ custom folding providers only know `//`, `#` and `/*` as comment prefixes, so th
 ## Compilation with Ahk2Exe (`compile/`)
 
 - `AhkCompileAction` is the menu action; `AhkCompiler.compile` uses the same target as the validation
-  (`AhkValidator.target`), saves the AutoHotkey documents (`AhkValidator.saveAhkDocuments`) and requires a line
+  (`AhkValidator.target`), saves all modified documents (`AhkValidator.saveAllDocuments`) and requires a line
   `;@Ahk2Exe-Base` in the script (`hasBaseDirective`); otherwise a balloon notification (group `AutoHotkey`)
   offers "Add Ahk2Exe directives"; without Ahk2Exe it shows a hint in the editor (a dialog without an editor).
 - `AhkAhk2ExeHeader` builds the head of compiler directives as live template (placeholders for name, version
@@ -476,36 +488,51 @@ custom folding providers only know `//`, `#` and `/*` as comment prefixes, so th
 
 ## Installer and versions (`install/`)
 
-- `AhkInstallAction` ("Deploy to Local Target...", Code menu, context menus) calls `AhkInstaller.install`: target as
-  for Validate/Compile (`AhkValidator.target`), `settings.ahk-plugin.ini` next to the script, `prepare` in a
-  background task (reads the INI, plans, asks Git for uncommitted changes), `AhkInstallDialog` (always; prominent
-  notice for `RequiresAdmin`, `Message`, overview = compile step and the copy sections without comments, warnings,
-  link "More..." to `/extra/installer.htm#Uncommitted`), then `execute` in a background task: compile
-  (`AhkCompiler.run`, then the plan is created again because the executable exists now), copy; report in a console of
-  the Run tool window. Problems before the start are collected and shown together; nothing happens then. No commit,
-  no tag.
+- One tool = one project: `AhkProjectRoot` is the project root (`ProjectUtil.guessProjectDir`, local only), its
+  `settings.ahk-plugin.ini`, `isAvailable` (INI in the root, AutoHotkey file selected, AutoHotkey run configuration
+  or an AutoHotkey file in the project via `FileTypeIndex`, so the actions do not clutter other projects) and `update` for the presentation of the three project actions (text with
+  the project name, description with the root).
+- `AhkInstallAction` ("Deploy to Local Target...", Code menu, context menus) calls `AhkInstaller.install`: the INI in
+  the project root (missing: offers `AhkSettingsFile.create`), `prepare` in a background task (reads the INI, finds
+  the scripts to compile, plans, asks Git for uncommitted changes), `AhkInstallDialog` (always; prominent notice for
+  `RequiresAdmin`, `Message`, overview = compile steps and the copy sections without comments, warnings, link
+  "More..." to `/extra/installer.htm#Uncommitted`), then `execute` in a background task: compile each script of
+  `Prepared.compile` (`AhkCompiler.run`, then the plan is created again because the executables exist now), copy;
+  report in a console of the Run tool window. Problems before the start are collected and shown together; nothing
+  happens then. No commit, no tag.
+- Compile before copying (`CompileBeforeInstall`, default true): each copy source that names an `.exe` without wildcards
+  (`AhkInstallPlan.executable`) and has a script of the same name next to it (`AhkInstaller.scriptOf`) is compiled
+  from it, each script once; it needs `;@Ahk2Exe-Base`, and `compiledExe` must be that executable. With
+  `CompileBeforeInstall=false` only the warning "executable older than the scripts next to it" (`newerSources`).
 - `AhkInstallConfig` reads `settings.ahk-plugin.ini` (sections `[Install]`, `[Overwrite]`, `[KeepExisting]`,
-  `[Version]`; keys case-insensitive, `;` comments only at the line start, one pair of quotes removed, duplicates and
-  unknown keys are errors); `AhkInstallPlan` resolves `Destination`, `%DESTINATION%`, environment variables of the
-  IDE process, `%%`, `` `n `` in `Message`, sources (no `..`, wildcards only in the file name; `willExist` = the
-  executable that the compilation creates) and targets (folder rules) into `Step`s.
-- `AhkCreateSettingsAction` ("Create settings.ahk-plugin.ini") and the missing-file question of the installer call
-  `AhkSettingsFile.create`: the resource `install/settings.ahk-plugin.ini` (all options commented out and explained,
-  `{tool}` = script name without extension, CR LF) is written next to the script in a write command (into the
-  document if one is loaded) and opened; an existing file only after confirmation.
-- `AhkSetVersionAction` ("Set Version...") calls `AhkSetVersion.run`: `prepare` in the background (version line,
-  `TagPrefix` from `[Version]` if the INI exists, Git state, existing tags `<prefix>/*`), `AhkSetVersionDialog`
-  (patch/minor/major/other, commit and tag check boxes, message; validates the version and that the tag is new),
-  then the value is replaced in the document (`WriteCommandAction`, undoable) and saved, and `commitAndTag` runs in
-  the background (`check-ref-format` first, then commit of the script only, annotated tag); result as notification.
+  `[SetVersion]`; keys case-insensitive, `;` comments only at the line start, one pair of quotes removed from keys
+  and values, duplicates, unknown sections and unknown keys are errors). Mistakes have a scope: those of the file
+  itself stop every action, the others only Deploy (`errors`) or Set Version (`versionErrors`); `excludes` matches
+  the `path=exclude` lines of `[SetVersion]` (wildcards in the last name, `\` at the end = folder, recursive); `AhkInstallPlan` resolves `Destination`,
+  `%DESTINATION%`, environment variables of the IDE process, `%%`, `` `n `` in `Message`, sources (relative to the
+  project root, no `..`, wildcards only in the file name; `willExist` = the executables that the compilation creates)
+  and targets (folder rules) into `Step`s.
+- `AhkCreateSettingsAction` ("Create Settings...", only while the root has no INI) and the missing-file question of
+  the installer call `AhkSettingsFile.create`: the resource `install/settings.ahk-plugin.ini` (all options commented
+  out and explained, `{tool}` = project name, CR LF) is written into the project root in a write command and opened;
+  an existing file is only opened, never overwritten.
+- `AhkSetVersionAction` ("Set Version...") calls `AhkSetVersion.run`: in the background the AutoHotkey files of the
+  project content under the root (`projectScripts`, `ProjectFileIndex`) are read and `prepare` collects their version
+  lines (`Script`; several lines or a computed value are errors; different versions a warning; `current` = the
+  highest by `AhkVersionDirective.compare`), the Git state (`status`: untracked files prevent the commit, changed
+  versioned files are listed) and the tags `v*`; `AhkSetVersionDialog` (patch/minor/major/other, one check box
+  "Commit the project and create tag v…", message; validates the version and that the tag is new), then all values
+  are replaced in one `WriteCommandAction` (undoable) and saved, and `commitAndTag` runs in the background
+  (`check-ref-format` first, then commit of the project, annotated tag); result as notification. No INI needed; if
+  there is one, `prepare` skips the files of `[SetVersion]` (`AhkInstallConfig.excludes`) and stops on
+  `versionErrors`.
 - `AhkVersionDirective`: finds `;@Ahk2Exe-SetVersion` as Ahk2Exe does (trimmed line, any case, ` ;` comment cut
   off, block comments and `IgnoreBegin`/`IgnoreEnd` skipped, `/*@Ahk2Exe-Keep` counts), `bump`, `isValidVersion`,
-  `tagName`.
-- `AhkInstallGit`: `git` on the command line (no Git4Idea) in the tool folder: `status --porcelain` (folder, one file,
-  other files via `:(exclude)`), `check-ref-format`, `rev-parse --verify`, `add -- <file>` +
-  `commit --only -- <file>`, annotated tag on HEAD.
-- `AhkInstaller.compiledExe` guesses the output file (`;@Ahk2Exe-ExeName`, otherwise `<script>.exe`) for the
-  warning "executable older than the scripts".
+  `compare`, `tagName` (`v<version>`).
+- `AhkInstallGit`: `git` on the command line (no Git4Idea) in the project root: `status --porcelain
+  --untracked-files=all -- .`, `check-ref-format`, `rev-parse --verify`, `commit -- .` (all versioned files under the
+  root, staged changes outside stay staged), annotated tag on HEAD.
+- `AhkInstaller.compiledExe` guesses the output file of Ahk2Exe (`;@Ahk2Exe-ExeName`, otherwise `<script>.exe`).
 
 ## Debugger (`debug/`, in progress)
 

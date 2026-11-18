@@ -190,14 +190,27 @@ Colors are configured under *Settings > Editor > Color Scheme > AutoHotkey*, in 
 | Core | Number, String, Label, Comment | `42`, `"text"`, `Retry:`, `; note` |
 | Declaration | Function, Class | the name in `Next() {` and `class Counter` |
 | Declaration | Hotkey, Hotstring | `^!r::`, `::btw::` |
+| Declaration | Hotstring replacement text | `by the way` in `::btw::by the way`; like a string by default |
 | Built-in elements | Function, Variable, Class | `MsgBox`, `A_Index`, `Gui`, also as parameters and in declarations; nested classes `Gui.Button`, `extends Gui.Edit` |
 | Built-in elements | Method, Property | `Push`, `Length` - only as a whole name after a dot |
-| Special | Escape sequence in string | `` `n ``, `` `t ``, `` `" `` in strings |
+| Special | Escape sequence in string | `` `n ``, `` `t ``, `` `" `` in strings and hotstring replacement text |
+| Special | Key in send text | `{Enter}`, `{Tab 3}`, `^c`, `+{Tab}`, `{Raw}` in hotstring replacement text and Send strings |
 | Special | Variable with declared type | names covered by `;@declare-type` |
 | Special | Declared private member | members covered by `;@declare-private` |
 | Special | Unchecked code line | the line after `;@ignore-next-line` (marked background) |
 
 A keyword used as a name after the dot (`obj.if`) is an error.
+
+In the replacement text of a hotstring and in the strings passed to `Send`, `SendInput`, `SendEvent`, `SendPlay` and
+`ControlSend` (first argument, also in a concatenation like `Send "{Ctrl down}" key "{Ctrl up}"`; each string
+on its own; not `SendText`) the keys that Send translates get the color *Key in send text*: key names
+in braces (`{Enter}`, `{Shift down}`, `{Tab 3}`, a single character like `{!}` or `{{}`, `{U+20AC}`, `{vk41}`,
+`{ASC 0133}`, `{Click 100 200}`), the modes `{Raw}`, `{Text}` and `{Blind}`, and the modifier symbols `^ + ! #` with
+the key they apply to (`^c`). An unknown key name or option in braces (`{Entr}`, `{Enter twice}`) stays uncolored
+and gets a warning, because AutoHotkey ignores it silently; so does `{Blind}` that is not at the beginning. Nothing
+is colored where the text is sent literally: after `{Raw}` or `{Text}`, with the option `R` or `T` (in the head of
+the hotstring or in a `#Hotstring` directive above it in the same file), and in a continuation section as the
+replacement text (text mode unless the head says `R0` or `T0`).
 
 ## Code completion
 
@@ -632,13 +645,16 @@ v2.1 interpreter, see [Running scripts](#running-scripts)) and connects to it.
 
 The plugin's parser does not know every construct, and some errors can only be found by AutoHotkey itself (for
 example a missing `#Include` file). *Code > Validate with AutoHotkey* (*Alt+Shift+V*, also in the context menu of
-the editor and the project view) saves all modified AutoHotkey files and runs
+the editor and the project view) saves all modified files and runs
 `AutoHotkey /ErrorStdOut /validate script.ahk`: the script is loaded but not run.
 
-- Which script: if an AutoHotkey run configuration is selected in the toolbar and the current file is its script
-  or is included by it (also indirectly), its script (the main script) is validated (an included file alone usually
-  fails, because it lacks the definitions of the main script). Otherwise the current file is validated, also in a
-  project that collects many small scripts whose run configurations have nothing to do with the current file.
+- Which script: if an AutoHotkey run configuration is selected in the toolbar, its script (the main script) is
+  validated, from whatever file is open (one tool = one project; an included file alone usually fails, because it
+  lacks the definitions of the files included before it). Otherwise the current file is validated. For a tool with
+  several independent scripts (e.g. a GUI and a console variant) create one run configuration per script, or none.
+  The menu entry names this target: *Validate 'Main' with AutoHotkey* with the name of the run configuration,
+  *Validate 'script.ahk' with AutoHotkey* with the file (names longer than 40 characters are shortened). *Compile*
+  uses the same target.
 - AutoHotkey checks a temporary copy next to the script (`name.~validate.ahk`, deleted afterwards) with the line
   `#Warn All, StdOut` appended. It overrides every other `#Warn` mode of the script, so warnings never open a
   message box; the line numbers stay the same, and the output names the original file.
@@ -666,7 +682,7 @@ reports an error. Here, too, the same rule applies (saving an included file vali
 an executable with Ahk2Exe, the compiler of the AutoHotkey installation (`Compiler\Ahk2Exe.exe`).
 
 - Like the validation, it compiles the script of the selected AutoHotkey run configuration if the current file
-  belongs to it, otherwise the current file. Modified AutoHotkey files are saved first.
+  belongs to it, otherwise the current file. Modified files are saved first.
 - Only prepared scripts are compiled: the script must choose its base file (the AutoHotkey interpreter embedded
   in the executable) with a line `;@Ahk2Exe-Base`, for example
 
@@ -711,9 +727,13 @@ configuration is available as `A_InitialWorkingDir`.
 
 ## Deploying tools and setting versions
 
-Two actions in the *Code* menu (also in the context menus of the editor and the project view) help with tools you
-use every day. Both apply to the same script as *Validate* and *Compile*; their settings are in the file
-`settings.ahk-plugin.ini` in the folder of that script (the tool folder):
+Three actions in the *Code* menu (also in the context menus of the editor and the project view) help with tools you
+use every day. Deploy and Set Version first save all modified files, also `settings.ahk-plugin.ini`. They follow one rule: **one tool = one project**. A tool may consist of several scripts and
+executables (e.g. a GUI and a console variant), but it is one unit with one version. The actions always work on the
+whole project, whatever file is open, and name it in the menu (*Deploy 'MyTool' to Local Target...*). They appear
+in every project that contains an AutoHotkey file or a `settings.ahk-plugin.ini` (no file has to be open).
+
+The settings of *Deploy* are in the file `settings.ahk-plugin.ini` in the project root:
 
 ```ini
 [Install]
@@ -724,46 +744,61 @@ GenerateOverview=true
 CompileBeforeInstall=true
 
 [Overwrite]
-mytool.exe=mytool.exe
+mytool.exe=.
+console\mytool-console.exe=.
 pictures\*.png=pictures
 
 [KeepExisting]
 mytool.ini=%APPDATA%\mytool\
 
-[Version]
-TagPrefix=mytool
+[SetVersion]
+scratch\=exclude
 ```
 
-*Create settings.ahk-plugin.ini* (same menus) writes a documented default file next to the script: every option is
-explained in comments and commented out (switches with the value that changes the default, usually `true`), so
-the file does nothing until you remove a `;`.
-An existing file is only replaced after a confirmation.
+*Create Settings...* (same menus, only while the project root has no such file) writes a documented default
+`settings.ahk-plugin.ini` into the project root and opens it: every option is explained in comments and commented
+out (switches with the value that changes the default, usually `true`), so the file does nothing until you remove a
+`;`.
 
-*Deploy to Local Target...* copies a tool to a fixed place, so that compiling in the project does not replace the
+*Deploy to Local Target...* copies the tool to a fixed place, so that compiling in the project does not replace the
 version in use. It needs `settings.ahk-plugin.ini`; without one it offers to create the default file.
 
-- Everything is checked first (sources, targets, variables); any problem stops the deployment before anything
-  happens. Then a confirmation is always shown (message, overview, warnings), and the steps run in this order:
-  compile, copy. The report appears in the Run tool window; a failure stops the remaining steps (no rollback).
-  Nothing is committed or tagged.
-- Sources are relative to the tool folder (no `..`), with `*` and `?` in the file name (not recursive, files only).
+- Everything is checked first (sources, targets, variables, scripts to compile); any problem stops the deployment
+  before anything happens. Then a confirmation is always shown (message, overview, warnings), and the steps run in
+  this order: compile, copy. The report appears in the Run tool window; a failure stops the remaining steps (no
+  rollback). Nothing is committed or tagged.
+- `CompileBeforeInstall` (on by default) compiles what is copied: every executable named in `[Overwrite]` or `[KeepExisting]`
+  (a source ending in `.exe`, without wildcards) that has a script of the same name next to it
+  (`console\mytool-console.exe` from `console\mytool-console.ahk`) is compiled from that script first, each script
+  once, in the order of the lines. Each such script needs a line `;@Ahk2Exe-Base`, and a line
+  `;@Ahk2Exe-ExeName` must not name another file; otherwise the deployment stops, and you fix the script or the
+  settings. An executable without such a script is just copied. Only executables that are actually copied are
+  compiled; `CompileBeforeInstall=false` copies them as they are.
+- Sources are relative to the project root (no `..`), with `*` and `?` in the file name (not recursive, files only).
   Targets are absolute or relative to `Destination`; `%DESTINATION%`, environment variables of the IDE and `%%`
   are resolved. A target ending with `\` or `/`, `.` or `..`, `Destination` itself (also before it exists), an
   existing folder, or the target of a wildcard is a folder.
   `[KeepExisting]` skips existing targets. Each source only once per section (use wildcards for more targets).
+  Keys and values may be enclosed in double quotes; spaces in file names are kept.
 - `RequiresAdmin=true` copies in one elevated process (one UAC prompt); the confirmation then always shows a
-  prominent notice. `GenerateOverview` (on by default) shows the destination, the compile step and the lines of
-  `[Overwrite]` and `[KeepExisting]` without comments. All other switches are off by default.
-- The confirmation warns if the executable is older than the scripts of the tool folder (with
-  `CompileBeforeInstall=false`) and if the tool folder has uncommitted changes (Git).
+  prominent notice. `GenerateOverview` (on by default) shows the destination, the compile steps and the lines of
+  `[Overwrite]` and `[KeepExisting]` without comments. `RequiresAdmin` is off by default.
+- The confirmation warns if an executable is older than the scripts next to it (with `CompileBeforeInstall=false`)
+  and if the project has uncommitted changes (Git).
 
-*Set Version...* changes the version in the line `;@Ahk2Exe-SetVersion 1.2.0` of the script (file and product
-version of the executable). The dialog proposes the next patch, minor or major version or takes any other one
-(never with a leading `v`), then changes the line (undoable with *Undo*), commits only the script and sets the
-annotated tag `<TagPrefix>/v<version>` on that commit. Commit and tag can be switched off; without Git only the line is changed,
-without `TagPrefix` in `[Version]` (or without `settings.ahk-plugin.ini`) there is no tag. An existing tag is
-refused. The dialog warns if the script has other uncommitted changes (they are committed with it) and if other files
-of the tool folder have changes (they are not committed). The script needs exactly one such line with a written
+*Set Version...* sets the version of the tool in every AutoHotkey file of the project that has a line
+`;@Ahk2Exe-SetVersion 1.2.0` (file and product version of the executable); it needs no settings. Files listed in
+the section `[SetVersion]` of `settings.ahk-plugin.ini` (lines `path=exclude`, the path relative to the project root
+like a source of `[Overwrite]`; ending with `\` a folder with everything below it, e.g. `scratch\=exclude`) are left
+alone silently. They still count for commit and tag; to keep files out of Git use `.gitignore`. A mistake in the
+settings stops Set Version only if it concerns the file itself or `[SetVersion]`. The dialog shows
+the current version (the highest, with a warning if the scripts differ) and the scripts it changes, proposes the next
+patch, minor or major version or takes any other one (never with a leading `v`), then changes the lines (undoable
+with *Undo*). With *Commit the project and create tag v1.2.1* it commits all changes of the project and sets the
+annotated tag `v<version>` on that commit, so the tag marks exactly the sources of the deployed tool. This is only
+possible if every file of the project is versioned or ignored (`.gitignore`); otherwise, and without Git, the check
+box is disabled with a hint, and only the lines are changed. Uncommitted changes of versioned files are listed and
+committed with the version. An existing tag is refused. Each script needs at most one such line with a written
 version (not computed with `%...%`); Ahk2Exe reads it as a directive in any case, with a comment ` ; ...` after it.
 
 Details and reasons: *Help > AutoHotkey Plugin Manual*, page "Deploying tools and setting versions".
@@ -796,6 +831,11 @@ Details and reasons: *Help > AutoHotkey Plugin Manual*, page "Deploying tools an
   embedded modules (`#Import "*Resource"`) are not evaluated. In the debugger the *Global* node always shows the
   globals of the module of the innermost frame, also when an outer frame of another module is selected (the
   AutoHotkey engine answers that way).
+- Outside parentheses, a line only continues the previous one if it starts with `and`, `or`, `is`, `in`,
+  `contains`, `&&`, `||`, `??`, `?`, `:`, `. ` or `,`. Other operators at the start of a line (`=`, `:=`, `+`, `*`,
+  `<` ...) are reported as an error, although AutoHotkey continues the previous line (`if x`⏎`= 1`); they could not
+  be told apart from hotkeys such as `=::` or `+a::`. Put the operator at the end of the previous line or enclose
+  the expression in parentheses.
 - The command form of a method call (`obj.Method "x"`) is read as a concatenation.
 - A property block with its accessor on the same line (`Prop { get => 1 }`) is accepted, although AutoHotkey
   reports an error there; write the accessor on its own line.

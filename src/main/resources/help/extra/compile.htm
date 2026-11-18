@@ -50,7 +50,7 @@
   <li>The placeholders (product name, version, description, copyright) are selected one after another; type the value and press <kbd>Tab</kbd> for the next one, <kbd>Enter</kbd> or <kbd>Esc</kbd> to keep the rest. The name defaults to the file name.</li>
   <li>The base file is <code>AutoHotkey64.exe</code>, or <code>AutoHotkey32.exe</code> if <code>#Requires</code> asks for <code>32-bit</code>.</li>
   <li>Write the values <strong>without quotes</strong>: Ahk2Exe takes the rest of the line as it is, quotes would appear in the properties of the executable. Spaces are fine; a comma must be written as <code>`,</code>; a comment after the value needs a space before the <code>;</code>.</li>
-  <li><code>;@Ahk2Exe-SetVersion</code> sets file and product version. <a href="installer.htm#Version">Set Version...</a> changes this line for you, with commit and version tag.</li>
+  <li><code>;@Ahk2Exe-SetVersion</code> sets file and product version. <a href="installer.htm#Version">Set Version...</a> changes this line in all scripts of the project for you, with commit and version tag.</li>
   <li>Lines starting with <code>;;@</code> are disabled directives. Remove one <code>;</code> to set an icon or to build a console application.</li>
   <li><code>0x0409</code> is the language code for English (United States), e.g. <code>0x0407</code> for German.</li>
 </ul>
@@ -58,8 +58,8 @@
 <h2 id="Compile">Compile</h2>
 <p><em>Code &gt; Compile with Ahk2Exe</em>, or the context menu of the editor or of the project view.</p>
 <ol>
-  <li id="Target">The script is chosen like for the <a href="validate.htm#Target">validation</a>: the script of the AutoHotkey run configuration selected in the toolbar if the current file is that script or included by it, otherwise the current file.</li>
-  <li>All modified AutoHotkey files are saved.</li>
+  <li id="Target">The script is chosen like for the <a href="validate.htm#Target">validation</a>: the script of the AutoHotkey run configuration selected in the toolbar, from whatever file is open, otherwise the current file.</li>
+  <li>All modified files are saved (not only AutoHotkey files).</li>
   <li>The plugin runs <code>Ahk2Exe.exe /in <i>script</i> /compress <i>n</i> /silent verbose</code> in the folder of the script, as a background task that can be cancelled.</li>
   <li>The console in the Run tool window shows "Compiling <i>name</i>.ahk...", the output of Ahk2Exe and a summary: green "Ahk2Exe created <i>path</i>", or red with the exit code. Errors in the script have a link to the file and line.</li>
 </ol>

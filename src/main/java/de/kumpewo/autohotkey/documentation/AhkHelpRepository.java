@@ -188,13 +188,51 @@ public final class AhkHelpRepository {
             try (InputStream in = AhkHelpRepository.class.getResourceAsStream("/help/" + candidate)) {
                 if (in == null) continue;
                 String html = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-                return rewriteLinks(withStyle(withoutClutter(html)), linkBase(candidate));
+                return rewriteLinks(withStyle(withNowrapFirstColumn(withoutClutter(html))), linkBase(candidate));
             } catch (IOException e) {
                 return null;
             }
         }
         return null;
     }
+
+    /** Longest line (text without tags) of a first column cell that is still kept on one line. */
+    static final int NOWRAP_MAX_LINE = 30;
+
+    /**
+     * Adds {@code nowrap="nowrap"} to the first cell of each row in the tables with class {@code info}, if every line
+     * of the cell (separated by {@code <br>}) has at most {@link #NOWRAP_MAX_LINE} characters of text. The popup may
+     * break words anywhere, so without it the first column is only as wide as its (unbreakable) header and names such
+     * as {@code A_ScriptFullPath} are split. CSS cannot do this: Swing knows neither {@code :first-child} nor
+     * attribute selectors, and ignores {@code white-space} from a stylesheet. Longer cells (sentences, lists) keep
+     * wrapping; cells that already have the attribute stay unchanged.
+     */
+    public static String withNowrapFirstColumn(String html) {
+        return INFO_TABLE.matcher(html).replaceAll(table -> Matcher.quoteReplacement(
+                ROW.matcher(table.group()).replaceAll(row -> Matcher.quoteReplacement(nowrapFirstCell(row.group())))));
+    }
+
+    /** The row with {@code nowrap} at its first {@code <td>}, if its lines are short enough. */
+    private static String nowrapFirstCell(String row) {
+        Matcher cell = FIRST_CELL.matcher(row);
+        if (!cell.find() || NOWRAP_ATTRIBUTE.matcher(cell.group(1)).find()) return row;
+        for (String line : LINE_BREAK.split(cell.group(2))) {
+            String text = TAG.matcher(line).replaceAll("").replaceAll("&[#a-zA-Z0-9]+;", "x")
+                    .replaceAll("\\s+", " ").strip();
+            if (text.length() > NOWRAP_MAX_LINE) return row;
+        }
+        return row.substring(0, cell.start(1)) + " nowrap=\"nowrap\"" + row.substring(cell.start(1));
+    }
+
+    private static final Pattern INFO_TABLE = Pattern.compile(
+            "<table\\b[^>]*\\bclass\\s*=\\s*[\"']?info[\"']?[^>]*>.*?</table\\s*>",
+            Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+    private static final Pattern ROW = Pattern.compile("<tr\\b.*?</tr\\s*>", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+    private static final Pattern FIRST_CELL = Pattern.compile("<t[dh]\\b([^>]*)>(.*?)</t[dh]\\s*>",
+            Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+    private static final Pattern NOWRAP_ATTRIBUTE = Pattern.compile("\\bnowrap\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern LINE_BREAK = Pattern.compile("<br\\b[^>]*>", Pattern.CASE_INSENSITIVE);
+    private static final Pattern TAG = Pattern.compile("<[^>]*>");
 
     /**
      * Removes what the popup does not need and what the IDE could show as text: the {@code <!DOCTYPE>},

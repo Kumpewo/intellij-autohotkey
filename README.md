@@ -56,9 +56,10 @@ More screenshots: [library completion](docs/images/include-completion.png),
 - **Compilation with Ahk2Exe** (*Code > Compile with Ahk2Exe*) for scripts that choose their base file with
   `;@Ahk2Exe-Base`; errors are clickable in the console. A run configuration can compile first and run the
   executable in a real console (terminal in the Run tool window or a separate console window).
-- **Deploying tools** (*Code > Deploy to Local Target...*): copies a tool to a fixed folder as described by a
-  `settings.ahk-plugin.ini` next to the script, optionally after compiling. **Versions** (*Code > Set Version...*):
-  changes `;@Ahk2Exe-SetVersion`, commits only the script and sets a version tag.
+- **Deploying tools** (one tool = one project, *Code > Deploy to Local Target...*): copies the tool to a fixed
+  folder as described by the `settings.ahk-plugin.ini` in the project root, optionally after compiling the
+  executables it copies (e.g. a GUI and a console variant). **Versions** (*Code > Set Version...*): sets
+  `;@Ahk2Exe-SetVersion` in all scripts of the project, commits the project and sets the tag `v<version>`.
 
 Only AutoHotkey v2 is supported. Files that require another version (`#Requires AutoHotkey v1.1`) are left
 unparsed and only get a warning.
@@ -125,3 +126,5 @@ version (SPDX: `GPL-2.0-or-later`). See [LICENSE](LICENSE).
 
 The bundled AutoHotkey help pages (`src/main/resources/help/docs/`) are part of the AutoHotkey documentation and are
 distributed under the GNU General Public License version 2, like AutoHotkey itself (see `help/docs/license.htm`).
+The icon of the menu entries and run configurations (`src/main/resources/icons/autohotkey-action*.png`) is the program icon of
+`AutoHotkey64.exe` and is distributed under the same license.

@@ -4,6 +4,46 @@
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-18
+
+### Added
+
+- Color *Declaration > Hotstring replacement text* for the text after `::` (like a string by default); escape
+  sequences in it get the escape color.
+- Color *Special > Key in send text* for the keys in hotstring replacement text and in the strings passed to
+  `Send`, `SendInput`, `SendEvent`, `SendPlay` and `ControlSend` (`{Enter}`, `{Tab 3}`, `^c`,
+  `{Raw}`); unknown key names in braces (`{Entr}`) get a warning, because AutoHotkey ignores them silently.
+- Keys in `settings.ahk-plugin.ini` may now be enclosed in double quotes, like values.
+- Section `[SetVersion]` in `settings.ahk-plugin.ini`: lines `path=exclude` (e.g. `scratch\=exclude`) keep files and
+  folders out of Set Version. A mistake in the settings only stops the action it concerns.
+
+### Changed
+
+- Deploy, Set Version and Create Settings follow the rule "one tool = one project" and always work on the whole
+  project, whatever file is open; their menu entries name the project.
+  - `settings.ahk-plugin.ini` lies in the project root; sources are relative to it. The section `[Version]`
+    (`TagPrefix`) is gone.
+  - Deploy compiles what it copies: every executable of `[Overwrite]` and `[KeepExisting]` that has a script of
+    the same name next to it (e.g. a GUI and a console variant). `CompileBeforeInstall` is now on by default;
+    `CompileBeforeInstall=false` copies the executables as they are.
+  - Set Version sets the version in every script of the project with a line `;@Ahk2Exe-SetVersion`, commits all
+    changes of the project and sets the tag `v<version>`; commit and tag need every file to be versioned or ignored.
+    It needs no `settings.ahk-plugin.ini`.
+  - Create Settings writes the file into the project root and is only offered while there is none.
+- Validate and Compile use the script of the selected AutoHotkey run configuration from any file, also from a
+  script it does not include; without a run configuration the current file.
+- Menu order: Validate, Compile, Create Settings, Set Version, Deploy, followed by a separator.
+- Validate, Compile, Deploy and Set Version save all modified files first, not only AutoHotkey files (e.g. an
+  edited `settings.ahk-plugin.ini` is deployed and committed as shown in the editor).
+- Quick documentation: the first column of tables in the AutoHotkey help (e.g. the built-in variables) no longer
+  breaks short names such as `A_ScriptFullPath`.
+- The menu entries Validate and Compile name their target, e.g. *Validate 'Main' with AutoHotkey* with the
+  selected run configuration or *Validate 'tool.ahk' with AutoHotkey* with the current file. *Create
+  settings.ahk-plugin.ini* is now called *Create Settings*.
+- Menu entries (Validate, Compile, Create Settings, Set Version, Deploy, Attach to AutoHotkey Script, the manual and
+  the help) and the AutoHotkey run configurations show the icon of the AutoHotkey interpreter instead of the file
+  icon.
+
 ## [2.0.0] - 2026-11-17
 
 ### Added
