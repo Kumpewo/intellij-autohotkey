@@ -133,3 +133,11 @@ The bundled AutoHotkey help pages (`src/main/resources/help/docs/`) are part of 
 distributed under the GNU General Public License version 2, like AutoHotkey itself (see `help/docs/license.htm`).
 The icon of the menu entries (except the plugin manual, Create Settings, Set Version and Deploy) and run configurations (`src/main/resources/icons/autohotkey-action*.png`) is the program icon of
 `AutoHotkey64.exe`; the library project actions use its green variant (`autohotkey-library*.png`, from the same file). Both are distributed under the same license.
+
+## Trademarks
+
+This project is not affiliated with, sponsored or endorsed by [JetBrains](https://www.jetbrains.com). JetBrains,
+IntelliJ, IntelliJ IDEA, PyCharm and WebStorm are trademarks of JetBrains s.r.o.
+
+Screenshots of the IDE: Copyright © 2026 JetBrains s.r.o., used with permission. IntelliJ IDEA and the IntelliJ IDEA logo
+are trademarks of JetBrains s.r.o.

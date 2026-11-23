@@ -26,6 +26,9 @@ public class AhkDeployTest extends BasePlatformTestCase {
 
     private Path root;
 
+    /** Timeout for external programs in tests: their first start is slow on a busy CI machine. */
+    private static final int SLOW_START_MS = 5 * 60_000;
+
     @Override
     protected void setUp() throws Exception {
         super.setUp();
@@ -38,6 +41,21 @@ public class AhkDeployTest extends BasePlatformTestCase {
             FileUtil.delete(root);
         } finally {
             super.tearDown();
+        }
+    }
+
+    /**
+     * Is Git installed? Waits long enough for its first start, which can take minutes on a busy CI machine (the timeout
+     * of {@link AhkDeployGit} is meant for users).
+     */
+    private static boolean gitAvailable() {
+        try {
+            var line = new com.intellij.execution.configurations.GeneralCommandLine("git", "--version");
+            var output = new com.intellij.execution.process.CapturingProcessHandler(line).runProcess(SLOW_START_MS);
+            assertFalse("git --version: timeout", output.isTimeout());
+            return output.getExitCode() == 0;
+        } catch (com.intellij.execution.ExecutionException e) {
+            return false;
         }
     }
 
@@ -459,6 +477,7 @@ public class AhkDeployTest extends BasePlatformTestCase {
         assertNull(AhkDeployPlan.include(root.resolve("Gui.ahk"), libraries));
         assertEquals(List.of(root.resolve("Docs\\AutoHotkey\\Lib")),
                 AhkDeployPlan.libraries(env("A_MyDocuments", root.resolve("Docs").toString())).subList(0, 1));
+        if (!gitAvailable()) return;
         // {commit}: without a repository empty
         Path project = root.resolve("Tool");
         write(project.resolve("tool.ahk"), "x := 1\n");
@@ -466,7 +485,8 @@ public class AhkDeployTest extends BasePlatformTestCase {
         Function<Path, String> commit = AhkDeployPlan.gitCommit(project);
         assertNull(commit.apply(project.resolve("tool.ahk")));
         AhkDeployGit git = new AhkDeployGit(project);
-        if (!git.run("init", "-q").ok()) return; // no Git installed
+        AhkDeployGit.Result init = git.run("init", "-q");
+        assertTrue(init.text(), init.ok());
         git.run("-c", "user.name=t", "-c", "user.email=t@t", "add", "tool.ahk");
         assertTrue(git.run("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "x").ok());
         String head = git.run("rev-parse", "--short", "HEAD").stdout().strip();
@@ -958,7 +978,7 @@ public class AhkDeployTest extends BasePlatformTestCase {
         Files.write(script, ("﻿" + AhkDeployCopier.elevatedScript(steps, log)).getBytes(StandardCharsets.UTF_8));
         var line = new com.intellij.execution.configurations.GeneralCommandLine("powershell.exe", "-NoProfile",
                 "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script.toString());
-        var output = new com.intellij.execution.process.CapturingProcessHandler(line).runProcess(60_000);
+        var output = new com.intellij.execution.process.CapturingProcessHandler(line).runProcess(SLOW_START_MS);
         assertEquals(output.getStderr(), 1, output.getExitCode());
         var results = AhkDeployCopier.readLog(steps, Files.readAllLines(log, StandardCharsets.UTF_8));
         List<AhkDeployCopier.Outcome> outcomes = new ArrayList<>();
@@ -1355,8 +1375,8 @@ public class AhkDeployTest extends BasePlatformTestCase {
      * Deploy only warns about uncommitted changes and commits nothing.
      */
     public void testSetVersionCommitAndTag() throws Exception {
+        if (!gitAvailable()) return;
         AhkDeployGit git = new AhkDeployGit(root);
-        if (!git.run("--version").ok()) return;
         assertTrue(git.run("init", "-q").ok());
         git.run("config", "user.name", "Test");
         git.run("config", "user.email", "test@example.invalid");
