@@ -6,7 +6,6 @@ import com.intellij.openapi.options.Configurable;
 import com.intellij.openapi.ui.ComboBox;
 import com.intellij.openapi.ui.TextFieldWithBrowseButton;
 import com.intellij.openapi.util.NlsContexts;
-import com.intellij.ui.SimpleListCellRenderer;
 import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBTextField;
 import com.intellij.util.ui.FormBuilder;
@@ -20,8 +19,9 @@ import java.nio.file.Path;
  * Settings page "Languages &amp; Frameworks > AutoHotkey": path to the AutoHotkey program and to the AutoHotkey
  * v2.1 interpreter, command line of the
  * external help (Shift+F1), automatic validation with AutoHotkey, path to the compiler Ahk2Exe and the compression
- * of the compiled executable, language level of files without {@code #Requires} and whether the Project view shows
- * the language level of AutoHotkey files; below them a link to the user manual of the plugin.
+ * of the compiled executable, language level of files without {@code #Requires}, whether the Project view shows
+ * the language level of AutoHotkey files and the folder of the library projects; below them a link to the user manual
+ * of the plugin.
  */
 public final class AhkSettingsConfigurable implements Configurable {
 
@@ -33,6 +33,7 @@ public final class AhkSettingsConfigurable implements Configurable {
     private ComboBox<AhkSettings.Compression> compression;
     private ComboBox<de.kumpewo.autohotkey.parser.AhkLanguageLevel> languageLevel;
     private JCheckBox showLevel;
+    private TextFieldWithBrowseButton libraryFolder;
     private JPanel panel;
 
     /** Name of the page in the settings tree. */
@@ -76,7 +77,7 @@ public final class AhkSettingsConfigurable implements Configurable {
         helpHint.setComponentStyle(UIUtil.ComponentStyle.SMALL);
         helpHint.setFontColor(UIUtil.FontColor.BRIGHTER);
         validateTrigger = new ComboBox<>(AhkSettings.ValidateTrigger.values());
-        validateTrigger.setRenderer(SimpleListCellRenderer.create("",
+        validateTrigger.setRenderer(new AhkTextRenderer<>(
                 trigger -> AhkBundle.message("settings.validate." + trigger.name().toLowerCase(java.util.Locale.ROOT))));
         JBLabel validateHint = new JBLabel(AhkBundle.message("settings.validate.hint"));
         validateHint.setComponentStyle(UIUtil.ComponentStyle.SMALL);
@@ -90,18 +91,24 @@ public final class AhkSettingsConfigurable implements Configurable {
         ahk2ExePath.addBrowseFolderListener(null, FileChooserDescriptorFactory.createSingleFileDescriptor("exe")
                 .withTitle(AhkBundle.message("settings.ahk2exe.choose")));
         compression = new ComboBox<>(AhkSettings.Compression.values());
-        compression.setRenderer(SimpleListCellRenderer.create("",
+        compression.setRenderer(new AhkTextRenderer<>(
                 value -> AhkBundle.message("settings.compression." + value.name().toLowerCase(java.util.Locale.ROOT))));
         JBLabel compileHint = new JBLabel(AhkBundle.message("settings.compile.hint"));
         compileHint.setComponentStyle(UIUtil.ComponentStyle.SMALL);
         compileHint.setFontColor(UIUtil.FontColor.BRIGHTER);
         languageLevel = new ComboBox<>(de.kumpewo.autohotkey.parser.AhkLanguageLevel.selectable());
-        languageLevel.setRenderer(SimpleListCellRenderer.create("",
+        languageLevel.setRenderer(new AhkTextRenderer<>(
                 value -> AhkBundle.message("settings.language.level." + value.name().toLowerCase(java.util.Locale.ROOT))));
         JBLabel languageLevelHint = new JBLabel(AhkBundle.message("settings.language.level.hint"));
         languageLevelHint.setComponentStyle(UIUtil.ComponentStyle.SMALL);
         languageLevelHint.setFontColor(UIUtil.FontColor.BRIGHTER);
         showLevel = new JCheckBox(AhkBundle.message("settings.language.level.project.view"));
+        libraryFolder = new TextFieldWithBrowseButton();
+        libraryFolder.addBrowseFolderListener(null, FileChooserDescriptorFactory.createSingleFolderDescriptor()
+                .withTitle(AhkBundle.message("settings.library.folder.choose")));
+        JBLabel libraryHint = new JBLabel(AhkBundle.message("settings.library.folder.hint"));
+        libraryHint.setComponentStyle(UIUtil.ComponentStyle.SMALL);
+        libraryHint.setFontColor(UIUtil.FontColor.BRIGHTER);
         panel = FormBuilder.createFormBuilder()
                 .addLabeledComponent(AhkBundle.message("settings.autohotkey.path"), path)
                 .addComponentToRightColumn(hint)
@@ -117,6 +124,8 @@ public final class AhkSettingsConfigurable implements Configurable {
                 .addLabeledComponent(AhkBundle.message("settings.language.level"), languageLevel)
                 .addComponentToRightColumn(languageLevelHint)
                 .addComponentToRightColumn(showLevel)
+                .addLabeledComponent(AhkBundle.message("settings.library.folder"), libraryFolder)
+                .addComponentToRightColumn(libraryHint)
                 .addVerticalGap(10)
                 .addComponent(new com.intellij.ui.components.ActionLink(AhkBundle.message("settings.manual"),
                         (java.awt.event.ActionListener) e -> de.kumpewo.autohotkey.documentation.AhkManual.open(null)))
@@ -136,7 +145,8 @@ public final class AhkSettingsConfigurable implements Configurable {
                 || !ahk2ExePath.getText().trim().equals(settings.getAhk2ExePath())
                 || compression.getSelectedItem() != settings.getCompression()
                 || languageLevel.getSelectedItem() != settings.getDefaultLanguageLevel()
-                || showLevel.isSelected() != settings.isShowLevelInProjectView();
+                || showLevel.isSelected() != settings.isShowLevelInProjectView()
+                || !libraryFolder.getText().trim().equals(settings.getLibraryProjectsFolder());
     }
 
     /**
@@ -166,6 +176,11 @@ public final class AhkSettingsConfigurable implements Configurable {
             AhkSettings.getInstance().setShowLevelInProjectView(showLevel.isSelected());
             de.kumpewo.autohotkey.level.AhkLevelDecorator.refreshAll();
         }
+        if (!libraryFolder.getText().trim().equals(AhkSettings.getInstance().getLibraryProjectsFolder())) {
+            // other library projects: other installed copies (write access, notification in the editor)
+            AhkSettings.getInstance().setLibraryProjectsFolder(libraryFolder.getText());
+            de.kumpewo.autohotkey.install.AhkLibraryCopyNotification.refreshAll();
+        }
         de.kumpewo.autohotkey.include.AhkLibraryRootsProvider.changeRoots(() -> {
             AhkSettings.getInstance().setAutoHotkeyPath(text);
             AhkSettings.getInstance().setAutoHotkeyV21Path(v21Text);
@@ -183,6 +198,7 @@ public final class AhkSettingsConfigurable implements Configurable {
         compression.setSelectedItem(AhkSettings.getInstance().getCompression());
         languageLevel.setSelectedItem(AhkSettings.getInstance().getDefaultLanguageLevel());
         showLevel.setSelected(AhkSettings.getInstance().isShowLevelInProjectView());
+        libraryFolder.setText(AhkSettings.getInstance().getLibraryProjectsFolder());
     }
 
     /** Releases the UI components. */
@@ -196,6 +212,7 @@ public final class AhkSettingsConfigurable implements Configurable {
         compression = null;
         languageLevel = null;
         showLevel = null;
+        libraryFolder = null;
         panel = null;
     }
 }

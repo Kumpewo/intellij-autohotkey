@@ -59,7 +59,7 @@ public final class AhkExternalHelp {
             if (project.isDisposed()) return;
             com.intellij.openapi.ui.popup.JBPopup popup = com.intellij.openapi.ui.popup.JBPopupFactory.getInstance()
                     .createPopupChooserBuilder(topics)
-                    .setRenderer(com.intellij.ui.SimpleListCellRenderer.create("", AhkHelpRepository.Topic::label))
+                    .setRenderer(new de.kumpewo.autohotkey.settings.AhkTextRenderer<>(AhkHelpRepository.Topic::label))
                     .setTitle(AhkBundle.message("help.variants.choose"))
                     .setItemChosenCallback(topic -> open(project, topic))
                     .createPopup();
@@ -149,7 +149,7 @@ public final class AhkExternalHelp {
                 if (start == null) {
                     error(project, AhkBundle.message("help.external.chm.not.found", CHM));
                 } else {
-                    BrowserUtil.browse(start.toFile());
+                    BrowserUtil.browse(start);
                 }
             } catch (IOException e) {
                 error(project, AhkBundle.message("help.bundled.failed", String.valueOf(e.getMessage())));

@@ -54,6 +54,34 @@ public final class AhkVersionDirective {
         }
     }
 
+    /**
+     * The version lines of a file: in an AutoHotkey file the lines {@code ;@Ahk2Exe-SetVersion} ({@link #find}), in
+     * any other file the lines {@code <start> @SetVersion <value> [<end>]} of its comment style (each start of
+     * {@link AhkFileRules#readStarts}), with the value up to whitespace or the end of the comment.
+     */
+    public static @NotNull List<Line> findIn(@NotNull String fileName, @NotNull CharSequence text,
+                                             @Nullable AhkFileRules.Style style) {
+        if (AhkFileRules.isAutoHotkey(fileName) || style == null) return find(text);
+        String end = style.end() == null ? "" : "|" + java.util.regex.Pattern.quote(style.end());
+        StringBuilder starts = new StringBuilder();
+        for (String start : AhkFileRules.readStarts(style)) {
+            if (!starts.isEmpty()) starts.append('|');
+            starts.append(java.util.regex.Pattern.quote(start));
+        }
+        java.util.regex.Pattern tagged = java.util.regex.Pattern.compile("(?im)^\\uFEFF?[ \\t]*(?:"
+                + starts + ")[ \\t]*@SetVersion(?:[ \\t]+(.*?))?[ \\t]*(?:$" + end + ")");
+        List<Line> result = new ArrayList<>();
+        java.util.regex.Matcher m = tagged.matcher(text);
+        while (m.find()) {
+            int line = 0;
+            for (int i = 0; i < m.start(); i++) if (text.charAt(i) == '\n') line++;
+            String value = m.group(1) == null ? "" : m.group(1);
+            int start = m.group(1) == null ? m.end() : m.start(1);
+            result.add(new Line(line, start, start + value.length(), value));
+        }
+        return result;
+    }
+
     /** All {@code ;@Ahk2Exe-SetVersion} lines that Ahk2Exe reads, in file order. */
     public static @NotNull List<Line> find(@NotNull CharSequence text) {
         List<Line> result = new ArrayList<>();
@@ -138,6 +166,14 @@ public final class AhkVersionDirective {
             result.append(numbers[i]);
         }
         return result.toString();
+    }
+
+    /**
+     * The proposal of "Set Version..." for the part: {@link #bump} of the current version; without one (no file has a
+     * version yet) from {@code 0.0.0}, so {@code 0.0.1}, {@code 0.1.0} or {@code 1.0.0}.
+     */
+    public static @Nullable String next(@NotNull String current, @NotNull Part part) {
+        return bump(current.isBlank() ? "0.0.0" : current, part);
     }
 
     /**

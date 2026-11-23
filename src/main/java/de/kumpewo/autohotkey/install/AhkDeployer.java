@@ -16,9 +16,13 @@ import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.util.Key;
+import com.intellij.openapi.vfs.LocalFileSystem;
+import com.intellij.openapi.vfs.VfsUtil;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.ui.JBColor;
 import de.kumpewo.autohotkey.AhkBundle;
 import de.kumpewo.autohotkey.compile.AhkCompiler;
+import de.kumpewo.autohotkey.include.AhkLibraryRootsProvider;
 import de.kumpewo.autohotkey.run.AhkErrorFilter;
 import de.kumpewo.autohotkey.settings.AhkSettings;
 import de.kumpewo.autohotkey.validate.AhkValidator;
@@ -30,9 +34,11 @@ import java.awt.Font;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -43,22 +49,25 @@ import java.util.stream.Stream;
 
 /**
  * "Deploy to Local Target...": copies the tool of the project (one tool = one project) as described by the
- * {@link AhkInstallConfig settings.ahk-plugin.ini} in the project root ({@link AhkProjectRoot}). With
- * {@code CompileBeforeInstall} (default) every executable named in a copy line (without wildcards) that has a script of the same
+ * {@link AhkDeployConfig settings.ahk-v2-plugin.ini} in the project root ({@link AhkProjectRoot}). With
+ * {@code Compile} (default) every executable named in a copy line (without wildcards) that has a script of the same
  * name next to it is compiled from that script first, e.g. a GUI and a console variant. No commit and no tag (that is
  * "Set Version...", {@link AhkSetVersion}); uncommitted changes of the project are only a warning. Order: read and check everything ({@link #prepare}, in the background) → confirmation
- * ({@link AhkInstallDialog}, always) → compile each script ({@link AhkCompiler#run}) → copy ({@link AhkInstallCopier}) → report in
+ * ({@link AhkDeployDialog}, always) → with files to remove ({@code [Cleanup]}) a second confirmation with each file
+ * ({@link AhkCleanupDialog}: remove, deploy without removing, cancel) → compile each script ({@link AhkCompiler#run})
+ * → move the files of {@code [Cleanup]} to the Recycle Bin → copy ({@link AhkDeployCopier}) → bring the changed
+ * files into the VFS ({@link #refreshFiles}) and report a new Lib folder ({@link AhkLibraryRootsProvider}) → report in
  * a console of the Run tool window. Every problem found before the start is an error and nothing happens; a failure later
  * stops the remaining steps (no rollback).
  */
-public final class AhkInstaller {
+public final class AhkDeployer {
 
     /** Green text in the console for success (same color as Validate/Compile). */
     private static final ConsoleViewContentType SUCCESS = new ConsoleViewContentType("AutoHotkey.InstallSuccess",
             new TextAttributes(new JBColor(new Color(0x067D17), new Color(0x6AAB73)), null, null, null, Font.PLAIN));
 
-    /** Console of the last installation in the project, reused by the next one. */
-    private static final Key<RunContentDescriptor> CONSOLE = Key.create("AhkInstaller.console");
+    /** Console of the last deployment in the project, reused by the next one. */
+    private static final Key<RunContentDescriptor> CONSOLE = Key.create("AhkDeployer.console");
 
     /** Project roots being deployed (a second start for the same project is ignored). */
     private static final Set<String> RUNNING = ConcurrentHashMap.newKeySet();
@@ -66,67 +75,75 @@ public final class AhkInstaller {
     /** {@code ;@Ahk2Exe-ExeName path} (output file of Ahk2Exe). */
     private static final Pattern EXE_NAME = Pattern.compile("(?im)^\\uFEFF?[ \\t]*;@Ahk2Exe-ExeName[ \\t]+(.+?)[ \\t]*$");
 
-    private AhkInstaller() {
+    private AhkDeployer() {
     }
 
     /**
      * Everything checked before the start.
      *
      * @param root        the project root
-     * @param config      the read {@code settings.ahk-plugin.ini}
+     * @param config      the read {@code settings.ahk-v2-plugin.ini}
      * @param plan        the resolved copies (checked again after compiling)
-     * @param errors      problems that prevent the installation (all are shown)
-     * @param warnings    hints shown in the confirmation
+     * @param errors      problems that prevent the deployment (all are shown)
+     * @param warnings    warnings shown in the confirmation (red)
+     * @param hints       hints shown in the confirmation (gray, nothing wrong)
      * @param uncommitted the project root has uncommitted changes (Git)
      * @param overview    the overview for the confirmation ({@code GenerateOverview}): compile steps, then the lines
-     *                    of {@code [Overwrite]} and {@code [KeepExisting]} without comments
-     * @param compile     the scripts to compile ({@code CompileBeforeInstall}), in the order of the copy lines,
+     *                    of {@code [Install]} and {@code [InstallIfMissing]} without comments
+     * @param compile     the scripts to compile ({@code Compile}), in the order of the copy lines,
      *                    each only once
      * @param willExist   the executables the compilation will create (as far as known beforehand)
      */
-    public record Prepared(@NotNull Path root, @NotNull AhkInstallConfig config,
-                           @NotNull AhkInstallPlan plan, @NotNull List<String> errors, @NotNull List<String> warnings,
-                           boolean uncommitted, @NotNull List<String> overview, @NotNull List<Path> compile,
-                           @NotNull List<Path> willExist) {
+    public record Prepared(@NotNull Path root, @NotNull AhkDeployConfig config,
+                           @NotNull AhkDeployPlan plan, @NotNull List<String> errors, @NotNull List<String> warnings,
+                           @NotNull List<String> hints, boolean uncommitted, @NotNull List<String> overview,
+                           @NotNull List<Path> compile, @NotNull List<Path> willExist) {
     }
 
     /**
-     * Reads the {@code settings.ahk-plugin.ini} of the project root and checks everything (not on the EDT: runs Git).
+     * Reads the settings file of the project root ({@link AhkDeployConfig#file}: {@code settings.ahk-v2-plugin.ini},
+     * otherwise the {@code settings.ahk-plugin.ini} of version 2.1) and checks everything (not on the EDT: runs Git).
+     * If both files exist, the old one is ignored with a warning.
      *
      * @param root       the project root
-     * @param env        environment variables
+     * @param env        the variables ({@link AhkDeployPlan#variables()})
      * @param gitEnabled false = behave as if Git were missing (tests)
      */
     public static @NotNull Prepared prepare(@NotNull Path root, @NotNull Function<String, String> env,
                                             boolean gitEnabled) throws IOException {
         Path dir = root.toAbsolutePath().normalize();
-        AhkInstallConfig config = AhkInstallConfig.parse(readText(dir.resolve(AhkInstallConfig.FILE_NAME)));
+        Path file = AhkDeployConfig.file(dir);
+        if (file == null) throw new NoSuchFileException(dir.resolve(AhkDeployConfig.FILE_NAME).toString());
+        AhkDeployConfig config = AhkDeployConfig.load(file);
         List<String> errors = new ArrayList<>(config.errors());
         List<String> warnings = new ArrayList<>();
+        if (!config.legacy() && Files.isRegularFile(dir.resolve(AhkDeployConfig.LEGACY_FILE_NAME))) {
+            warnings.add(AhkBundle.message("deploy.warning.legacy.ignored"));
+        }
         List<Path> willExist = new ArrayList<>();
         List<Path> compile = new ArrayList<>();
-        for (AhkInstallConfig.Entry entry : config.entries()) {
-            Path exe = AhkInstallPlan.executable(entry.source(), dir);
+        for (AhkDeployConfig.Entry entry : config.entries()) {
+            Path exe = AhkDeployPlan.executable(entry.source(), dir);
             Path script = exe == null ? null : scriptOf(exe);
             if (script == null || !Files.isRegularFile(script)) continue;
             script = withRealName(script);
             if (!config.compile()) {
                 if (Files.isRegularFile(exe) && newerSources(script, exe)
                         && warnings.stream().noneMatch(w -> w.contains(exe.getFileName().toString()))) {
-                    warnings.add(AhkBundle.message("install.warning.exe.older", relative(dir, exe)));
+                    warnings.add(AhkBundle.message("deploy.warning.exe.older", relative(dir, exe)));
                 }
                 continue;
             }
             willExist.add(exe);
             if (contains(compile, script)) continue;
-            String where = AhkBundle.message("install.where", entry.line(), entry.source());
+            String where = AhkBundle.message("deploy.where", entry.line(), entry.source());
             String text = readText(script);
             if (!AhkCompiler.hasBaseDirective(text)) {
-                errors.add(AhkBundle.message("install.compile.no.base", where, relative(dir, script)));
+                errors.add(AhkBundle.message("deploy.compile.no.base", where, relative(dir, script)));
             }
             Path output = compiledExe(script, text);
             if (output != null && !samePath(output, exe)) {
-                errors.add(AhkBundle.message("install.compile.other.exe", where, relative(dir, script),
+                errors.add(AhkBundle.message("deploy.compile.other.exe", where, relative(dir, script),
                         relative(dir, output)));
             }
             compile.add(script);
@@ -134,16 +151,44 @@ public final class AhkInstaller {
         if (!compile.isEmpty() && AhkSettings.getInstance().findAhk2Exe() == null) {
             errors.add(AhkBundle.message("compile.ahk2exe.not.found"));
         }
-        AhkInstallPlan plan = AhkInstallPlan.create(config, dir, env, willExist);
+        AhkDeployPlan plan = AhkDeployPlan.create(config, dir, env, willExist);
         errors.addAll(plan.errors());
-        if (plan.steps().isEmpty() && errors.isEmpty()) errors.add(AhkBundle.message("install.nothing"));
+        warnings.addAll(plan.warnings());
+        if (plan.steps().isEmpty() && errors.isEmpty()) errors.add(AhkBundle.message("deploy.nothing"));
         boolean uncommitted = false;
         if (gitEnabled) {
-            AhkInstallGit git = new AhkInstallGit(dir);
+            AhkDeployGit git = new AhkDeployGit(dir);
             uncommitted = git.inRepository() && git.hasChanges();
         }
-        return new Prepared(dir, config, plan, errors, warnings, uncommitted, overview(config, dir, compile), compile,
-                willExist);
+        List<String> hints = new ArrayList<>();
+        if (config.legacy()) hints.add(AhkBundle.message("deploy.hint.legacy"));
+        hints.addAll(plan.hints());
+        return new Prepared(dir, config, plan, errors, warnings, hints, uncommitted,
+                overview(config, dir, compile), compile, willExist);
+    }
+
+    /**
+     * "Update Settings" in the confirmation of a {@code settings.ahk-plugin.ini} of version 2.1: writes its text with
+     * the new names ({@link AhkSettingsFormat#updated}; encoding, byte order mark and line separators stay) as
+     * {@code settings.ahk-v2-plugin.ini} and removes the old file, so Git sees a rename; then brings both into the
+     * VFS (the documents were saved before the deployment). Nothing happens if the new file exists already.
+     *
+     * @return {@code null} on success, otherwise the reason
+     */
+    static @Nullable String updateSettings(@NotNull Path root) {
+        Path old = root.resolve(AhkDeployConfig.LEGACY_FILE_NAME);
+        Path file = root.resolve(AhkDeployConfig.FILE_NAME);
+        try {
+            if (Files.exists(file)) return null;
+            AhkSettingsEdit.Stored stored = AhkSettingsEdit.read(old);
+            stored.write(file, AhkSettingsFormat.updated(stored.text()));
+            Files.delete(old);
+        } catch (IOException | RuntimeException e) {
+            return e.getMessage() != null ? e.getMessage() : e.toString();
+        } finally {
+            refreshFiles(List.of(old, file));
+        }
+        return null;
     }
 
     /** The script from which the executable is compiled: same folder, same name, extension {@code .ahk}. */
@@ -173,21 +218,32 @@ public final class AhkInstaller {
 
     /**
      * The overview: "compile tool.ahk" for each script to compile (relative to the project root), then each copy
-     * section with its lines {@code source=target} as written (without comments and empty lines).
+     * section with its lines {@code source=target} as written (without comments and empty lines), then the lines of
+     * {@code [AddBanner]} if there is a {@code Banner}, then the lines of {@code [Cleanup]}.
      */
-    static @NotNull List<String> overview(@NotNull AhkInstallConfig config, @NotNull Path root,
+    static @NotNull List<String> overview(@NotNull AhkDeployConfig config, @NotNull Path root,
                                           @NotNull List<Path> compile) {
         List<String> overview = new ArrayList<>();
-        for (Path file : compile) overview.add(AhkBundle.message("install.overview.compile", relative(root, file)));
-        for (boolean keep : new boolean[]{false, true}) {
+        for (Path file : compile) overview.add(AhkBundle.message("deploy.overview.compile", relative(root, file)));
+        for (boolean ifMissing : new boolean[]{false, true}) {
             boolean header = false;
-            for (AhkInstallConfig.Entry entry : config.entries()) {
-                if (entry.keepExisting() != keep) continue;
+            for (AhkDeployConfig.Entry entry : config.entries()) {
+                if (entry.ifMissing() != ifMissing) continue;
                 if (!header) {
-                    overview.add(keep ? "[KeepExisting]" : "[Overwrite]");
+                    overview.add(ifMissing ? "[InstallIfMissing]" : "[Install]");
                     header = true;
                 }
                 overview.add(entry.source() + "=" + entry.target());
+            }
+        }
+        if (config.banner() != null && !config.bannerRules().isEmpty()) {
+            overview.add("[AddBanner]");
+            for (AhkFileRules.Rule rule : config.bannerRules()) overview.add(rule.pattern().text() + "=" + rule.value());
+        }
+        if (!config.cleanup().isEmpty()) {
+            overview.add("[Cleanup]");
+            for (AhkDeployConfig.CleanupEntry entry : config.cleanup()) {
+                overview.add(entry.selector() + "=" + entry.folder());
             }
         }
         return overview;
@@ -261,34 +317,34 @@ public final class AhkInstaller {
     }
 
     /**
-     * Deploys the project (call on the EDT): without a {@code settings.ahk-plugin.ini} in the project root offers to
+     * Deploys the project (call on the EDT): without a {@code settings.ahk-v2-plugin.ini} in the project root offers to
      * create it; otherwise saves all modified documents, checks everything in the background, asks for
      * confirmation, then runs the steps in the background and shows the report.
      */
-    public static void install(@NotNull Project project) {
+    public static void deploy(@NotNull Project project) {
         Path root = AhkProjectRoot.path(project);
         if (root == null) return;
-        String title = AhkBundle.message("install.title", project.getName());
+        String title = AhkBundle.message("deploy.title", project.getName());
         if (!AhkProjectRoot.hasSettings(root)) {
             // offer the documented default file
-            if (Messages.showYesNoDialog(project, AhkBundle.message("install.ini.missing", AhkInstallConfig.FILE_NAME,
-                    root), title, AhkBundle.message("install.ini.create"), Messages.getCancelButton(),
+            if (Messages.showYesNoDialog(project, AhkBundle.message("deploy.ini.missing", AhkDeployConfig.FILE_NAME,
+                    root), title, AhkBundle.message("deploy.ini.create"), Messages.getCancelButton(),
                     Messages.getQuestionIcon()) == Messages.YES) {
                 AhkSettingsFile.create(project);
             }
             return;
         }
-        AhkValidator.saveAllDocuments();
+        if (!AhkValidator.saveAllDocuments(project, title)) return;
         String key = root.toString();
         if (!RUNNING.add(key)) return;
-        new Task.Backgroundable(project, AhkBundle.message("install.progress.check", project.getName()), true) {
+        new Task.Backgroundable(project, AhkBundle.message("deploy.progress.check", project.getName()), true) {
             private Prepared prepared;
             private String failure;
 
             @Override
             public void run(@NotNull ProgressIndicator indicator) {
                 try {
-                    prepared = prepare(root, AhkInstallPlan.processEnvironment(), true);
+                    prepared = prepare(root, AhkDeployPlan.variables(), true);
                 } catch (IOException e) {
                     failure = e.toString();
                 }
@@ -314,46 +370,113 @@ public final class AhkInstaller {
                 if (failure != null || !prepared.errors().isEmpty()) {
                     RUNNING.remove(key);
                     String text = failure != null ? failure : "- " + String.join("\n- ", prepared.errors());
-                    Messages.showErrorDialog(project, AhkBundle.message("install.errors", text), title);
+                    Messages.showErrorDialog(project, AhkBundle.message("deploy.errors", text), title);
                     return;
                 }
-                AhkInstallDialog dialog = new AhkInstallDialog(project, title, project.getName(), prepared);
+                AhkDeployDialog dialog = new AhkDeployDialog(project, title, project.getName(), prepared);
                 if (!dialog.showAndGet()) {
                     RUNNING.remove(key);
+                    if (dialog.updateRequested()) {
+                        // "Update Settings": rename, then check again and confirm with the new names
+                        String problem = updateSettings(root);
+                        if (problem != null) {
+                            Messages.showErrorDialog(project, AhkBundle.message("deploy.update.failed", problem),
+                                    title);
+                        } else {
+                            deploy(project);
+                        }
+                    }
                     return;
                 }
-                start(project, title, prepared);
+                boolean remove = false;
+                if (!prepared.plan().removals().isEmpty()) {
+                    AhkCleanupDialog cleanup = new AhkCleanupDialog(project, title, prepared.plan().removals());
+                    cleanup.show();
+                    if (cleanup.choice() == AhkCleanupDialog.Choice.CANCEL) {
+                        RUNNING.remove(key);
+                        return;
+                    }
+                    remove = cleanup.choice() == AhkCleanupDialog.Choice.REMOVE;
+                }
+                start(project, title, prepared, remove);
             }
         }.queue();
     }
 
-    /** Runs the confirmed steps in the background and shows the report. */
-    private static void start(@NotNull Project project, @NotNull String title, @NotNull Prepared prepared) {
-        new Task.Backgroundable(project, AhkBundle.message("install.progress", project.getName()), false) {
+    /**
+     * Runs the confirmed steps in the background and shows the report.
+     *
+     * @param remove move the files of {@code [Cleanup]} to the Recycle Bin (confirmed by the user)
+     */
+    private static void start(@NotNull Project project, @NotNull String title, @NotNull Prepared prepared,
+                              boolean remove) {
+        new Task.Backgroundable(project, AhkBundle.message("deploy.progress", project.getName()), false) {
             private final List<Line> report = new ArrayList<>();
 
             @Override
             public void run(@NotNull ProgressIndicator indicator) {
-                execute(prepared, report, indicator);
+                try {
+                    execute(prepared, remove, report, indicator);
+                } finally {
+                    // also after a failure: some files may have been written or removed already
+                    List<Path> changed = new ArrayList<>();
+                    for (AhkDeployPlan.Step step : prepared.plan().steps()) changed.add(step.target());
+                    if (remove) {
+                        for (AhkDeployPlan.Removal removal : prepared.plan().removals()) changed.add(removal.file());
+                    }
+                    refreshFiles(changed);
+                }
             }
 
             @Override
             public void onFinished() {
                 RUNNING.remove(prepared.root().toString());
                 ApplicationManager.getApplication().invokeLater(() -> {
+                    // a Lib folder created by this deployment: report it as a new library root
+                    AhkLibraryRootsProvider.changeRoots(() -> { });
+                    // new copies of a library project: read-only and banner at once
+                    AhkLibraryCopyNotification.refreshAll();
                     if (!project.isDisposed()) show(project, title, report);
                 });
             }
         }.queue();
     }
 
+    /**
+     * Brings files written or removed outside the IDE into the VFS at once (synchronous refresh, no read action
+     * allowed): the copier writes with plain file IO, and until the file watcher reports it, a new copy has no
+     * {@code VirtualFile}; navigation to {@code #Include <Name>} would not find it. Existing files (new ones with new
+     * folders, too) are found by a refresh, then every known file is refreshed (changed content, removed files).
+     */
+    static void refreshFiles(@NotNull List<Path> files) {
+        LocalFileSystem fs = LocalFileSystem.getInstance();
+        Set<VirtualFile> known = new LinkedHashSet<>();
+        for (Path file : files) {
+            VirtualFile virtualFile = Files.exists(file) ? fs.refreshAndFindFileByNioFile(file)
+                    : fs.findFileByNioFile(file);
+            if (virtualFile != null) known.add(virtualFile);
+        }
+        if (!known.isEmpty()) VfsUtil.markDirtyAndRefresh(false, false, false, known.toArray(VirtualFile.EMPTY_ARRAY));
+    }
+
     /** One line of the report. */
     record Line(@NotNull String text, @NotNull ConsoleViewContentType type) {
     }
 
-    /** Compile each script, then copy; stops at the first failure. Appends the report lines. */
+    /** Compile each script, then copy, without removing the files of {@code [Cleanup]}. */
     static void execute(@NotNull Prepared prepared, @NotNull List<Line> report, @NotNull ProgressIndicator indicator) {
-        AhkInstallPlan plan = prepared.plan();
+        execute(prepared, false, report, indicator);
+    }
+
+    /**
+     * Compile each script, then (with {@code remove}) move the confirmed files of {@code [Cleanup]} to the Recycle
+     * Bin, then copy; stops at the first failure. Appends the report lines. With {@code RequiresAdmin} removing and
+     * copying run in one elevated process.
+     */
+    static void execute(@NotNull Prepared prepared, boolean remove, @NotNull List<Line> report,
+                        @NotNull ProgressIndicator indicator) {
+        AhkDeployPlan plan = prepared.plan();
+        List<AhkDeployPlan.Removal> removals = remove ? prepared.plan().removals() : List.of();
         for (Path file : prepared.compile()) {
             String name = relative(prepared.root(), file);
             String ahk2Exe = AhkSettings.getInstance().findAhk2Exe();
@@ -372,55 +495,78 @@ public final class AhkInstaller {
             String out = (output.getStdout() + "\n" + output.getStderr()).strip();
             if (!out.isEmpty()) report.add(new Line(out, ConsoleViewContentType.NORMAL_OUTPUT));
             if (output.isTimeout() || output.isCancelled() || output.getExitCode() != 0) {
-                fail(report, AhkBundle.message("install.report.compile.failed", name));
+                fail(report, AhkBundle.message("deploy.report.compile.failed", name));
                 return;
             }
-            report.add(new Line(AhkBundle.message("install.report.compiled", name),
+            report.add(new Line(AhkBundle.message("deploy.report.compiled", name),
                     ConsoleViewContentType.NORMAL_OUTPUT));
         }
         if (!prepared.compile().isEmpty()) {
             // the compiled files exist now: resolve the copies again
-            plan = AhkInstallPlan.create(prepared.config(), prepared.root(), AhkInstallPlan.processEnvironment(),
+            plan = AhkDeployPlan.create(prepared.config(), prepared.root(), AhkDeployPlan.variables(),
                     List.of());
             if (!plan.errors().isEmpty()) {
-                fail(report, AhkBundle.message("install.errors", "- " + String.join("\n- ", plan.errors())));
+                fail(report, AhkBundle.message("deploy.errors", "- " + String.join("\n- ", plan.errors())));
                 return;
             }
         }
-        List<AhkInstallCopier.StepResult> results = prepared.config().requiresAdmin()
-                ? AhkInstallCopier.copyElevated(plan.steps()) : AhkInstallCopier.copy(plan.steps());
+        List<AhkDeployCopier.RemovalResult> removed;
+        List<AhkDeployCopier.StepResult> results;
+        if (prepared.config().requiresAdmin()) {
+            AhkDeployCopier.ElevatedResult elevated = AhkDeployCopier.copyElevated(removals, plan.steps());
+            removed = elevated.removals();
+            results = elevated.steps();
+        } else {
+            removed = AhkDeployCopier.recycle(removals);
+            results = removed.size() == removals.size() && removed.stream().allMatch(r -> r.error() == null)
+                    ? AhkDeployCopier.copy(plan.steps()) : List.of();
+        }
+        for (AhkDeployCopier.RemovalResult result : removed) {
+            if (result.error() != null) {
+                fail(report, AhkBundle.message("deploy.report.remove.failed", result.removal().file(),
+                        result.error()));
+                return;
+            }
+            report.add(new Line(AhkBundle.message("deploy.report.removed", result.removal().file()),
+                    ConsoleViewContentType.NORMAL_OUTPUT));
+        }
+        if (removed.size() < removals.size()) {
+            fail(report, AhkBundle.message("deploy.report.incomplete"));
+            return;
+        }
         int copied = 0;
         int skipped = 0;
-        for (AhkInstallCopier.StepResult result : results) {
+        for (AhkDeployCopier.StepResult result : results) {
             String source = prepared.root().relativize(result.step().source()).toString();
             switch (result.outcome()) {
                 case COPIED -> {
                     copied++;
-                    report.add(new Line(AhkBundle.message("install.report.copied", source, result.step().target()),
+                    report.add(new Line(AhkBundle.message("deploy.report.copied", source, result.step().target()),
                             ConsoleViewContentType.NORMAL_OUTPUT));
                 }
                 case SKIPPED -> {
                     skipped++;
-                    report.add(new Line(AhkBundle.message("install.report.skipped", source, result.step().target()),
+                    report.add(new Line(AhkBundle.message("deploy.report.skipped", source, result.step().target()),
                             ConsoleViewContentType.NORMAL_OUTPUT));
                 }
                 case FAILED -> {
-                    fail(report, AhkBundle.message("install.report.copy.failed", source, result.step().target(),
+                    fail(report, AhkBundle.message("deploy.report.copy.failed", source, result.step().target(),
                             String.valueOf(result.error())));
                     return;
                 }
             }
         }
         if (results.size() < plan.steps().size()) {
-            fail(report, AhkBundle.message("install.report.incomplete"));
+            fail(report, AhkBundle.message("deploy.report.incomplete"));
             return;
         }
-        report.add(new Line(AhkBundle.message("install.report.done", copied, skipped), SUCCESS));
+        report.add(new Line(removed.isEmpty() ? AhkBundle.message("deploy.report.done", copied, skipped)
+                : AhkBundle.message("deploy.report.done.removed", removed.size(), copied, skipped), SUCCESS));
     }
 
     private static void fail(List<Line> report, String text) {
         report.add(new Line(text, ConsoleViewContentType.ERROR_OUTPUT));
-        report.add(new Line(AhkBundle.message("install.report.stopped"), ConsoleViewContentType.ERROR_OUTPUT));
+        report.add(new Line(AhkBundle.message("deploy.report.stopped"), ConsoleViewContentType.ERROR_OUTPUT));
     }
 
     /** Shows the report in a console of the Run tool window (paths of compile errors clickable). */

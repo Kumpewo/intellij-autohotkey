@@ -24,8 +24,10 @@
       <li><strong>Class name:</strong> exactly this class, e.g. <code>Map</code> or <code>Gui.Edit</code>.</li>
       <li><strong>Prefix:</strong> all classes starting with the prefix, e.g. <code>Gui*</code> for <code>Gui</code>, <code>Gui.Button</code>, <code>Gui.Edit</code> ...</li>
       <li><strong>Suffix:</strong> all classes ending with the suffix, e.g. <code>*Error</code>.</li>
+      <li><strong>Prefix and suffix:</strong> all classes starting with the part before the wildcard and ending with the part after it, e.g. <code>Gui.*Box</code> for <code>Gui.CheckBox</code>, <code>Gui.ComboBox</code>, <code>Gui.ListBox</code>.</li>
       <li><code>*</code> alone: all built-in classes.</li>
     </ul>
+    <p>A pattern has at most one wildcard; it also matches no characters at all.</p>
   </dd>
 
 </dl>
@@ -62,6 +64,14 @@ nameEdit := mainGui.AddEdit()            <em>; nameEdit is a Gui.Edit</em></pre>
 settingsMap := Map()
 lineArray := []
 logFile := FileOpen("log.txt", "w")</pre>
+</div>
+
+<div class="ex" id="ExInside">
+<p><a class="ex_number" href="#ExInside"></a> Declares only the GUI classes ending with "Box".</p>
+<pre>;@declare-auto-type Gui.*Box
+nameList := mainGui.AddListBox()         <em>; not declared</em>
+nameListBox := mainGui.AddListBox()      <em>; nameListBox is a Gui.ListBox</em>
+saveCheckBox := mainGui.AddCheckBox()    <em>; saveCheckBox is a Gui.CheckBox</em></pre>
 </div>
 
 </body>

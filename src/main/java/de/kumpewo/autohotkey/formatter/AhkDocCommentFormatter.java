@@ -42,7 +42,7 @@ public final class AhkDocCommentFormatter {
     }
 
     /** Kind of a section of the comment. */
-    private enum Kind {DESCRIPTION, PARAM, RETURNS, THROWS, EXAMPLE, SEE, DEPRECATED}
+    private enum Kind {DESCRIPTION, PARAM, RETURNS, THROWS, EXAMPLE, SEE, DEPRECATED, OTHER}
 
     /**
      * A section: the description or one tag. {@code tag} = tag as written ({@code return}), {@code type} = text in
@@ -191,7 +191,7 @@ public final class AhkDocCommentFormatter {
         return blocks;
     }
 
-    /** Kind of a known tag, null = unknown (normal text). */
+    /** Kind of a known or tolerated ({@code @author} ...) tag, null = unknown (normal text). */
     private static @Nullable Kind kind(String tag) {
         return switch (tag.toLowerCase(Locale.ROOT)) {
             case "param" -> Kind.PARAM;
@@ -200,7 +200,7 @@ public final class AhkDocCommentFormatter {
             case "example" -> Kind.EXAMPLE;
             case "see" -> Kind.SEE;
             case "deprecated" -> Kind.DEPRECATED;
-            default -> null;
+            default -> de.kumpewo.autohotkey.documentation.AhkDocComment.isToleratedTag(tag) ? Kind.OTHER : null;
         };
     }
 

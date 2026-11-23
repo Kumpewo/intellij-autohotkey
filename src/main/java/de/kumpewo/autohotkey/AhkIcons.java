@@ -7,7 +7,10 @@ import javax.swing.*;
 /**
  * Icons of the plugin: the file icon for {@code .ahk} files and the program icon of the interpreter for things that
  * run or use AutoHotkey (run configuration type; the menu actions reference the same file directly in
- * {@code plugin.xml}).
+ * {@code plugin.xml}). The library project actions use the green icon of {@code AutoHotkey64.exe}
+ * ({@code /icons/autohotkey-library.png}, only in {@code plugin.xml}); the plugin manual in the Help menu and the
+ * project actions Create Settings, Set Version and Deploy (not specific to AutoHotkey) use the
+ * plugin logo ({@code /icons/plugin.svg}).
  */
 public class AhkIcons {
     /** File icon of {@code .ahk} files. */

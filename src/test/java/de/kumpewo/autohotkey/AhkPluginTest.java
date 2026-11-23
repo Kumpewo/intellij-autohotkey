@@ -14,6 +14,7 @@ import de.kumpewo.autohotkey.psi.AhkLabel;
 import de.kumpewo.autohotkey.structure.AhkStructureViewModel;
 import java.util.ArrayList;
 import java.util.List;
+import java.nio.charset.StandardCharsets;
 import com.intellij.psi.codeStyle.CodeStyleManager;
 import com.intellij.application.options.CodeStyle;
 import de.kumpewo.autohotkey.formatter.AhkCaseMode;
@@ -62,6 +63,14 @@ public class AhkPluginTest extends BasePlatformTestCase {
 
     private void assertNoCounterpart(String text) {
         assertEquals(text, -1, counterpart(text));
+    }
+
+    /** The extensions {@code .ahk}, {@code .ah2} and {@code .ahk2} belong to the AutoHotkey file type. */
+    public void testFileTypeExtensions() {
+        com.intellij.openapi.fileTypes.FileTypeManager manager = com.intellij.openapi.fileTypes.FileTypeManager.getInstance();
+        for (String name : new String[]{"a.ahk", "a.ah2", "a.AHK2"}) {
+            assertSame(name, AhkFileType.INSTANCE, manager.getFileTypeByFileName(name));
+        }
     }
 
     private int counterpart(String text) {
@@ -982,11 +991,30 @@ public class AhkPluginTest extends BasePlatformTestCase {
 
     public void testDeclaredTypeAndBuiltinNames() {
         // explicitly declared beats built-in, via a wildcard it does not
-        assertColor(AhkColors.AHK_DECLARED_TYPE, ";@declare-type MsgBox as Array\n§MsgBox \"x\"\n");
-        assertColor(AhkColors.AHK_BUILTIN_FUNCTION, ";@declare-type MsgBox* as Array\n§MsgBox \"x\"\n");
+        assertColor(AhkColors.AHK_DECLARED_TYPE, ";@declare-type MsgBox as Array\nx := §MsgBox\n");
+        assertColor(AhkColors.AHK_BUILTIN_FUNCTION, ";@declare-type MsgBox* as Array\nx := §MsgBox\n");
         assertColor(AhkColors.AHK_DECLARED_TYPE,
-                ";@declare-type Msgbox* as Array, MsgBox as Map\n§MsgBox \"x\"\n");
+                ";@declare-type Msgbox* as Array, MsgBox as Map\nx := §MsgBox\n");
         assertColor(AhkColors.AHK_BUILTIN_CLASS, ";@declare-auto-type *\nx := §Gui()\n");
+        // a call keeps the built-in color even with an explicit declaration
+        assertColor(AhkColors.AHK_BUILTIN_FUNCTION, ";@declare-type MsgBox as Array\n§MsgBox \"x\"\n");
+    }
+
+    public void testDeclaredTypeNotForCalls() {
+        String decl = ";@declare-type my* as Gui\n";
+        // certainly a call: f(), command form, the name alone
+        assertColor(null, decl + "§myFunc()\n");
+        assertColor(null, decl + "x := §myFunc(1)\n");
+        assertColor(null, decl + "§myFunc \"x\"\n");
+        assertColor(null, decl + "§myFunc\n");
+        assertColor(null, ";@declare-type myFunc as Gui\n§myFunc()\n");
+        // variable or function reference: still colored
+        assertColor(AhkColors.AHK_DECLARED_TYPE, decl + "SetTimer §myFunc, 100\n");
+        assertColor(AhkColors.AHK_DECLARED_TYPE, decl + "x := §myFunc\n");
+        assertColor(AhkColors.AHK_DECLARED_TYPE, decl + "§myGui.Show()\n");
+        assertColor(AhkColors.AHK_DECLARED_TYPE, decl + "§myA, myB\n");
+        // concatenation, not a call (no symbol table: f (x) is not a call)
+        assertColor(AhkColors.AHK_DECLARED_TYPE, decl + "x := §myVar (1)\n");
     }
 
     public void testAutomaticTypeDeclaration() {
@@ -996,6 +1024,11 @@ public class AhkPluginTest extends BasePlatformTestCase {
         assertColor(AhkColors.AHK_DECLARED_TYPE, ";@declare-auto-type Gui.Edit\nx := §nameEdit\n");
         assertColor(AhkColors.AHK_DECLARED_TYPE, ";@declare-auto-type Array, Map\nx := §dataMap\n");
         assertColor(AhkColors.AHK_DECLARED_TYPE, ";@declare-auto-type *\nx := §lineNumber\n");
+        // wildcard in the middle: start and end of the class name
+        assertColor(AhkColors.AHK_DECLARED_TYPE, ";@declare-auto-type Gui.*Box\nx := §myListBox\n");
+        assertColor(AhkColors.AHK_DECLARED_TYPE, ";@declare-auto-type Gui.*Box\nx := §okCheckBox\n");
+        assertColor(null, ";@declare-auto-type Gui.*Box\nx := §nameEdit\n");
+        assertColor(AhkColors.AHK_DECLARED_TYPE, ";@declare-auto-type G*i\nx := §mainGui\n");
     }
 
     public void testTypeDeclarationWarnings() {
@@ -1008,10 +1041,12 @@ public class AhkPluginTest extends BasePlatformTestCase {
                 + ";@declare-type g as Gui <warning descr=\"',' expected.\">h</warning> as Gui\n"
                 + ";@declare-type g as Gui<warning descr=\"Invalid pattern.\">,</warning>\n"
                 + "<warning descr=\"Invalid pattern.\">;@declare-type</warning>\n"
-                + ";@declare-auto-type <warning descr=\"Invalid pattern.\">G*i</warning>, "
-                + "<warning descr=\"Unknown class.\">Xyz*</warning>\n"
+                + ";@declare-auto-type <warning descr=\"Invalid pattern.\">*G*</warning>, "
+                + "<warning descr=\"Invalid pattern.\">G**</warning>, "
+                + "<warning descr=\"Unknown class.\">Xyz*</warning>, "
+                + "<warning descr=\"Unknown class.\">Gui.*Xyz</warning>\n"
                 + ";@declare-type g as Gui, *Obj as Object, gx as Gui.Edit\n"
-                + ";@declare-auto-type Gui*, *Box, Gui.Edit, *\n"
+                + ";@declare-auto-type Gui*, *Box, Gui.Edit, *, Gui.*Box, G*i\n"
                 + ";@declare-typen ist kein Pragma\n");
         myFixture.checkHighlighting(true, false, false);
     }
@@ -2048,6 +2083,7 @@ public class AhkPluginTest extends BasePlatformTestCase {
     }
 
     public void testDocCommentWarnings() {
+        myFixture.enableInspections(new de.kumpewo.autohotkey.inspection.AhkDeprecatedInspection());
         myFixture.configureByText("a.ahk", String.join("\n",
                 "/**",
                 " * @param <warning descr=\"Unknown parameter 'x'.\">x</warning> nothing",
@@ -2073,6 +2109,126 @@ public class AhkPluginTest extends BasePlatformTestCase {
         myFixture.configureByText("a.ahk", "class A {\n    /** @deprecated */\n    Run() {\n    }\n}\n"
                 + "class B {\n    Run() {\n    }\n}\nx.Run()\n");
         myFixture.checkHighlighting(true, false, false);
+    }
+
+    /**
+     * {@code @deprecated} on properties (with accessors, {@code =>}, static) and fields (simple, static, several in
+     * one statement): uses after the dot are struck out, reading and writing, the definitions themselves are not.
+     */
+    public void testDeprecatedPropertiesAndFields() {
+        myFixture.enableInspections(new de.kumpewo.autohotkey.inspection.AhkDeprecatedInspection());
+        myFixture.configureByText("a.ahk", String.join("\n",
+                "class P {",
+                "    /** @deprecated Use Tolerant instead. */",
+                "    Strict := false",
+                "    Tolerant := true",
+                "    /**",
+                "     * Name of the file.",
+                "     * @deprecated Use FileName instead.",
+                "     */",
+                "    Name {",
+                "        get => this.FileName",
+                "        set => this.FileName := value",
+                "    }",
+                "    /** @deprecated */",
+                "    Short => 1",
+                "    FileName := \"\"",
+                "    /** @deprecated Use P.Version instead. */",
+                "    static Ver := \"1.0\"",
+                "    static Version := \"1.0\"",
+                "    /** @deprecated */",
+                "    a := 1, b := 2",
+                "}",
+                "q := P()",
+                "if q.<warning descr=\"'Strict' is deprecated: Use Tolerant instead.\">Strict</warning>",
+                "    q.<warning descr=\"'Strict' is deprecated: Use Tolerant instead.\">Strict</warning> := false",
+                "n := q.<warning descr=\"'Name' is deprecated: Use FileName instead.\">Name</warning>",
+                "s := q.<warning descr=\"'Short' is deprecated.\">Short</warning>",
+                "v := P.<warning descr=\"'Ver' is deprecated: Use P.Version instead.\">Ver</warning>",
+                "w := q.<warning descr=\"'b' is deprecated.\">b</warning> + q.Tolerant + q.FileName + P.Version",
+                ""));
+        myFixture.checkHighlighting(true, false, false);
+    }
+
+    /**
+     * Unknown tags at the start of a doc comment line are warnings (also before properties and fields, a statement
+     * with two fields only once); known and tolerated JSDoc tags and "@" inside the text are not. The quick fix
+     * changes the tag to the most similar one.
+     */
+    public void testUnknownDocTags() {
+        myFixture.enableInspections(new de.kumpewo.autohotkey.inspection.AhkUnknownDocTagInspection());
+        myFixture.configureByText("a.ahk", String.join("\n",
+                "/**",
+                " * Mail to name@example.com.",
+                " * @param a first",
+                " * <warning descr=\"Unknown doc comment tag '@retruns'.\">@retruns</warning> the sum",
+                " * @Author Somebody",
+                " * @since 1.2",
+                " * @version 2.0",
+                " * @todo more",
+                " * @license MIT",
+                " * @copyright 2026",
+                " * @return x",
+                " */",
+                "F(a) {",
+                "}",
+                "/** <warning descr=\"Unknown doc comment tag '@depricated'.\">@depricated</warning> */",
+                "class C {",
+                "    /** <warning descr=\"Unknown doc comment tag '@xyz'.\">@xyz</warning> */",
+                "    P => 1",
+                "    /** <warning descr=\"Unknown doc comment tag '@parm'.\">@parm</warning> */",
+                "    a := 1, b := 2",
+                "}",
+                ""));
+        myFixture.checkHighlighting(true, false, false);
+
+        myFixture.configureByText("a.ahk", "/**\n * @retr<caret>uns the sum\n */\nF() {\n}\n");
+        myFixture.launchAction(myFixture.findSingleIntention(AhkBundle.message("inspection.unknown.tag.fix", "returns")));
+        assertEquals("/**\n * @returns the sum\n */\nF() {\n}\n", myFixture.getEditor().getDocument().getText());
+        // no suggestion for a word far from every tag
+        assertNull(de.kumpewo.autohotkey.inspection.AhkUnknownDocTagInspection.suggestion("xyz"));
+        assertEquals("author", de.kumpewo.autohotkey.inspection.AhkUnknownDocTagInspection.suggestion("auhtor"));
+    }
+
+    /**
+     * Completion in doc comments: after "@" the tags with a meaning (not the tolerated ones), after "@param " the
+     * parameters without @param yet; nothing in normal comments.
+     */
+    public void testDocTagCompletion() {
+        myFixture.configureByText("a.ahk", "/**\n * @<caret>\n */\nF(a, b) {\n}\n");
+        myFixture.completeBasic();
+        assertEquals(de.kumpewo.autohotkey.documentation.AhkDocComment.TAGS.stream().sorted().toList(),
+                myFixture.getLookupElementStrings().stream().sorted().toList());
+        myFixture.configureByText("a.ahk", "/** @dep<caret> */\nF(a, b) {\n}\n");
+        myFixture.completeBasic();
+        assertEquals("/** @deprecated */\nF(a, b) {\n}\n", myFixture.getEditor().getDocument().getText());
+        myFixture.configureByText("a.ahk", "/**\n * @param a first\n * @param {String} <caret>\n */\nF(a, b, &c) {\n}\n");
+        myFixture.completeBasic();
+        assertEquals(List.of("b", "c"), myFixture.getLookupElementStrings());
+        // not in the middle of a line and not in a normal block comment
+        for (String text : List.of("/**\n * Mail me@<caret>\n */\nF() {\n}\n", "/*\n * @<caret>\n */\nF() {\n}\n")) {
+            myFixture.configureByText("a.ahk", text);
+            myFixture.completeBasic();
+            List<String> strings = myFixture.getLookupElementStrings();
+            assertTrue(text + strings, strings == null || strings.isEmpty());
+        }
+    }
+
+    /** Tolerated tags: own sections in Ctrl+Q (not in the description), own lines in the formatter. */
+    public void testToleratedDocTags() {
+        de.kumpewo.autohotkey.documentation.AhkDocumentationProvider provider =
+                new de.kumpewo.autohotkey.documentation.AhkDocumentationProvider();
+        myFixture.configureByText("a.ahk", "/**\n * Sums.\n * @author Somebody\n * @since 1.2\n * @retruns x\n */\n"
+                + "F() {\n}\nF<caret>()\n");
+        PsiElement leaf = myFixture.getFile().findElementAt(myFixture.getCaretOffset() - 1);
+        String html = provider.generateDoc(leaf, leaf);
+        assertNotNull(html);
+        assertTrue(html, html.contains("Author:") && html.contains("Somebody") && html.contains("Since:"));
+        assertFalse(html, html.contains("@author"));
+        // an unknown tag stays text of the description
+        assertTrue(html, html.contains("@retruns x"));
+        assertEquals("/**\n * Sums.\n *\n * @returns the sum\n * @author Somebody\n */",
+                formatDoc("/** Sums.\n * @returns the sum\n * @author Somebody */", List.of()));
     }
 
     /** Text of the editor with "<caret>" at the caret. */
@@ -4303,6 +4459,73 @@ public class AhkPluginTest extends BasePlatformTestCase {
                 + "    Open(name, force) {\n    }\n}\n");
     }
 
+    /** "Fill Paragraph" with right margin 40 (of AutoHotkey, not the general one). */
+    private void assertFilled(String input, String expected) {
+        var settings = com.intellij.application.options.CodeStyle.createTestSettings();
+        settings.getCommonSettings(de.kumpewo.autohotkey.AhkLanguage.INSTANCE).RIGHT_MARGIN = 40;
+        com.intellij.application.options.CodeStyle.setTemporarySettings(getProject(), settings);
+        try {
+            myFixture.configureByText("a.ahk", input);
+            myFixture.performEditorAction("FillParagraph");
+            assertEquals(expected, myFixture.getEditor().getDocument().getText());
+        } finally {
+            com.intellij.application.options.CodeStyle.dropTemporarySettings(getProject());
+        }
+    }
+
+    /** "Fill Paragraph" in line comments: only the paragraph at the caret; directives and separators stay. */
+    public void testFillParagraphLineComments() {
+        String lines = "F() {\n    ; one two three four five six seven eight nine\n    ; ten eleven\n    x := 1\n}\n";
+        for (String word : List.of("one", "ten")) {
+            assertFilled(lines.replace(word, "<caret>" + word), "F() {\n    ; one two three four five six seven\n"
+                    + "    ; eight nine ten eleven\n    x := 1\n}\n");
+        }
+        // caret at the end of a line, and in the indentation
+        assertFilled("; one\n; two<caret>\nx := 1\n", "; one two\nx := 1\n");
+        assertFilled("F() {\n<caret>    ; one\n    ; two\n}\n", "F() {\n    ; one two\n}\n");
+        assertFilled(";@Ahk2Exe-Base x.exe\n; -----\n; o<caret>ne\n; two\n;\n; three\n;;four\n",
+                ";@Ahk2Exe-Base x.exe\n; -----\n; one two\n;\n; three\n;;four\n");
+        assertFilled(";@Ahk2Exe-Ba<caret>se x.exe\n; two\n", ";@Ahk2Exe-Base x.exe\n; two\n");
+        assertFilled("; - one two three four five six seven <caret>eight\n; - nine\n",
+                "; - one two three four five six seven\n;   eight\n; - nine\n");
+        // no word that would be a directive at the start of a line
+        assertFilled(";one two three four five six seven eight @x <caret>nine\n",
+                ";one two three four five six seven eight @x\n;nine\n");
+        // code is never changed
+        assertFilled("x := 1 ; one two three four five six sev<caret>en eight\n",
+                "x := 1 ; one two three four five six seven eight\n");
+        assertFilled("x := <caret>1 + 2222222222222222222222 + 33333333333\n",
+                "x := 1 + 2222222222222222222222 + 33333333333\n");
+    }
+
+    /** "Fill Paragraph" in block comments and doc comments. */
+    public void testFillParagraphBlockComments() {
+        assertFilled("/* one two three four five six seven ei<caret>ght nine */\nx := 1\n",
+                "/* one two three four five six seven\n   eight nine */\nx := 1\n");
+        assertFilled("/*\none two\nth<caret>ree\n\nfour\n*/\nx := 1\n", "/*\none two three\n\nfour\n*/\nx := 1\n");
+        // "*/" at the end of a line would close the comment
+        assertFilled("/*\none two three four five six seven a*/ ei<caret>ght nine\n*/\nx := 1\n",
+                "/*\none two three four five six seven a*/ eight\nnine\n*/\nx := 1\n");
+        assertFilled("/**\n * one\n * t<caret>wo\n *\n * @param a  three\n */\nF(a) {\n}\n",
+                "/**\n * one two\n *\n * @param a  three\n */\nF(a) {\n}\n");
+        assertFilled("/**\n * One.\n * @param a  one two three four five six <caret>seven\n * @returns x\n */\nF(a) {\n}\n",
+                "/**\n * One.\n * @param a  one two three four five six\n *           seven\n * @returns x\n */\n"
+                        + "F(a) {\n}\n");
+        String example = "/**\n * One.\n * @example\n * F(1)\n * F(<caret>2)\n */\nF(a) {\n}\n";
+        assertFilled(example, example.replace("<caret>", ""));
+        String code = "/**\n * One.\n * ```\n * F(1)\n * F(<caret>2)\n * ```\n */\nF(a) {\n}\n";
+        assertFilled(code, code.replace("<caret>", ""));
+    }
+
+    /** The right margin of AutoHotkey also applies to the doc comments of "Reformat Code". */
+    public void testRightMarginOfLanguage() {
+        withCaseSettings(s -> {
+            s.DOC_FORMAT = true;
+            s.getContainer().getCommonSettings(de.kumpewo.autohotkey.AhkLanguage.INSTANCE).RIGHT_MARGIN = 40;
+        }, () -> assertFormatted("/**\n * one two three four five six seven eight nine\n */\nF() {\n}\n",
+                "/**\n * one two three four five six seven\n * eight nine\n */\nF() {\n}\n"));
+    }
+
     /** Every switch of the tab "Doc Comments" is a field of the settings. */
     public void testDocCommentStyleFields() throws Exception {
         List<String> fields = de.kumpewo.autohotkey.formatter.AhkDocCommentCodeStylePanelAccess.fields();
@@ -4567,6 +4790,14 @@ public class AhkPluginTest extends BasePlatformTestCase {
         PsiElement unknown = myFixture.getFile().findElementAt(myFixture.getFile().getText().indexOf("GibtEs"));
         assertNull(provider.getUrlFor(unknown, unknown));
         assertFalse(provider.canHandleExternal(unknown, unknown));
+        // link at the bottom of the popup: the generic link and the key lead to the topic, other links are left alone
+        java.util.function.BiFunction<String, PsiElement, List<String>> forLink = (link, element) ->
+                de.kumpewo.autohotkey.documentation.AhkDocumentationProvider.externalTopicsForLink(link, element)
+                        .stream().map(t -> t.externalKey()).toList();
+        assertEquals(List.of("/docs/lib/MsgBox.htm"), forLink.apply("external_doc", msgBox));
+        assertEquals(List.of("/docs/lib/MsgBox.htm"), forLink.apply("/docs/lib/MsgBox.htm", msgBox));
+        assertEquals(List.of(), forLink.apply("https://example.com", msgBox));
+        assertEquals(List.of(), forLink.apply("external_doc", unknown));
 
         assertEquals(List.of("hh.exe", "mk:@MSITStore:C:\\Program Files\\AutoHotkey\\v2\\AutoHotkey.chm::/docs/lib/MsgBox.htm"),
                 de.kumpewo.autohotkey.documentation.AhkExternalHelp.commandLine(
@@ -4829,5 +5060,38 @@ public class AhkPluginTest extends BasePlatformTestCase {
         assertTrue(myFixture.getEditor().getDocument().getText().startsWith(";@Ahk2Exe-Base ..\\v2\\AutoHotkey64.exe\n"));
         myFixture.configureByText("c.ahk", "#Requires AutoHotkey v1.1\nMsgBox 1<caret>\n");
         assertTrue(myFixture.filterAvailableIntentions(name).isEmpty());
+    }
+
+    /**
+     * A text file opened as UTF-8 that is no valid UTF-8 gets the banner; the conversion reads it in the ANSI code
+     * page and saves it as UTF-8 without byte order mark. Batch files and valid UTF-8 get no banner.
+     */
+    public void testAnsiToUtf8() throws Exception {
+        assertTrue(de.kumpewo.autohotkey.encoding.AhkAnsiNotification.isValidUtf8("ä".getBytes(StandardCharsets.UTF_8)));
+        assertFalse(de.kumpewo.autohotkey.encoding.AhkAnsiNotification.isValidUtf8(new byte[]{'a', (byte) 0xE4}));
+        java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("ahk-ansi-test");
+        try {
+            byte[] ansi = {'x', ' ', '=', ' ', '"', (byte) 0xE4, '"', '\r', '\n'};
+            java.nio.file.Path path = java.nio.file.Files.write(dir.resolve("old.ahk"), ansi);
+            java.nio.file.Path batch = java.nio.file.Files.write(dir.resolve("old.cmd"), ansi);
+            java.nio.file.Path utf8 = java.nio.file.Files.write(dir.resolve("new.ahk"),
+                    "x := \"ä\"\r\n".getBytes(StandardCharsets.UTF_8));
+            var fs = com.intellij.openapi.vfs.LocalFileSystem.getInstance();
+            var file = fs.refreshAndFindFileByNioFile(path);
+            assertNotNull(file);
+            file.setCharset(StandardCharsets.UTF_8);
+            var notification = new de.kumpewo.autohotkey.encoding.AhkAnsiNotification();
+            assertNotNull(notification.collectNotificationData(getProject(), file));
+            assertNull(notification.collectNotificationData(getProject(), fs.refreshAndFindFileByNioFile(batch)));
+            assertNull(notification.collectNotificationData(getProject(), fs.refreshAndFindFileByNioFile(utf8)));
+            String expected = "x = \"" + new String(new byte[]{(byte) 0xE4},
+                    de.kumpewo.autohotkey.encoding.AhkAnsiNotification.ansiCharset()) + "\"\r\n";
+            de.kumpewo.autohotkey.encoding.AhkAnsiNotification.convert(getProject(), file);
+            assertEquals(expected, java.nio.file.Files.readString(path, StandardCharsets.UTF_8));
+            assertTrue(de.kumpewo.autohotkey.encoding.AhkAnsiNotification.isValidUtf8(java.nio.file.Files.readAllBytes(path)));
+            assertNull(notification.collectNotificationData(getProject(), file));
+        } finally {
+            com.intellij.openapi.util.io.FileUtil.delete(dir);
+        }
     }
 }

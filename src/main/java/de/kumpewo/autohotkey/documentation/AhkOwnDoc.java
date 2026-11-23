@@ -153,6 +153,14 @@ public final class AhkOwnDoc {
                 for (String see : doc.sees()) text.append("<p>").append(see(definition, see));
                 section(html, AhkBundle.message("doc.section.see"), text.toString());
             }
+            // tolerated tags (@author ...): one section per tag, in the order of the list
+            for (String tag : AhkDocComment.TOLERATED_TAGS) {
+                StringBuilder text = new StringBuilder();
+                for (AhkDocComment.Other other : doc.others()) {
+                    if (other.tag().equals(tag)) text.append("<p>").append(inline(definition, other.text()));
+                }
+                if (!text.isEmpty()) section(html, AhkBundle.message("doc.section." + tag), text.toString());
+            }
         }
         if (file != null) section(html, AhkBundle.message("doc.section.file"), escape(file.getName()));
         return html.append(DocumentationMarkup.SECTIONS_END).toString();

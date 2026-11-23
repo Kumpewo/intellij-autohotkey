@@ -13,7 +13,9 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.newvfs.BulkFileListener;
 import com.intellij.openapi.vfs.newvfs.events.VFileCreateEvent;
 import com.intellij.openapi.vfs.newvfs.events.VFileEvent;
+import com.intellij.openapi.fileTypes.FileTypeRegistry;
 import de.kumpewo.autohotkey.AhkBundle;
+import de.kumpewo.autohotkey.AhkFileType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -47,10 +49,13 @@ public final class AhkNewFileListener implements BulkFileListener {
         }, ModalityState.nonModal());
     }
 
-    /** An empty local {@code .ahk} file (not in the in-memory file system of tests or other virtual systems). */
+    /**
+     * An empty local AutoHotkey file ({@code .ahk}, {@code .ah2}, {@code .ahk2} or another name associated with the
+     * file type; not in the in-memory file system of tests or other virtual systems).
+     */
     static boolean isNewEmptyAhkFile(@Nullable VirtualFile file) {
-        return file != null && file.isValid() && file.isInLocalFileSystem() && "ahk".equalsIgnoreCase(file.getExtension())
-                && file.getLength() == 0;
+        return file != null && file.isValid() && file.isInLocalFileSystem()
+                && FileTypeRegistry.getInstance().isFileOfType(file, AhkFileType.INSTANCE) && file.getLength() == 0;
     }
 
     /** Writes the template into the file if it is still empty (undoable command of its project). */

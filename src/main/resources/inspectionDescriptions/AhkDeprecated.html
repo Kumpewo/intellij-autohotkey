@@ -1,0 +1,13 @@
+<html>
+<body>
+Reports uses of functions, methods, classes, properties and fields whose doc comment contains <code>@deprecated</code>.
+The name is struck out; the message shows the first line of the <code>@deprecated</code> text.
+<p>A name is reported only if all definitions with that name (in the file and its directly included files) are
+deprecated. Run <i>Code | Inspect Code</i> to find all uses in a project.</p>
+<pre><code>/** @deprecated Use ReadSettings instead. */
+ReadConfig(path) {
+}
+cfg := ReadConfig("a.ini")   ; 'ReadConfig' is deprecated: Use ReadSettings instead.
+</code></pre>
+</body>
+</html>

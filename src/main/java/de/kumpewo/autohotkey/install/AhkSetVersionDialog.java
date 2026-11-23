@@ -3,6 +3,7 @@ package de.kumpewo.autohotkey.install;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.ValidationInfo;
+import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.ui.DocumentAdapter;
 import com.intellij.ui.components.JBCheckBox;
 import com.intellij.ui.components.JBLabel;
@@ -26,9 +27,10 @@ import java.util.List;
 
 /**
  * Dialog of "Set Version...": the current version and the scripts that get the new one, the next patch, minor or
- * major version or a free one, one check box "Commit the project and create tag v…" (disabled without Git and while
- * files of the project are neither versioned nor ignored, with a hint), the editable message, and the uncommitted
- * changes that are committed with the version. Validates the version and that the tag does not exist yet.
+ * major version (without any version yet: 0.0.1, 0.1.0, 1.0.0) or a free one (the field shows the chosen version,
+ * typing there selects "Other"), one check box "Commit the project and
+ * create tag v…" (disabled without Git and while files of the project are neither versioned nor ignored, with a
+ * hint), the editable message, and the uncommitted changes that are committed with the version. Validates the version and that the tag does not exist yet.
  */
 final class AhkSetVersionDialog extends DialogWrapper {
 
@@ -43,6 +45,8 @@ final class AhkSetVersionDialog extends DialogWrapper {
     private JBTextField custom;
     private JBCheckBox commit;
     private JBTextField message;
+    /** The free field is being filled with the version of a button (then "Other" is not selected). */
+    private boolean filling;
     /** The last proposed message; while the field shows it, it follows the version. */
     private String proposed;
 
@@ -50,9 +54,9 @@ final class AhkSetVersionDialog extends DialogWrapper {
         super(project);
         this.prepared = prepared;
         String current = prepared.current();
-        patch = AhkVersionDirective.bump(current, AhkVersionDirective.Part.PATCH);
-        minor = AhkVersionDirective.bump(current, AhkVersionDirective.Part.MINOR);
-        major = AhkVersionDirective.bump(current, AhkVersionDirective.Part.MAJOR);
+        patch = AhkVersionDirective.next(current, AhkVersionDirective.Part.PATCH);
+        minor = AhkVersionDirective.next(current, AhkVersionDirective.Part.MINOR);
+        major = AhkVersionDirective.next(current, AhkVersionDirective.Part.MAJOR);
         setTitle(title);
         setOKButtonText(AhkBundle.message("version.dialog.ok"));
         init();
@@ -79,10 +83,12 @@ final class AhkSetVersionDialog extends DialogWrapper {
     @Override
     protected @Nullable JComponent createCenterPanel() {
         FormBuilder form = FormBuilder.createFormBuilder();
-        form.addComponent(new JBLabel(AhkBundle.message("version.dialog.current", prepared.current())));
+        form.addComponent(new JBLabel(prepared.current().isEmpty() ? AhkBundle.message("version.dialog.current.none")
+                : AhkBundle.message("version.dialog.current", prepared.current())));
         List<String> scripts = new ArrayList<>();
         for (AhkSetVersion.Script script : prepared.scripts()) {
-            scripts.add(script.name() + " (" + (script.line().line() + 1) + ")");
+            scripts.add(script.line() == null ? AhkBundle.message("version.dialog.new.line", script.name())
+                    : script.name() + " (" + (script.line().line() + 1) + ")");
         }
         form.addComponent(hint(AhkBundle.message("version.dialog.scripts", String.join(", ", scripts))));
         for (String warning : prepared.warnings()) form.addComponent(warning(warning));
@@ -119,13 +125,18 @@ final class AhkSetVersionDialog extends DialogWrapper {
         message = new JBTextField(proposed, 40);
         form.addLabeledComponent(AhkBundle.message("version.dialog.message"), message);
 
-        for (JBRadioButton button : new JBRadioButton[]{patchButton, minorButton, majorButton, customButton}) {
-            button.addActionListener(e -> update());
+        for (JBRadioButton button : new JBRadioButton[]{patchButton, minorButton, majorButton}) {
+            button.addActionListener(e -> {
+                showInField(version());
+                update();
+            });
         }
+        customButton.addActionListener(e -> update());
         commit.addActionListener(e -> update());
         custom.getDocument().addDocumentListener(new DocumentAdapter() {
             @Override
             protected void textChanged(@NotNull DocumentEvent e) {
+                if (filling) return;
                 if (!customButton.isSelected()) customButton.setSelected(true);
                 update();
             }
@@ -134,6 +145,19 @@ final class AhkSetVersionDialog extends DialogWrapper {
         panel.add(form.getPanel(), BorderLayout.NORTH);
         panel.setBorder(JBUI.Borders.empty(4));
         return panel;
+    }
+
+    /**
+     * Shows the version of the chosen patch, minor or major button in the free field, so that it can be edited from
+     * there (typing selects "Other"); the change itself does not select "Other".
+     */
+    private void showInField(@NotNull String version) {
+        filling = true;
+        try {
+            custom.setText(version);
+        } finally {
+            filling = false;
+        }
     }
 
     /** Radio button "Patch: 1.2.4" (without a version: only the name, disabled). */
@@ -184,15 +208,25 @@ final class AhkSetVersionDialog extends DialogWrapper {
         return patch == null ? custom : patchButton;
     }
 
+    /** A gray hint; a line break in the text starts a new line. */
     private static JBLabel hint(String text) {
-        JBLabel label = new JBLabel(text);
+        JBLabel label = label(text);
         label.setForeground(UIUtil.getContextHelpForeground());
         return label;
     }
 
+    /** A warning in the error color; a line break in the text starts a new line. */
     private static JBLabel warning(String text) {
-        JBLabel label = new JBLabel(text);
+        JBLabel label = label(text);
         label.setForeground(UIUtil.getErrorForeground());
         return label;
+    }
+
+    /** A label whose text may contain line breaks (then as HTML, with the text escaped). */
+    static JBLabel label(String text) {
+        if (!text.contains("\n")) return new JBLabel(text);
+        String[] lines = text.split("\n", -1);
+        for (int i = 0; i < lines.length; i++) lines[i] = StringUtil.escapeXmlEntities(lines[i]);
+        return new JBLabel("<html>" + String.join("<br>", lines) + "</html>");
     }
 }

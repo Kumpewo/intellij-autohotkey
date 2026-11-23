@@ -72,6 +72,68 @@ intellijPlatform {
     }
 }
 
+/**
+ * Local plugin repository for local builds: copies the plugin ZIP into a fixed folder outside of `build/` (so
+ * `./gradlew clean` keeps it), removes older ZIPs there and writes `updatePlugins.xml` (the format of a custom
+ * plugin repository) with plugin ID, version, since/until build taken from the patched `plugin.xml`. An IDE that
+ * lists `file:///<folder>/updatePlugins.xml` under *Settings > Plugins > Manage Plugin Repositories* then offers
+ * each local build as an ordinary plugin update.
+ */
+abstract class LocalPluginRepository : DefaultTask() {
+    /** The plugin ZIP produced by `buildPlugin`. */
+    @get:InputFile
+    abstract val pluginZip: RegularFileProperty
+
+    /** The patched `plugin.xml` (source of ID, version and compatible builds). */
+    @get:InputFile
+    abstract val pluginXml: RegularFileProperty
+
+    /** The repository folder that receives the ZIP and `updatePlugins.xml`. */
+    @get:OutputDirectory
+    abstract val repositoryDir: DirectoryProperty
+
+    /** Copies the ZIP, deletes older ZIPs and writes `updatePlugins.xml`. */
+    @TaskAction
+    fun publish() {
+        val dir = repositoryDir.get().asFile
+        val zip = pluginZip.get().asFile
+        dir.listFiles { f -> f.name.endsWith(".zip") && f.name != zip.name }?.forEach { it.delete() }
+        val target = File(dir, zip.name)
+        zip.copyTo(target, overwrite = true)
+
+        val xml = pluginXml.get().asFile.readText()
+        fun find(regex: String): String? = Regex(regex).find(xml)?.groupValues?.get(1)
+        val id = find("<id>\\s*([^<\\s]+)\\s*</id>") ?: throw GradleException("No <id> in ${pluginXml.get()}")
+        val version = find("<version>\\s*([^<\\s]+)\\s*</version>")
+            ?: throw GradleException("No <version> in ${pluginXml.get()}")
+        val since = find("since-build=\"([^\"]*)\"")
+        val until = find("until-build=\"([^\"]*)\"")
+        val ideaVersion = listOfNotNull(
+            since?.let { "since-build=\"$it\"" },
+            until?.let { "until-build=\"$it\"" }
+        ).joinToString(" ")
+
+        val url = target.toPath().toUri().toString()
+        File(dir, "updatePlugins.xml").writeText(
+            """
+            |<?xml version="1.0" encoding="UTF-8"?>
+            |<plugins>
+            |  <plugin id="$id" url="$url" version="$version">
+            |    <idea-version $ideaVersion/>
+            |  </plugin>
+            |</plugins>
+            |""".trimMargin()
+        )
+        logger.lifecycle("Local plugin repository: ${File(dir, "updatePlugins.xml").toPath().toUri()}")
+    }
+}
+
+// Java 21 for compiling, instrumenting and testing, whatever JDK runs Gradle (JAVA_HOME); found among the installed
+// JDKs, otherwise downloaded by the foojay resolver (settings.gradle.kts). The CI also uses Java 21.
+kotlin {
+    jvmToolchain(21)
+}
+
 sourceSets {
     main {
         java {
@@ -109,6 +171,17 @@ tasks {
     // the ZIP of a local build carries the stamp, so it never replaces the ZIP of a release
     buildPlugin {
         archiveVersion = pluginVersion
+        if (localBuild) {
+            finalizedBy("localPluginRepository")
+        }
+    }
+
+    // ./gradlew buildPlugin -Plocal also updates the local plugin repository in local-repo/ (see LocalPluginRepository)
+    register<LocalPluginRepository>("localPluginRepository") {
+        description = "Copies the plugin ZIP to local-repo/ and writes updatePlugins.xml for a custom plugin repository."
+        pluginZip = buildPlugin.flatMap { it.archiveFile }
+        pluginXml = patchPluginXml.flatMap { it.outputFile }
+        repositoryDir = layout.projectDirectory.dir("local-repo")
     }
 
 }

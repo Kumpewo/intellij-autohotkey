@@ -61,7 +61,7 @@ Shared knowledge is concentrated in a few places so that highlighting, completio
 
 | Class | Role |
 |-------|------|
-| `AhkLanguage`, `AhkFileType`, `AhkFile`, `AhkIcons` | language, file type `.ahk`, PSI file, file icon and interpreter icon (run configuration type; actions in `plugin.xml` use `icons/autohotkey-action.png`) |
+| `AhkLanguage`, `AhkFileType`, `AhkFile`, `AhkIcons` | language, file type `.ahk`/`.ah2`/`.ahk2`, PSI file, file icon and interpreter icon (run configuration type; actions in `plugin.xml` use `icons/autohotkey-action.png`, the library project actions the green `icons/autohotkey-library.png` (third icon of `AutoHotkey64.exe`), the manual the plugin logo `icons/plugin.svg`) |
 | `src/main/grammar/Ahk.flex` | lexer: strings, comments, hotkeys, hotstrings, continuation lines, keywords |
 | `parser/AhkLexerAdapter` | wraps the generated JFlex lexer |
 | `src/main/grammar/Ahk.bnf` | grammar: statements, expressions (Pratt), classes, switch, directives |
@@ -324,7 +324,9 @@ AutoHotkey files (AutoHotkey allows non-ASCII characters in names, e.g. a `§` p
   the marker without `;`, e.g. `@declare-type`, because a line starting with `;` is a comment in the lookup
   files; `documentationElement` also takes the comment when the caret is at its end), narrows several
   entries of a member with their class and the class left of the dot, and implements the quick documentation and
-  the external help hooks (key `path` or `path#anchor`; entries from `extra.txt` only if `help/extra.chm`
+  the external help hooks (`handleExternal` for Shift+F1, `handleExternalLink` for the link at the bottom of
+  the popup: the keys are no web addresses, so the platform shows its generic link `external_doc` and cannot
+  open it itself; key `path` or `path#anchor`; entries from `extra.txt` only if `help/extra.chm`
   exists).
 - `AhkExternalHelp` builds and starts the command line of the external viewer (`docs.txt`: setting or
   `AutoHotkey.chm`; `extra.txt`: always `hh.exe` with `help/extra.chm`, copied by `extraChm` to
@@ -356,7 +358,14 @@ AutoHotkey files (AutoHotkey allows non-ASCII characters in names, e.g. a `§` p
   (`getDocumentationElementForLookupItem`); `AhkCommandInfo.Parameter.description` feeds the parameter info.
   `AhkTypeDeclarations.lookup(PsiElement, name)` adds the types of `@param {Type}` of the enclosing function to the
   pragmas. `annotation/AhkDocCommentAnnotator` warns about unknown parameters and classes (on the file, because the
-  ranges lie outside of the definitions) and strikes out uses of deprecated definitions; `template/AhkDocEnterHandler`
+  ranges lie outside of the definitions); `inspection/AhkDeprecatedInspection` (local inspection, also in Inspect Code)
+  strikes out uses of deprecated definitions, including properties and fields (`AhkDocComment.of` takes an
+  `AhkClassProperty` or an `AhkFieldTarget`, whose comment stands before its statement). The tag lists are in
+  `AhkDocComment` (`TAGS` with a meaning, `TOLERATED_TAGS` such as `@author`: `others()`, own sections in
+  `AhkOwnDoc` and own blocks in `AhkDocCommentFormatter`); any other tag is text of the description and an entry of
+  `unknownTags()`, reported by `inspection/AhkUnknownDocTagInspection` with a quick fix to the most similar tag
+  (`EditDistance.optimalAlignment`, at most 2). `completion/AhkDocTagCompletion` completes the tags after `@` and the
+  undescribed parameters after `@param ` (`AhkTypedHandler` opens the popup after `@`); `template/AhkDocEnterHandler`
   (`enterHandlerDelegate`) writes the skeleton after `/**` + Enter.
 
 The help under `src/main/resources/help/` is part of the repository: `docs/` is a copy of the AutoHotkey
@@ -395,6 +404,10 @@ with `hhc.exe extra.hhp`; the compiled `extra.chm` is checked in as well).
   (a pure text function: parse into description and tag blocks, adjust `@param`, render with alignment, blank lines
   and Markdown-aware wrapping) and replaces its tokens by one; the parameters come from
   `AhkDocComment.documentedDefinition`.
+- `AhkParagraphFillHandler` (*Edit > Fill Paragraph*) finds the comment in the line of the caret and replaces the
+  paragraph by the result of `AhkParagraphFiller` (a pure text function). The platform's own handler does not work
+  here, because line breaks are tokens. The right margin is the one of the language (tab *Wrapping and Braces*, only
+  `RIGHT_MARGIN`).
 - `AhkCommenter` defines the comment characters.
 
 ## Spell checking (`spellchecker/`)
@@ -432,7 +445,8 @@ custom folding providers only know `//`, `#` and `/*` as comment prefixes, so th
   `v2.1...` of the installation or entry of `UX\installed-files.csv`, `detectAutoHotkeyV21Dir`, compared with
   `AhkVersion.compareVersions`), never the launcher; `notFoundMessage(script)` names the missing program.
 - `AhkSettingsConfigurable` is the settings page; changing the path updates the library roots, changing the
-  language level parses the open files again.
+  language level parses the open files again. `AhkTextRenderer` shows the texts of combo boxes and popup lists (the
+  factory methods `SimpleListCellRenderer.create` are scheduled for removal).
 - `AhkRunConfigurationType` (with its factory), `AhkRunConfiguration`, `AhkRunConfigurationOptions` and
   `AhkRunConfigurationEditor` form the run configuration; `AhkRunConfigurationProducer` creates it from the
   context; `AhkRunState` builds the command line and starts the process; `AhkErrorFilter` links load errors in
@@ -441,7 +455,7 @@ custom folding providers only know `//`, `#` and `/*` as comment prefixes, so th
 ## Validation with AutoHotkey (`validate/`)
 
 - `AhkValidator.target` picks the script: the one of the selected `AhkRunConfiguration` (`RunManager`) from any
-  file (one tool = one project), otherwise the file itself. `AhkValidator` saves all modified documents (`saveAllDocuments`), writes a copy next to the script
+  file (one tool = one project), otherwise the file itself. `AhkValidator` saves all modified documents (`saveAllDocuments`: each one left unsaved is saved once more on its own; each one that was unsaved before and whose file on disk still differs, because the platform dropped it without writing, is written by `writeStale`; otherwise the action stops with an error and a log entry), writes a copy next to the script
   (`copyPath`) with `#Warn All, StdOut` appended (`withWarnToStdOut`, keeps encoding and line separator) and runs
   `AutoHotkey [launcher.ahk] /ErrorStdOut /validate copy` (command line from `AhkRunState.createCommandLine`) as a
   background task with a timeout (in case a dialog blocks it). `restorePaths` maps the copy back to the original
@@ -489,50 +503,170 @@ custom folding providers only know `//`, `#` and `/*` as comment prefixes, so th
 ## Installer and versions (`install/`)
 
 - One tool = one project: `AhkProjectRoot` is the project root (`ProjectUtil.guessProjectDir`, local only), its
-  `settings.ahk-plugin.ini`, `isAvailable` (INI in the root, AutoHotkey file selected, AutoHotkey run configuration
-  or an AutoHotkey file in the project via `FileTypeIndex`, so the actions do not clutter other projects) and `update` for the presentation of the three project actions (text with
-  the project name, description with the root).
-- `AhkInstallAction` ("Deploy to Local Target...", Code menu, context menus) calls `AhkInstaller.install`: the INI in
+  `settings.ahk-v2-plugin.ini` and `update` for the presentation of the three project actions (visible in every
+  project with a local root, also without AutoHotkey files, since they work for tools in any language; plugin logo;
+  text with the project name, description with the root). `containsAhkFiles` (`FileTypeIndex`) tells the template
+  whether the project is an AutoHotkey tool.
+- `AhkDeployAction` ("Deploy to Local Target...", Code menu, context menus) calls `AhkDeployer.deploy`: the INI in
   the project root (missing: offers `AhkSettingsFile.create`), `prepare` in a background task (reads the INI, finds
-  the scripts to compile, plans, asks Git for uncommitted changes), `AhkInstallDialog` (always; prominent notice for
+  the scripts to compile, plans, asks Git for uncommitted changes), `AhkDeployDialog` (always; prominent notice for
   `RequiresAdmin`, `Message`, overview = compile steps and the copy sections without comments, warnings, link
   "More..." to `/extra/installer.htm#Uncommitted`), then `execute` in a background task: compile each script of
-  `Prepared.compile` (`AhkCompiler.run`, then the plan is created again because the executables exist now), copy;
+  `Prepared.compile` (`AhkCompiler.run`, then the plan is created again because the executables exist now), move
+  the confirmed files of `[Cleanup]` to the Recycle Bin, copy; then (also after a failure)
+  `AhkDeployer.refreshFiles` brings targets and removed files into the VFS at once (the copier writes with plain
+  file IO; without it a new copy has no `VirtualFile` until the file watcher reports it, and navigation to
+  `#Include <Name>` fails), and `AhkLibraryRootsProvider.changeRoots` reports a Lib folder the deployment created;
   report in a console of the Run tool window. Problems before the start are collected and shown together; nothing
   happens then. No commit, no tag.
-- Compile before copying (`CompileBeforeInstall`, default true): each copy source that names an `.exe` without wildcards
-  (`AhkInstallPlan.executable`) and has a script of the same name next to it (`AhkInstaller.scriptOf`) is compiled
+- Compile before copying (`Compile`, default true): each copy source that names an `.exe` without wildcards
+  (`AhkDeployPlan.executable`) and has a script of the same name next to it (`AhkDeployer.scriptOf`) is compiled
   from it, each script once; it needs `;@Ahk2Exe-Base`, and `compiledExe` must be that executable. With
-  `CompileBeforeInstall=false` only the warning "executable older than the scripts next to it" (`newerSources`).
-- `AhkInstallConfig` reads `settings.ahk-plugin.ini` (sections `[Install]`, `[Overwrite]`, `[KeepExisting]`,
-  `[SetVersion]`; keys case-insensitive, `;` comments only at the line start, one pair of quotes removed from keys
+  `Compile=no` only the warning "executable older than the scripts next to it" (`newerSources`).
+- `AhkDeployConfig` reads `settings.ahk-v2-plugin.ini` (sections `[Deploy]`, `[Install]`, `[InstallIfMissing]`,
+  `[AddBanner]`, `[SetVersion]`, `[Cleanup]` (`CleanupEntry`, the only section where a key may repeat); the
+  target `{set target}` (`TARGET_PLACEHOLDER`) is an error; the last two as `AhkFileRules.Rule`s: `AhkPathPattern` = selector like a
+  line of `.gitignore`, value yes/no with an optional `Style`, the last matching rule wins; keys case-insensitive, `;` comments only at the line start, one pair of quotes removed from keys
   and values, duplicates, unknown sections and unknown keys are errors). Mistakes have a scope: those of the file
-  itself stop every action, the others only Deploy (`errors`) or Set Version (`versionErrors`); `excludes` matches
-  the `path=exclude` lines of `[SetVersion]` (wildcards in the last name, `\` at the end = folder, recursive); `AhkInstallPlan` resolves `Destination`,
-  `%DESTINATION%`, environment variables of the IDE process, `%%`, `` `n `` in `Message`, sources (relative to the
-  project root, no `..`, wildcards only in the file name; `willExist` = the executables that the compilation creates)
-  and targets (folder rules) into `Step`s.
+  itself stop every action, the others only Deploy (`errors`) or Set Version (`versionErrors`); `warnings` for the
+  confirmation. Until 2.5.0, the settings file of version 2.1 (`AhkDeployConfig.LEGACY_FILE_NAME`,
+  `settings.ahk-plugin.ini`) is still read: the file name tells the format, `AhkDeployConfig.file` finds the new
+  file first, then the old one (`isLegacy`, `load`, `parse(text, legacy)`; with both, `prepare` warns about the
+  old one). `AhkSettingsFormat` knows the old names (`[Install]` for the options, `[Overwrite]`, `[KeepExisting]`,
+  `[ApplyCopyNotice]`, `CopyNotice`, `CompileBeforeInstall`): `current`/`currentKey` map them for
+  `AhkDeployConfig` and `AhkSettingsEdit.rename`, `written` gives `withLine` the old section name, `newSection`
+  and `isOldOption` let the new file name the new name (`install.ini.section.old`, `install.ini.key.old`,
+  `install.ini.install.option`), `updated` renames headers, option keys and the names in comments.
+  "Update Settings" in `AhkDeployDialog` → `AhkDeployer.updateSettings` writes the new file and removes the old
+  one (a rename for Git), then the deployment starts again. Library projects (`AhkLibraryProjects.collect`) count
+  folders with either file.
+  `AhkDeployPlan` resolves `Destination`, variables (`variables()`: `include/AhkFolderVariables` =
+  the folder variables of AutoHotkey via `SHGetKnownFolderPath`, shared with `#Include`, plus `LIBRARY_PROJECTS`; no
+  environment variables), `%DESTINATION%`, `%%`, `` `n `` in `Message`, sources (relative to the project root, no
+  `..`, wildcards only in the file name; `willExist` = the executables that the compilation creates) and targets
+  (folder rules, a target given twice is an error) into `Step`s.
+- `[Cleanup]`: `AhkDeployPlan.addCleanup` resolves the folder like a target and the selector like a source relative
+  to it into `Removal`s (each file once; a folder value that is a file, and a file matching a target of a `Step`,
+  are errors). After `AhkDeployDialog`, `AhkCleanupDialog` (only with removals; every absolute path grouped by
+  line; "Remove and Deploy", "Deploy Without Removing", "Cancel" as default button) decides whether `execute` removes
+  them. `AhkDeployCopier.recycle` moves them in the IDE process with JNA (`FileUtils.moveToTrash`), only on a fixed
+  drive (`Kernel32.GetDriveType`; other drives have no Recycle Bin, and the shell would delete for good); with
+  `RequiresAdmin` the elevated script removes them first
+  (`Microsoft.VisualBasic.FileIO.FileSystem.DeleteFile … SendToRecycleBin`, `DriveInfo.DriveType`, log lines
+  `REMOVED`/`NOTREMOVED`, `readRemovals`). A failed removal stops the deployment before copying.
+- Banner: `AhkBanner.text` reads `Banner` (value, `@library`/`@standard`, `file:`, `find:` = plain file
+  name searched upwards from the project root by `AhkBanner.find`, the nearest wins), `AhkDeployPlan.banner`
+  decides per source (only `[Install]`, an including rule for `[InstallIfMissing]` is a warning; AutoHotkey files
+  implicitly, others by rule; binary files only a warning; style of the rule or `AhkFileRules.builtinStyle`) and
+  records what `AhkDeployPlan.summarizeBanner` needs after all steps: with `Banner` and no banner written a
+  warning for capable files not excluded by `no`, or a hint (`AhkDeployPlan.hints`, gray in `AhkDeployDialog`
+  via `Prepared.hints`) without capable files; without `Banner` a warning for the first file of an including rule
+  and one for raw AutoHotkey files; nothing after a mistake of the banner) and `AhkBanner.lines` renders the comment (line or block style, placeholders of
+  `AhkBanner.Values`, a line whose placeholders are all empty is left out; `{version}` from
+  `AhkVersionDirective.findIn`, `{commit}` from `AhkDeployPlan.gitCommit` (Git only if the text uses it; HEAD once
+  per plan, `git status --porcelain --ignored` per source), `{include}` from `AhkDeployPlan.include` (target
+  relative to `AhkDeployPlan.libraries`)). The templates `AhkBanner.LIBRARY`/`STANDARD` are fixed lists laid out
+  like `AhkAhk2ExeHeader` (same lines from Project to Deployed, `LIBRARY` with Use). `AhkDeployPlan.targets` resolves without Git, for callers that only need targets
+  (`AhkLibraryProjects.scan`, `AhkAddToLibraryProject`). `AhkBanner.apply` puts it in front of the bytes
+  of the source, after a first line `<?xml`/`#!`/registry header/`@echo off` (`hasHeaderLine`; Set Version moves a version line right before it behind it, `AhkSetVersion.moveBehindHeader`; encoding from the byte order mark, otherwise ASCII with `_`; line
+  ending of the first line), and leaves out `Step.dropLine` (the `@SetVersion` line of a non-AutoHotkey file whose
+  banner uses `{version}`); `AhkDeployCopier.copyFile` writes the result, the elevated copy gets it as a prepared
+  file in the temp folder.
+- Origin (`EmbedOrigin`): `AhkDeployPlan.origin` gives the `Step` of an executable of `[Install]` with a script of the
+  same name the text of `AhkExeOrigin.block`; `AhkDeployCopier.copyFile` appends it to the copy
+  (`AhkExeOrigin.append`), the elevated copy gets a prepared file. `AhkExeOrigin.certificateTableSize` reads the PE
+  headers: a signed executable and a file that is no executable stay unchanged (checked again when copying, because
+  the executable may have been compiled after planning). `AhkBanner.builtin` takes folder and computer out of the
+  built-in templates. The computer name is the variable `A_ComputerName`.
+- Read-only attribute: `AhkDeployCopier.copy` (and the elevated script, via `FileInfo.IsReadOnly`) removes it from an
+  existing target of `[Install]` before writing (`clearReadOnly`; a failure is a failed step) and sets it after the
+  modification time (`setReadOnlyQuietly`; a failure is ignored, e.g. on network drives). `[InstallIfMissing]` never
+  touches it. `recycle` and the elevated removal remove it before moving to the Recycle Bin, and
+  `AhkAddToLibraryProject` removes it from the new project file (`Files.copy` keeps the attribute of the library
+  copy).
+- Library projects: `AhkLibraryLayout` = the two modes (setting `libraryProjectsFolder` empty or not), the user
+  library folder, library names (`parseName`) and the naming rule (`<Lib>\v2\Gui.ahk` ↔ `<projects>\Gui`: new projects lie
+  directly in that folder, the subfolders of the name are only the deploy target).
+  `AhkLibraryProjects` finds the projects in that folder recursively (a folder with an INI, not below it, not in
+  `.` folders, at most 8 levels) and maps each target of their plans (outside the project) to `Source` (project,
+  source; the project of the naming rule wins; the line shift = lines of the copy minus lines of the source), kept
+  for 5 seconds; `refreshAll` after a change of the setting and after each deployment.
+  `AhkLibraryCopyAccess` (`writingAccessProvider`) makes those copies read-only, `AhkLibraryCopyNotification`
+  (`editorNotificationProvider`) shows the notification bar (above a library file without project the notification bar with the link
+  to `FromFile.create`; in Lib-direct mode above a `.ahk` file of the user library folder a hint with the links to
+  the settings page and "Don't Show Again", stored in `PropertiesComponent`), `AhkOpenLibraryProjectAction` (group `AutoHotkey.CodeActions`,
+  only visible on a copy) opens the project (`ProjectUtil.findAndFocusExistingProjectForPath`, otherwise
+  `openOrImport` in a new frame) and the source at the caret line minus the banner lines. `AhkLibraryActions`:
+  `NewFile` (File > New, file from the template "AutoHotkey Script" in the Lib folder; in Lib-src mode
+  `AhkLibraryNameDialog` warns and its main button creates a project), `NewProject` (File > New and
+  `WelcomeScreen.QuickStart`, only in Lib-src mode), `FromFile` (group `AutoHotkey.CodeActions`, a library file
+  without project); `AhkNewLibraryProject.create` writes folder, source and the INI from
+  `install/settings-library.ahk-v2-plugin.ini` (never into an existing folder; `Destination` always the user library
+  folder itself, the folders of the name in the target `$target$`, e.g. `Gui.ahk=v2\`, so that targets in other
+  library folders need no change of `Destination`; `Banner=find:banner.txt` if `AhkBanner.find` finds it
+  from the projects folder upwards, otherwise `@library`; `AhkSettingsFile.create` likewise for the tool template,
+  `$find-banner$`), then the project is opened.
+  `AddToProject` (same places and a second link in the notification bar) lists `AhkLibraryProjects.projects` in a
+  `JBPopupFactory` chooser (`AhkAddToLibraryProject.sorted`: projects of the subfolder of the file first);
+  `AhkAddToLibraryProject.add` copies the bytes into the project root (`freeName`: `x_added.ahk`,
+  `x_added [1].ahk` … with the target `{set target}` if the name is taken) and appends the line to `[Install]`
+  (`AhkSettingsEdit.withLine`; the target is the folder of the library file relative to the resolved `Destination`,
+  otherwise absolute with `%A_MyDocuments%`). `AhkSettingsEdit.read`/`Stored.write` keep the encoding and byte
+  order mark of the INI.
+- `AhkSettingsRenameListener` (`refactoring.elementListenerProvider`): for a file or folder under the project root
+  with an INI it remembers the old relative path; after the rename or move (`invokeLater`, outside the refactoring)
+  `AhkSettingsEdit.rename` computes the new text (pure text function, one call per `TargetMode`): the keys that
+  name the path (sources of the copy sections exactly or below a renamed folder; for a renamed `.ahk` also the
+  source `<name>.exe` next to it; selectors only without wildcards, anchored unless the path is in the root). If the
+  file name changes and a copy line has a folder target (decided like the deployment,
+  `AhkDeployPlan.isFolderTarget` with `Destination` and variables) or a target with the old name, the result has
+  `choice`: a four-button dialog offers `KEEP_NAME` (folder target + old name), `RENAME` (old-name target gets the
+  new name; `[Cleanup]` lines for the old targets of `[Install]`), `SOURCE_ONLY` ("Edit Myself", opens the INI at
+  the target) and Cancel. Without choice the `SOURCE_ONLY` text is written and an information dialog ("OK"/"Edit
+  Myself") shows it. In every mode a `[Cleanup]` line without wildcards that names a new target exactly (textual
+  comparison) is removed. The document is changed in one write command (only the differing middle part) and saved.
+  A differing `;@Ahk2Exe-ExeName` of the renamed script (`AhkDeployer.compiledExe`) adds a note at the start of the text (long texts scroll). The platform's
+  rename preview cannot be extended for file renames from the Project view, hence the dialogs.
 - `AhkCreateSettingsAction` ("Create Settings...", only while the root has no INI) and the missing-file question of
-  the installer call `AhkSettingsFile.create`: the resource `install/settings.ahk-plugin.ini` (all options commented
-  out and explained, `{tool}` = project name, CR LF) is written into the project root in a write command and opened;
-  an existing file is only opened, never overwritten.
-- `AhkSetVersionAction` ("Set Version...") calls `AhkSetVersion.run`: in the background the AutoHotkey files of the
-  project content under the root (`projectScripts`, `ProjectFileIndex`) are read and `prepare` collects their version
-  lines (`Script`; several lines or a computed value are errors; different versions a warning; `current` = the
-  highest by `AhkVersionDirective.compare`), the Git state (`status`: untracked files prevent the commit, changed
+  Deploy call `AhkSettingsFile.create`: the resource `install/settings.ahk-v2-plugin.ini` (all options commented out
+  with `;` and explained in lines starting with `;;`, as in the template of library projects; `{tool}` = project name,
+  CR LF) is written into the project root in a write command and opened; an existing file is only opened, never
+  overwritten. `AhkSettingsFile.examples` fills the placeholders `$install$`, `$install-if-missing$`, `$banner$`,
+  `$version$`, `$cleanup$` from the files of a known type in the project root (built-in comment style or `.exe`;
+  configuration types to `[InstallIfMissing]`; at most `MAX_EXAMPLES` per section); in an AutoHotkey project first
+  `<tool>.ahk`/`<tool>.exe` and `*.ahk`, without files generic `<tool>.cmd`.
+- `AhkSetVersionAction` ("Set Version...") calls `AhkSetVersion.run`: in the background the files of the project
+  content under the root (`projectScripts`, `ProjectFileIndex`) are filtered (`candidates`: AutoHotkey files not
+  excluded, other files included by `[SetVersion]`) and read, and `prepare` collects their version lines (`Script`
+  with `Style`; `added()` = no line yet (any candidate without a line), it is added by `insertionOffset`/`versionLine`; several lines or a computed
+  value are errors; different versions a warning; binary files a warning; `current` = the highest by
+  `AhkVersionDirective.compare`), the Git state (`status`: untracked files prevent the commit, changed
   versioned files are listed) and the tags `v*`; `AhkSetVersionDialog` (patch/minor/major/other, one check box
   "Commit the project and create tag v…", message; validates the version and that the tag is new), then all values
   are replaced in one `WriteCommandAction` (undoable) and saved, and `commitAndTag` runs in the background
   (`check-ref-format` first, then commit of the project, annotated tag); result as notification. No INI needed; if
-  there is one, `prepare` skips the files of `[SetVersion]` (`AhkInstallConfig.excludes`) and stops on
-  `versionErrors`.
+  there is one, `prepare` uses its `versionRules` and stops on `versionErrors`. Without any file to change,
+  `Prepared.missing` (`Missing`: no INI, no including line, including lines match nothing) gives the hint
+  `missingText`; `offerSettings` offers *Create Settings* (`AhkSettingsFile.create` with the section) or opens
+  the INI; both put the caret at `[SetVersion]` (`AhkSettingsFile.open`, `sectionLine`). `AhkVersionDirective.findIn` finds
+  `;@Ahk2Exe-SetVersion` in AutoHotkey files and `<start> @SetVersion x [<end>]` in others. The Ahk2Exe head
+  (`compile/AhkAhk2ExeHeader.insert`) takes over an existing `;@Ahk2Exe-SetVersion` line (removes it, its value is
+  the default of the version placeholder).
 - `AhkVersionDirective`: finds `;@Ahk2Exe-SetVersion` as Ahk2Exe does (trimmed line, any case, ` ;` comment cut
   off, block comments and `IgnoreBegin`/`IgnoreEnd` skipped, `/*@Ahk2Exe-Keep` counts), `bump`, `isValidVersion`,
   `compare`, `tagName` (`v<version>`).
-- `AhkInstallGit`: `git` on the command line (no Git4Idea) in the project root: `status --porcelain
+- `AhkDeployGit`: `git` on the command line (no Git4Idea) in the project root: `status --porcelain
   --untracked-files=all -- .`, `check-ref-format`, `rev-parse --verify`, `commit -- .` (all versioned files under the
   root, staged changes outside stay staged), annotated tag on HEAD.
-- `AhkInstaller.compiledExe` guesses the output file of Ahk2Exe (`;@Ahk2Exe-ExeName`, otherwise `<script>.exe`).
+- `AhkDeployer.compiledExe` guesses the output file of Ahk2Exe (`;@Ahk2Exe-ExeName`, otherwise `<script>.exe`).
+
+## Encoding (`encoding/`)
+
+- `AhkAnsiNotification` (`editorNotificationProvider`): a local text file (not binary, not `.cmd`/`.bat`, at most
+  10 MB) whose charset is UTF-8, without byte order mark, whose bytes are no valid UTF-8 (`isValidUtf8`, strict
+  decoder) gets a warning notification bar with "Convert from ANSI to UTF-8": `convert` decodes the bytes with `ansiCharset`
+  (`native.encoding`, windows-1252 if that is unknown or UTF-8), replaces the document text in one write command
+  (undoable) and saves it as UTF-8. Independent of the AutoHotkey file type.
 
 ## Debugger (`debug/`, in progress)
 
@@ -645,6 +779,8 @@ how the engine behaves (written from the DBGp specification only).
 - `AhkPluginTest` (`BasePlatformTestCase`): the whole plugin - highlighting with `checkHighlighting`, completion,
   parameter info, navigation, formatting, help, run configuration, live templates. Tests for `#Include` use real
   files in a temporary directory.
+- `install/AhkDeployTest` (`BasePlatformTestCase`): settings file, plans, copying, `[Cleanup]`, library projects,
+  "Add to Library Project", INI changes after renaming, Set Version and Git (with a temporary repository).
 - `module/AhkModuleTest` (`BasePlatformTestCase`): v2.1 modules with real files in a temporary content root
   (navigation, module files and `AhkLibPath` via `AhkInclude.environment`, Find Usages, Rename, completion,
   parameter info, highlighting, checks, structure view, folding).
@@ -656,6 +792,12 @@ Continuous integration: `.github/workflows/build.yml` (Windows runner) runs `tes
 (`build.gradle.kts`, `pluginVerification`). `buildPlugin` includes `buildSearchableOptions`, which starts a headless
 IDE and opens every settings page; bundle texts carry markers there, so code must not compare file values with
 `AhkBundle` texts (see `AhkCaseMode`).
+
+Local builds: `./gradlew buildPlugin -Plocal` appends a build stamp to the version (`<version>.yyyyMMdd.HHmm`,
+newer than the release, older than the next one) and then runs `localPluginRepository`: it copies the ZIP into
+`local-repo/` (outside of `build/`, ignored by Git), removes older ZIPs there and writes `updatePlugins.xml`. Adding
+`file:///<project>/local-repo/updatePlugins.xml` under *Settings > Plugins > ⚙ > Manage Plugin Repositories* makes
+the IDE offer every local build as a plugin update.
 
 ## Pitfalls
 

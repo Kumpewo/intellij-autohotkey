@@ -13,7 +13,7 @@
 <p>The plugin's settings are spread over the usual places of the IDE (<em>File &gt; Settings</em>, <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>S</kbd>):</p>
 <table class="info">
   <tr><th>Where</th><th>What</th><th>Applies to</th></tr>
-  <tr><td nowrap="nowrap"><a href="#AutoHotkey">Languages &amp; Frameworks &gt; AutoHotkey</a></td><td>AutoHotkey program, AutoHotkey v2.1 interpreter, external help, automatic validation, Ahk2Exe, compression, language level</td><td>all projects</td></tr>
+  <tr><td nowrap="nowrap"><a href="#AutoHotkey">Languages &amp; Frameworks &gt; AutoHotkey</a></td><td>AutoHotkey program, AutoHotkey v2.1 interpreter, external help, automatic validation, Ahk2Exe, compression, language level, library projects</td><td>all projects</td></tr>
   <tr><td nowrap="nowrap"><a href="#Colors">Editor &gt; Color Scheme &gt; AutoHotkey</a></td><td>colors</td><td>the color scheme</td></tr>
   <tr><td nowrap="nowrap"><a href="formatting.htm#Options">Editor &gt; Code Style &gt; AutoHotkey</a></td><td>indent, spaces, blank lines, tab <em>Case</em></td><td>the code style scheme (IDE or project)</td></tr>
   <tr><td nowrap="nowrap"><a href="templates.htm">Editor &gt; Live Templates &gt; AutoHotkey</a></td><td>live templates</td><td>all projects</td></tr>
@@ -84,6 +84,9 @@
 <h3 id="LanguageLevel">Language level</h3>
 <p>The language level of files without <code>#Requires AutoHotkey</code>: <em>AutoHotkey v2.0</em> (default) or <em>AutoHotkey v2.1 (alpha)</em>. A file with <code>#Requires AutoHotkey</code> always uses the version it asks for (see <a href="v21.htm#Levels">AutoHotkey v2.1 (alpha)</a>). After a change the open files are parsed and highlighted again.</p>
 <p><em>Show the language level (v2.0, v2.1) after AutoHotkey files in the Project view</em> (on by default) adds the level of each AutoHotkey file in grey after its name in the Project view.</p>
+
+<h3 id="Library">Library projects folder</h3>
+<p>The folder of the library projects (empty by default: libraries are edited directly in the library folder). Every folder below it with a <code>settings.ahk-v2-plugin.ini</code> is a library project. The files these projects deploy are read-only in the editor and lead back to their project, and <em>File &gt; New</em> offers <em>AutoHotkey Library Project...</em>; see <a href="library-projects.htm">Library projects</a> and <a href="installer.htm#Library">Libraries</a>. In <code>settings.ahk-v2-plugin.ini</code> the folder is the variable <code>%LIBRARY_PROJECTS%</code>.</p>
 
 <h3 id="ManualLink">Open the plugin manual</h3>
 <p>The link at the bottom of the page opens this manual.</p>

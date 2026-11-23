@@ -32,7 +32,7 @@ OpenBox(name, force := false) {
 <ul>
   <li>Only <code>/** ... */</code>. A plain block comment <code>/* ... */</code> and line comments are not doc comments.</li>
   <li>Between <code>*/</code> and the definition there may be spaces and one line break, but no empty line.</li>
-  <li>Functions, methods (also fat-arrow definitions like <code>Twice(x) =&gt; x * 2</code>) and classes have doc comments. Properties, fields, hotkeys and labels do not.</li>
+  <li>Functions, methods (also fat-arrow definitions like <code>Twice(x) =&gt; x * 2</code>) and classes have doc comments. Properties and fields (<code>count := 0</code>, <code>static count := 0</code>) can be marked with <code>@deprecated</code>; the other tags and the popup are for functions, methods and classes. Hotkeys and labels have no doc comments.</li>
   <li>The leading <code>*</code> of each line is removed. The text before the first tag is the description, written in <a href="https://commonmark.org/help/">Markdown</a>: <code>`code`</code>, <code>**bold**</code>, lists, code blocks.</li>
 </ul>
 
@@ -45,9 +45,10 @@ OpenBox(name, force := false) {
   <tr><td nowrap="nowrap"><code>@throws text</code></td><td>An error the function throws.</td></tr>
   <tr><td nowrap="nowrap"><code>@example</code></td><td>Example code; the following lines are shown as written.</td></tr>
   <tr><td nowrap="nowrap"><code>@see name|url [text]</code></td><td>A link: to an own function, method or class (<code>CloseBox</code>, <code>Box.Open</code>), to the AutoHotkey help (<code>MsgBox</code>, <code>Gui.Add</code>) or to a web page.</td></tr>
-  <tr><td nowrap="nowrap"><code>@deprecated [text]</code></td><td>The definition should no longer be used. Every use of the name is struck out, with the text as a hint.</td></tr>
+  <tr><td nowrap="nowrap"><code>@deprecated [text]</code></td><td>The definition should no longer be used. Every use of the name is struck out, with the text as a hint. This is the inspection <em>Use of a deprecated definition</em> (<em>Settings &gt; Editor &gt; Inspections &gt; AutoHotkey</em>), so <em>Code &gt; Inspect Code</em> lists all uses in a project.</td></tr>
 </table>
-<p>Other words with <code>@</code> are normal text.</p>
+<p>The JSDoc tags <code>@author</code>, <code>@since</code>, <code>@version</code>, <code>@todo</code>, <code>@license</code> and <code>@copyright</code> are accepted and shown in the popup, each in a section of its own. Any other tag at the start of a line is probably a typo: it is marked as unknown (inspection <em>Unknown doc comment tag</em>), and <kbd>Alt</kbd>+<kbd>Enter</kbd> changes it to the most similar tag, for example <code>@retruns</code> to <code>@returns</code>. A word with <code>@</code> inside the text (<code>name@example.com</code>) is normal text.</p>
+<p>Typing <code>@</code> at the start of a line offers the tags; after <code>@param</code> the completion offers the parameters that are not described yet.</p>
 
 <h2 id="Popup">The popup</h2>
 <p>The quick documentation shows the signature (as in the parameter info, with the class: <code>Box.Open(name, [force := false])</code>), the description, a section per tag and the file. It works on the definition itself and on every use: <code>OpenBox()</code>, <code>obj.Open()</code>, <code>Box()</code>, <code>extends Box</code>. Like <a href="navigation.htm">Go to declaration</a>, it matches by name in the file and its directly included files. An own definition takes precedence over the built-in help of the same name. If several definitions match (for example a method <code>Open</code> in two classes), the popup lists them; click one to see its documentation. <kbd>Ctrl</kbd>+hover shows the signature.</p>

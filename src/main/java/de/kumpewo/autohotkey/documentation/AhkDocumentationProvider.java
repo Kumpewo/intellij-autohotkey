@@ -255,7 +255,8 @@ public class AhkDocumentationProvider extends AbstractDocumentationProvider impl
 
     // --- external help (Shift+F1) ---
 
-    /** Enables the action "External Documentation"; the call itself is done by {@link #handleExternal}. */
+    /** Enables the action "External Documentation"; the call itself is done by {@link #handleExternal}
+     * (Shift+F1) and {@link #handleExternalLink} (link in the popup). */
     @Override
     public @Nullable List<String> getUrlFor(PsiElement element, PsiElement originalElement) {
         List<AhkHelpRepository.Topic> topics = externalTopics(element, originalElement);
@@ -276,5 +277,35 @@ public class AhkDocumentationProvider extends AbstractDocumentationProvider impl
         PsiElement context = originalElement != null ? originalElement : element;
         AhkExternalHelp.choose(context == null ? null : context.getProject(), topics);
         return true;
+    }
+
+    /**
+     * Link the platform puts at the bottom of the popup for the keys from {@link #getUrlFor}: they are no web
+     * addresses, so it shows the generic link "External documentation" ({@value #GENERIC_EXTERNAL_LINK}); a key
+     * itself may also arrive. The platform cannot open either, so the plugin opens the topic(s) itself, like Shift+F1.
+     */
+    static final String GENERIC_EXTERNAL_LINK = "external_doc";
+
+    /** Opens the external help for the link at the bottom of the popup ({@link #externalTopicsForLink}). */
+    @Override
+    public boolean handleExternalLink(PsiManager psiManager, String link, PsiElement context) {
+        List<AhkHelpRepository.Topic> topics = com.intellij.openapi.application.ReadAction.compute(
+                () -> externalTopicsForLink(link, context));
+        if (topics.isEmpty()) return false;
+        AhkExternalHelp.choose(context.getProject(), topics);
+        return true;
+    }
+
+    /**
+     * The external topics of the element for a link of the popup: all of them for the generic link
+     * ({@link #GENERIC_EXTERNAL_LINK}), the one whose key ({@link AhkHelpRepository.Topic#externalKey}) is the link
+     * otherwise; empty for other links.
+     */
+    public static @NotNull List<AhkHelpRepository.Topic> externalTopicsForLink(@Nullable String link,
+                                                                           @Nullable PsiElement context) {
+        if (link == null || context == null || !context.isValid()) return List.of();
+        List<AhkHelpRepository.Topic> topics = externalTopics(context, null);
+        if (link.equals(GENERIC_EXTERNAL_LINK)) return topics;
+        return topics.stream().filter(t -> t.externalKey().equals(link)).toList();
     }
 }

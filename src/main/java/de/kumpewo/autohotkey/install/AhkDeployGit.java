@@ -14,12 +14,12 @@ import java.util.List;
 
 /**
  * Git on the command line ({@code git} from the PATH; no Git plugin, the plugin only depends on platform modules),
- * run in the project root: the warning about uncommitted changes of the installer ({@link AhkInstaller}) and commit and
+ * run in the project root: the warning about uncommitted changes of Deploy ({@link AhkDeployer}) and commit and
  * tag of "Set Version" ({@link AhkSetVersion}). A commit concerns all versioned files under the project root
  * ({@code git commit -m <message> -- .}), so that staged changes outside of it are not committed; the tag is
  * annotated and set on HEAD.
  */
-public final class AhkInstallGit {
+public final class AhkDeployGit {
 
     /** Maximum run time of one Git command. */
     static final int TIMEOUT_MS = 60_000;
@@ -27,7 +27,7 @@ public final class AhkInstallGit {
     private final Path folder;
 
     /** Git commands in the folder (the project root). */
-    public AhkInstallGit(@NotNull Path folder) {
+    public AhkDeployGit(@NotNull Path folder) {
         this.folder = folder;
     }
 

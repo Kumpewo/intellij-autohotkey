@@ -24,6 +24,7 @@ import org.jetbrains.annotations.Nullable;
  *       suggestion instead of breaking the line.</li>
  *   <li>in the argument of #Include/#IncludeAgain also after "&lt;", quotes, "\" and "/" (file paths,
  *       AhkIncludeCompletion)</li>
+ *   <li>in a doc comment after "@" at the start of a line (tags, AhkDocTagCompletion)</li>
  *   <li>show the parameter info after "(" (AhkParameterInfoHandler)</li>
  *   <li>"%" in pairs like quotes (AhkQuoteHandler): an opening "%" brings the closing one (caret in between), a
  *       closing one is not doubled, and an existing one is skipped. Opening/closing as for the brace pair
@@ -47,6 +48,16 @@ public class AhkTypedHandler extends TypedHandlerDelegate {
             com.intellij.openapi.editor.Document doc = editor.getDocument();
             int lineStart = doc.getLineStartOffset(doc.getLineNumber(caret));
             if (AhkIncludeCompletion.isIncludeArgument(doc.getCharsSequence().subSequence(lineStart, caret) + String.valueOf(c))) {
+                AutoPopupController.getInstance(project).scheduleAutoPopup(editor);
+                return Result.STOP;
+            }
+        }
+        if (file instanceof AhkFile && c == '@' && isInBlockComment(editor)) {
+            // tag at the start of a line of a doc comment (AhkDocTagCompletion)
+            int caret = editor.getCaretModel().getOffset();
+            Document doc = editor.getDocument();
+            int lineStart = doc.getLineStartOffset(doc.getLineNumber(caret));
+            if (AhkDocTagCompletion.isTagStart(doc.getCharsSequence().subSequence(lineStart, caret))) {
                 AutoPopupController.getInstance(project).scheduleAutoPopup(editor);
                 return Result.STOP;
             }
@@ -82,6 +93,14 @@ public class AhkTypedHandler extends TypedHandlerDelegate {
         if (it == null || AhkBraceMatcher.percentsBefore(it) % 2 != 0) return Result.CONTINUE;   // closes
         editor.getDocument().insertString(offset, "%");
         return Result.STOP;
+    }
+
+    /** Is the character before the caret part of a block comment (lexer of the editor)? */
+    private static boolean isInBlockComment(Editor editor) {
+        int offset = editor.getCaretModel().getOffset() - 1;
+        if (offset < 0 || !(editor instanceof EditorEx ex)) return false;
+        HighlighterIterator it = ex.getHighlighter().createIterator(offset);
+        return !it.atEnd() && it.getTokenType() == AhkTypes.BLOCK_COMMENT;
     }
 
     /** Iterator on the PERCENT token at {@code offset}, otherwise null (string, comment, directive ...). */

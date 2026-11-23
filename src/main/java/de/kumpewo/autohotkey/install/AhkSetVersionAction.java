@@ -14,7 +14,7 @@ import org.jetbrains.annotations.NotNull;
 public final class AhkSetVersionAction extends DumbAwareAction {
 
     /**
-     * Visible in an AutoHotkey context ({@link AhkProjectRoot#isAvailable}); the text names the project
+     * Visible in every project with a local root; the text names the project
      * ({@link AhkProjectRoot#update}).
      */
     @Override

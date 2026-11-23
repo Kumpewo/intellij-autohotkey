@@ -8,12 +8,12 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * Action "Deploy to Local Target..." (Code menu, editor and project view context menus): copies the tool of the
- * project as the {@code settings.ahk-plugin.ini} in the project root describes ({@link AhkInstaller}).
+ * project as the {@code settings.ahk-v2-plugin.ini} in the project root describes ({@link AhkDeployer}).
  */
-public final class AhkInstallAction extends DumbAwareAction {
+public final class AhkDeployAction extends DumbAwareAction {
 
     /**
-     * Visible in an AutoHotkey context ({@link AhkProjectRoot#isAvailable}); the text names the project
+     * Visible in every project with a local root; the text names the project
      * ({@link AhkProjectRoot#update}).
      */
     @Override
@@ -31,6 +31,6 @@ public final class AhkInstallAction extends DumbAwareAction {
     @Override
     public void actionPerformed(@NotNull AnActionEvent event) {
         Project project = event.getProject();
-        if (project != null) AhkInstaller.install(project);
+        if (project != null) AhkDeployer.deploy(project);
     }
 }

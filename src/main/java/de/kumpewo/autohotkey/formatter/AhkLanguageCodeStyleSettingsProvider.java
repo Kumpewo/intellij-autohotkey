@@ -7,7 +7,6 @@ import com.intellij.psi.codeStyle.CommonCodeStyleSettings;
 import com.intellij.psi.codeStyle.LanguageCodeStyleSettingsProvider;
 import de.kumpewo.autohotkey.AhkLanguage;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Defines WHICH standard options appear on the code style page and their defaults.
@@ -22,7 +21,7 @@ final class AhkLanguageCodeStyleSettingsProvider extends LanguageCodeStyleSettin
         return AhkLanguage.INSTANCE;
     }
 
-    /** The options shown on the tabs "Tabs and Indents", "Spaces" and "Blank Lines". */
+    /** The options shown on the tabs "Tabs and Indents", "Spaces", "Wrapping and Braces" and "Blank Lines". */
     @Override
     public void customizeSettings(@NotNull CodeStyleSettingsCustomizable consumer, @NotNull SettingsType settingsType) {
         if (settingsType == SettingsType.INDENT_SETTINGS) {
@@ -71,23 +70,24 @@ final class AhkLanguageCodeStyleSettingsProvider extends LanguageCodeStyleSettin
 
         } else if (settingsType == SettingsType.BLANK_LINES_SETTINGS) {
             consumer.showStandardOptions("KEEP_BLANK_LINES_IN_CODE");
+
+        } else if (settingsType == SettingsType.WRAPPING_AND_BRACES_SETTINGS) {
+            consumer.showStandardOptions("RIGHT_MARGIN");   // only for comments, code is never wrapped
         }
-        // WRAPPING_AND_BRACES_SETTINGS deliberately not offered: KEEP_LINE_BREAKS stays on,
+        // KEEP_LINE_BREAKS deliberately not offered: it stays on,
         // otherwise spacing rules would join lines (end of line = end of statement!).
     }
 
     /** Defaults: indent 4, continuation indent 8, spaces instead of tabs, spaces inside array literals. */
     @Override
-    public @Nullable CommonCodeStyleSettings getDefaultCommonSettings() {
-        CommonCodeStyleSettings defaults = new CommonCodeStyleSettings(getLanguage());
-        CommonCodeStyleSettings.IndentOptions indent = defaults.initIndentOptions();
+    protected void customizeDefaults(@NotNull CommonCodeStyleSettings defaults,
+                                     @NotNull CommonCodeStyleSettings.IndentOptions indent) {
         indent.INDENT_SIZE = 4;
         indent.CONTINUATION_INDENT_SIZE = 8;   // continuation lines further than the normal indent (as in Java)
         indent.TAB_SIZE = 4;
         indent.USE_TAB_CHARACTER = false;
         defaults.KEEP_BLANK_LINES_IN_CODE = 2;
         defaults.SPACE_WITHIN_BRACKETS = true;   // array literal: [ a, b ]; index access stays a[1] (own option)
-        return defaults;
     }
 
     /** Preview text on all tabs. */

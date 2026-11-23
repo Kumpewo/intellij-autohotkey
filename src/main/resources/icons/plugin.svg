@@ -1,0 +1,17 @@
+<!-- Plugin logo: white "Hk" (AutoHotkey, Kumpewo) on a red rounded square, 16x16 menu icon, same drawing as META-INF/pluginIcon.svg. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 40 40">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e84b3d"/>
+      <stop offset="1" stop-color="#c62a26"/>
+    </linearGradient>
+  </defs>
+  <rect x="1.5" y="1.5" width="37" height="37" rx="7" fill="url(#bg)" stroke="#9e1b1b" stroke-width="1.5"/>
+  <g fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 9 V31"/>
+    <path d="M21 9 V31"/>
+    <path d="M9 20.5 H21"/>
+    <path d="M27 14 V31"/>
+    <path d="M33 20 L27.5 25.5 L33 31"/>
+  </g>
+</svg>

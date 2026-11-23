@@ -4,6 +4,83 @@
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-11-23
+
+### Changed: please update your projects
+
+- **The settings file is now `settings.ahk-v2-plugin.ini`, with new names:** `[Install]` with the options is now
+  `[Deploy]`, `[Overwrite]` is now `[Install]`, `[KeepExisting]` is now `[InstallIfMissing]`, and
+  `CompileBeforeInstall` is now `Compile`. The plugin still reads an old `settings.ahk-plugin.ini` and offers *Update
+  Settings* in the confirmation of *Deploy*, which turns it into the new file. Version 2.5.0 will no longer read the old
+  file.
+- Environment variables such as `%APPDATA%` are no longer resolved in the settings file. Use the folder variables of
+  AutoHotkey (`%A_AppData%`, `%A_MyDocuments%` ...), `%LIBRARY_PROJECTS%` or `%DESTINATION%`.
+- In `[SetVersion]` a selector is now written like a line of `.gitignore`: `scratch\` matches such a folder at any
+  depth, `/scratch\` only in the project root.
+- *Set Version* sets the version in every AutoHotkey file of the project that `[SetVersion]` does not exclude and adds
+  the line `;@Ahk2Exe-SetVersion` where it is missing (before, only files with the line).
+- *Deploy* makes the copies of `[Install]` read-only (where the drive allows it) and overwrites read-only targets
+  without asking; copies of `[InstallIfMissing]` stay writable. It stops if two lines give the same target.
+
+### Added: library projects
+
+- Set a *Library projects folder*, and each library gets a project of its own, with room for tests and Git; *Deploy*
+  copies it into the Lib folder. The copies are read-only in the editor; a notification bar and *Open Library Project*
+  lead back to the source line. The manual page *Library projects* explains why and how, step by step.
+- *File > New > AutoHotkey Library Project...* (also on the welcome screen) and *AutoHotkey Library File*; *Create
+  Library Project* and *Add to Library Project...* turn an existing library file into a project or add it to one.
+- One project can deploy several versions of a library (for example for v1 and v2); projects may be organized in
+  subfolders.
+
+### Added: Deploy and Set Version
+
+- `Banner` in `[Deploy]` writes a "do not modify" banner at the start of the copies: your own text, a built-in template
+  (`@standard`, `@library`) or a file (`file:<path>`, or `find:<name>` in the project folder or above), with
+  placeholders such as `{project-name}`, `{version}`, `{commit}`, `{timestamp}` and `{include}`. AutoHotkey files get it
+  automatically, other files by `[AddBanner]`. New settings files use a `banner.txt` found in the project folder or
+  above.
+- The built-in banners name the computer, and deployed executables carry project folder and computer as text at their
+  end, so that a tool can find the project of an `.exe`; `EmbedOrigin=no` in `[Deploy]` leaves both out.
+- `[Cleanup]` removes leftovers of earlier deployments. A second confirmation lists every file; they are moved to the
+  Recycle Bin.
+- Renaming or moving a file or folder of the project updates the settings file; if the deployed name depends on it, a
+  dialog asks whether the deployed file is renamed too.
+- *Create Settings*, *Set Version* and *Deploy* are available in every project, also without AutoHotkey files. They know
+  the comments of many file types (e.g. `.py`, `.sh`, `.yaml`, `.java`, `.sql`, `.cmd`, `.reg`).
+- `[SetVersion]` can include files of other types as well; `[SetVersion]` and `[AddBanner]` take the values `yes`, `no`,
+  `line:<start> [<end>]` or `block:<start> <end>`, and the last matching line wins.
+- A new `settings.ahk-v2-plugin.ini` takes its commented-out examples from the files in the project root.
+
+### Added: editor
+
+- *Edit > Fill Paragraph* wraps the paragraph at the caret in `;` comments, block comments and doc comments; the code
+  style page has its own *Hard wrap at* for comments.
+- Doc comments: unknown tags (typos such as `@retruns`) are marked, with a quick fix; `@author`, `@since`, `@version`,
+  `@todo`, `@license` and `@copyright` are accepted. Completion of tags and of the parameters after `@param`.
+- `@deprecated` also for properties and fields; uses of deprecated definitions are an inspection, so *Code > Inspect
+  Code* lists them for a whole project.
+- Files with the extensions `.ah2` and `.ahk2` are AutoHotkey files too.
+- Old ANSI files: a notification bar above a text file that is not valid UTF-8 offers *Convert from ANSI to UTF-8*.
+
+### Changed
+
+- The switches of `[Deploy]` (`RequiresAdmin`, `GenerateOverview`, `Compile`) take `yes` or `no`; `true` and `false`
+  still work.
+- *Set Version* proposes versions also when no file has one yet, lets you edit the proposed version, and says why if
+  there is no file to change.
+- *Add Ahk2Exe compiler directives* takes over an existing line `;@Ahk2Exe-SetVersion`.
+- `;@declare-type` and `;@declare-auto-type` color only variables, not names that are called; the wildcard of
+  `;@declare-auto-type` may also stand inside the class pattern, e.g. `Gui.*Box`.
+- `yes` writes the comment of a `.js` file with `//` instead of `/* */`.
+- The AutoHotkey entries of the *Code* menu and the context menus are grouped by separators; library project actions
+  have the green AutoHotkey icon, project actions and the manual the plugin logo.
+- If Ahk2Exe is missing, the message says how to install it.
+
+### Fixed
+
+- The link to the external help at the bottom of the documentation popup did nothing; it now opens the topic like
+  *Shift+F1*.
+
 ## [2.1.0] - 2026-11-18
 
 ### Added
@@ -14,7 +91,7 @@
   `Send`, `SendInput`, `SendEvent`, `SendPlay` and `ControlSend` (`{Enter}`, `{Tab 3}`, `^c`,
   `{Raw}`); unknown key names in braces (`{Entr}`) get a warning, because AutoHotkey ignores them silently.
 - Keys in `settings.ahk-plugin.ini` may now be enclosed in double quotes, like values.
-- Section `[SetVersion]` in `settings.ahk-plugin.ini`: lines `path=exclude` (e.g. `scratch\=exclude`) keep files and
+- Section `[SetVersion]` in `settings.ahk-plugin.ini`: lines `path=no` (e.g. `scratch\=no`) keep files and
   folders out of Set Version. A mistake in the settings only stops the action it concerns.
 
 ### Changed
@@ -25,7 +102,7 @@
     (`TagPrefix`) is gone.
   - Deploy compiles what it copies: every executable of `[Overwrite]` and `[KeepExisting]` that has a script of
     the same name next to it (e.g. a GUI and a console variant). `CompileBeforeInstall` is now on by default;
-    `CompileBeforeInstall=false` copies the executables as they are.
+    `CompileBeforeInstall=no` copies the executables as they are.
   - Set Version sets the version in every script of the project with a line `;@Ahk2Exe-SetVersion`, commits all
     changes of the project and sets the tag `v<version>`; commit and tag need every file to be versioned or ignored.
     It needs no `settings.ahk-plugin.ini`.

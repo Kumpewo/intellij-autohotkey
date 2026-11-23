@@ -45,6 +45,8 @@ public final class AhkSettings implements PersistentStateComponent<AhkSettings.D
         public String autoHotkeyV21Path = "";
         /** Show the language level of AutoHotkey files in the Project view ({@code AhkLanguageLevelDecorator}). */
         public boolean showLevelInProjectView = true;
+        /** Folder whose subfolders are library projects ({@code AhkLibraryProjects}); empty = none. */
+        public String libraryProjectsFolder = "";
     }
 
     /**
@@ -194,6 +196,16 @@ public final class AhkSettings implements PersistentStateComponent<AhkSettings.D
     /** Shows or hides the language level next to AutoHotkey files in the Project view. */
     public void setShowLevelInProjectView(boolean show) {
         data.showLevelInProjectView = show;
+    }
+
+    /** Folder of the library projects (empty = none). */
+    public @NotNull String getLibraryProjectsFolder() {
+        return data.libraryProjectsFolder == null ? "" : data.libraryProjectsFolder;
+    }
+
+    /** Sets the folder of the library projects (trimmed; null = empty = none). */
+    public void setLibraryProjectsFolder(@Nullable String folder) {
+        data.libraryProjectsFolder = folder == null ? "" : folder.trim();
     }
 
     /**

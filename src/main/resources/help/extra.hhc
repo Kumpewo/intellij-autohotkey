@@ -76,6 +76,11 @@
     <param name="ImageNumber" value="11">
   </object>
   <li><object type="text/sitemap">
+    <param name="Name" value="Library projects">
+    <param name="Local" value="extra\library-projects.htm">
+    <param name="ImageNumber" value="11">
+  </object>
+  <li><object type="text/sitemap">
     <param name="Name" value="Deploying tools and setting versions">
     <param name="Local" value="extra\installer.htm">
     <param name="ImageNumber" value="11">

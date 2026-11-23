@@ -55,6 +55,7 @@
 <p>Case does not matter, neither in the patterns nor in the class names.</p>
 <p>A name may be covered by several patterns and thus have several classes; the members of all of them are offered.</p>
 <p>A built-in name (e.g. a variable called <code>Edit</code>) keeps its built-in color if it is only covered by a pattern with a wildcard. Declare the exact name to give it the color of a declared variable.</p>
+<p>The color is meant for variables. A name that is called (<code>myFunc()</code>, <code>myFunc "x"</code> or <code>myFunc</code> alone on a line) keeps its normal color, even if a pattern covers it. Where a name may be a variable as well as a function (<code>x := myFunc</code>, <code>SetTimer myFunc</code>), it gets the color.</p>
 <p>Mistakes are marked in the comment: "Invalid pattern.", "'as' expected.", "Class expected.", "Unknown class." and "',' expected.".</p>
 <p>Several pragmas may be used in one file; they add up.</p>
 

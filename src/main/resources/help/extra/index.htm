@@ -10,7 +10,7 @@
 
 <h1>AutoHotkey v2 Plugin</h1>
 
-<p>This plugin adds support for <a href="https://www.autohotkey.com/">AutoHotkey</a> v2 scripts (<code>.ahk</code> files) to IntelliJ IDEA and the other IDEs based on the IntelliJ platform. It understands the language, helps while writing, and runs, validates, compiles and debugs scripts with the AutoHotkey installation on your computer.</p>
+<p>This plugin adds support for <a href="https://www.autohotkey.com/">AutoHotkey</a> v2 scripts (<code>.ahk</code> files, also <code>.ah2</code> and <code>.ahk2</code>) to IntelliJ IDEA and the other IDEs based on the IntelliJ platform. It understands the language, helps while writing, and runs, validates, compiles and debugs scripts with the AutoHotkey installation on your computer.</p>
 
 <p class="note"><strong>AutoHotkey v2.0 and v2.1:</strong> AutoHotkey <strong>v2.0</strong> is fully supported. Support for AutoHotkey <strong>v2.1</strong> is in development: v2.1 itself is still an alpha whose specification changes, and the plugin follows the current alpha (v2.1-alpha.39) as well as it can. Validation of v2.1 files uses the installed alpha and may report unexpected errors or differences from the plugin. Details and limitations: <a href="v21.htm">AutoHotkey v2.1 (alpha)</a>.</p>
 
@@ -74,7 +74,11 @@
   </tr>
   <tr>
     <td nowrap="nowrap"><a href="installer.htm">Deploy and versions</a></td>
-    <td>Copies a tool to a fixed folder as described by a <code>settings.ahk-plugin.ini</code> next to the script, optionally after compiling it; sets the version in <code>;@Ahk2Exe-SetVersion</code> with commit and version tag.</td>
+    <td>Copies a tool to a fixed folder as described by a <code>settings.ahk-v2-plugin.ini</code> next to the script, optionally after compiling it; sets the version in <code>;@Ahk2Exe-SetVersion</code> with commit and version tag.</td>
+  </tr>
+  <tr>
+    <td nowrap="nowrap"><a href="library-projects.htm">Library projects</a></td>
+    <td>Develops each of your libraries in a project of its own, with tests, notes and Git if you like, and deploys it into the library folder; the copies there are read-only and lead back to their project.</td>
   </tr>
   <tr>
     <td nowrap="nowrap"><a href="debugger.htm">Debugger</a></td>
@@ -97,6 +101,7 @@
   <li><a href="running.htm">Running scripts</a></li>
   <li><a href="validate.htm">Validating with AutoHotkey</a></li>
   <li><a href="compile.htm">Compiling with Ahk2Exe</a></li>
+  <li><a href="library-projects.htm">Library projects</a></li>
   <li><a href="installer.htm">Deploying tools and setting versions</a></li>
   <li><a href="debugger.htm">Debugger</a></li>
   <li><a href="v21.htm">AutoHotkey v2.1 (alpha)</a>
@@ -126,7 +131,7 @@
 <ul>
   <li>An IDE based on the IntelliJ platform 2025.3 or later.</li>
   <li>For running, validating, debugging and the external help: AutoHotkey v2 installed on Windows. The plugin finds a standard installation by itself (see <a href="settings.htm#AutoHotkey">Settings</a>).</li>
-  <li>For compiling: Ahk2Exe, which is part of the AutoHotkey installation (or installed from its dash).</li>
+  <li>For compiling: Ahk2Exe, the compiler of the AutoHotkey installation. If it is missing, start <em>AutoHotkey Dash</em> from the Windows Start menu and click <em>Compile</em>, which installs it.</li>
 </ul>
 <p>Editing (colors, completion, formatting, navigation, popup help) works without an AutoHotkey installation.</p>
 <p>Updates arrive through <em>Settings &gt; Plugins</em>. Plugin page: <a href="https://plugins.jetbrains.com/plugin/36153-autohotkey-v2-language-support">AutoHotkey v2 Language Support</a> on the JetBrains Marketplace; source code, issues and feedback: <a href="https://github.com/Kumpewo/intellij-autohotkey">github.com/Kumpewo/intellij-autohotkey</a>.</p>

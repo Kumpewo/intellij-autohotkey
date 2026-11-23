@@ -48,7 +48,7 @@ public final class AhkManual {
                 if (start == null) {
                     error(project, AhkBundle.message("manual.missing"));
                 } else {
-                    BrowserUtil.browse(start.toFile());
+                    BrowserUtil.browse(start);
                 }
             } catch (IOException e) {
                 error(project, AhkBundle.message("manual.failed", String.valueOf(e.getMessage())));

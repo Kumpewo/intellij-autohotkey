@@ -332,18 +332,8 @@ public final class AhkInclude {
         values.put("a_scriptname", String.valueOf(file.getFileName()));
         values.put("a_space", " ");
         values.put("a_tab", "\t");
-        Path documents = myDocuments();
-        if (documents != null) values.put("a_mydocuments", documents.toString());
-        Path desktop = desktop();
-        if (desktop != null) values.put("a_desktop", desktop.toString());
-        putEnv(values, "a_appdata", "APPDATA");
-        putEnv(values, "a_appdatacommon", "ProgramData");
-        putEnv(values, "a_programfiles", "ProgramFiles");
-        putEnv(values, "a_temp", "TEMP");
-        putEnv(values, "a_windir", "windir");
+        values.putAll(AhkFolderVariables.values());
         putEnv(values, "a_comspec", "ComSpec");
-        putEnv(values, "a_username", "USERNAME");
-        putEnv(values, "a_computername", "COMPUTERNAME");
         String exe = AhkSettings.getInstance().findAutoHotkey();
         if (exe != null) values.put("a_ahkpath", exe);
         return values;
@@ -357,30 +347,7 @@ public final class AhkInclude {
 
     /** {@code A_MyDocuments} (also for a redirected "Documents" folder). */
     private static @Nullable Path myDocuments() {
-        return knownFolder(com.sun.jna.platform.win32.KnownFolders.FOLDERID_Documents, "Documents");
-    }
-
-    /** {@code A_Desktop}. */
-    private static @Nullable Path desktop() {
-        return knownFolder(com.sun.jna.platform.win32.KnownFolders.FOLDERID_Desktop, "Desktop");
-    }
-
-    /**
-     * Known Windows folder via {@code SHGetKnownFolderPath} (JNA, bundled with the IDE), otherwise
-     * {@code user.home\fallback}. Not {@code FileSystemView.getDefaultDirectory()}: depending on the environment it
-     * fails with an exception in the shell query (then the user Lib folder was missing).
-     */
-    private static @Nullable Path knownFolder(com.sun.jna.platform.win32.Guid.GUID id, String fallback) {
-        if (com.intellij.openapi.util.SystemInfo.isWindows) {
-            try {
-                String path = com.sun.jna.platform.win32.Shell32Util.getKnownFolderPath(id);
-                if (path != null && !path.isEmpty()) return Path.of(path);
-            } catch (Throwable ignored) {
-                // JNA not available or folder unknown: fallback
-            }
-        }
-        String home = System.getProperty("user.home");
-        return home == null ? null : Path.of(home, fallback);
+        return AhkFolderVariables.myDocuments();
     }
 
     /** Removes matching double or single quotes around the text. */

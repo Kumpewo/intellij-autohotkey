@@ -1,0 +1,17 @@
+<html>
+<body>
+Reports tags in doc comments that have no meaning, usually a typo such as <code>@retruns</code>. Without the warning
+such a tag would silently become normal text of the description.
+<p>Known tags: <code>@param</code>, <code>@returns</code> (<code>@return</code>), <code>@throws</code>,
+<code>@example</code>, <code>@see</code>, <code>@deprecated</code>. Also accepted and shown in the quick
+documentation: <code>@author</code>, <code>@since</code>, <code>@version</code>, <code>@todo</code>,
+<code>@license</code>, <code>@copyright</code>. Only a tag at the start of a line counts; a word with <code>@</code>
+inside the text is not a tag.</p>
+<p>The quick fix changes the tag to the most similar known one.</p>
+<pre><code>/**
+ * Reads the settings.
+ * @retruns the settings as a Map   ; Unknown doc comment tag '@retruns'.
+ */
+</code></pre>
+</body>
+</html>

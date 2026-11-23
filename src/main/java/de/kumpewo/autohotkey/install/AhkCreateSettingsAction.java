@@ -8,14 +8,14 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * Action "Create Settings..." (Code menu, editor and project view context menus): writes the documented default
- * {@code settings.ahk-plugin.ini} with all options commented out into the project root and opens it
+ * {@code settings.ahk-v2-plugin.ini} with all options commented out into the project root and opens it
  * ({@link AhkSettingsFile}).
  */
 public final class AhkCreateSettingsAction extends DumbAwareAction {
 
     /**
-     * Visible in an AutoHotkey context ({@link AhkProjectRoot#isAvailable}) as long as the project root has no
-     * {@code settings.ahk-plugin.ini}; the text names the project ({@link AhkProjectRoot#update}).
+     * Visible in every project with a local root as long as the project root has no
+     * {@code settings.ahk-v2-plugin.ini}; the text names the project ({@link AhkProjectRoot#update}).
      */
     @Override
     public void update(@NotNull AnActionEvent event) {

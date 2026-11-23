@@ -78,7 +78,10 @@ public class AhkDictionaryProvider implements RuntimeDictionaryProvider {
             return "AutoHotkey";
         }
 
-        /** Required by the interface (deprecated there); see {@link #lookup}. */
+        /**
+         * Required by the interface of IntelliJ 2025.3 (abstract there, deprecated for removal); see {@link #lookup}.
+         * Newer versions have a default implementation and need it no longer.
+         */
         @SuppressWarnings("removal")
         @Override
         public Boolean contains(@NotNull String word) {

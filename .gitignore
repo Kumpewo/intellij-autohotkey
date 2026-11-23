@@ -1,6 +1,8 @@
 .gradle
 .idea
 .intellijPlatform
-claude-input
+claude-exchange
 build
 /src/main/gen/
+.claude/settings.local.json
+local-repo

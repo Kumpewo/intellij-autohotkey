@@ -1,6 +1,7 @@
 package de.kumpewo.autohotkey.run;
 
 import de.kumpewo.autohotkey.AhkBundle;
+import de.kumpewo.autohotkey.settings.AhkTextRenderer;
 import com.intellij.openapi.fileChooser.FileChooser;
 import com.intellij.openapi.fileChooser.FileChooserDescriptor;
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
@@ -15,7 +16,6 @@ import com.intellij.openapi.ui.TextFieldWithBrowseButton;
 import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.ui.RawCommandLineEditor;
 import com.intellij.openapi.ui.ComboBox;
-import com.intellij.ui.SimpleListCellRenderer;
 import com.intellij.ui.components.JBCheckBox;
 import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBTextField;
@@ -53,7 +53,7 @@ final class AhkRunConfigurationEditor extends SettingsEditor<AhkRunConfiguration
         workingDirectory.addActionListener(e -> choose(project, workingDirectory, directoryDescriptor,
                 existing(workingDirectory.getText()), parentOf(existing(script.getText())),
                 editorDirectory(project), ProjectUtil.guessProjectDir(project)));
-        exeConsole.setRenderer(SimpleListCellRenderer.create("", value -> AhkBundle.message(
+        exeConsole.setRenderer(new AhkTextRenderer<>(value -> AhkBundle.message(
                 "run.editor.console." + value.name().toLowerCase(java.util.Locale.ROOT))));
         compileFirst.addActionListener(e -> exeConsole.setEnabled(compileFirst.isSelected()));
         JBLabel compileHint = new JBLabel(AhkBundle.message("run.editor.compile.hint"));

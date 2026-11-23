@@ -162,7 +162,7 @@ public final class AhkCompiler {
         AhkValidator.Target target = AhkValidator.target(project, file);
         if (target == null) return;
         VirtualFile script = target.script();
-        AhkValidator.saveAllDocuments();
+        if (!AhkValidator.saveAllDocuments(project, AhkBundle.message("compile.title", script.getName()))) return;
         Document document = FileDocumentManager.getInstance().getDocument(script);
         if (document == null) return;
         if (!hasBaseDirective(document.getCharsSequence())) {

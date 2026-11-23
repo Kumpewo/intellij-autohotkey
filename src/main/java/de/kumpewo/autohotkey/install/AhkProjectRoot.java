@@ -2,7 +2,6 @@ package de.kumpewo.autohotkey.install;
 
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.actionSystem.Presentation;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.IndexNotReadyException;
@@ -14,17 +13,15 @@ import com.intellij.openapi.vfs.VirtualFile;
 import de.kumpewo.autohotkey.AhkBundle;
 import de.kumpewo.autohotkey.AhkFileType;
 import de.kumpewo.autohotkey.validate.AhkTargetPresentation;
-import de.kumpewo.autohotkey.validate.AhkValidator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 
 /**
  * The project root of "Deploy to Local Target...", "Set Version..." and "Create Settings...": one tool = one project,
- * so these actions always work on the whole project, with the one {@code settings.ahk-plugin.ini} in the project root
+ * so these actions always work on the whole project, with the one {@code settings.ahk-v2-plugin.ini} in the project root
  * ({@link ProjectUtil#guessProjectDir}, the folder that was opened as the project).
  */
 public final class AhkProjectRoot {
@@ -50,31 +47,28 @@ public final class AhkProjectRoot {
         }
     }
 
-    /** The {@code settings.ahk-plugin.ini} in the project root, {@code null} if it does not exist. */
+    /**
+     * The settings file in the project root ({@code settings.ahk-v2-plugin.ini}, otherwise the
+     * {@code settings.ahk-plugin.ini} of version 2.1), {@code null} if there is none.
+     */
     public static @Nullable VirtualFile settings(@NotNull Project project) {
         VirtualFile root = root(project);
-        VirtualFile file = root == null ? null : root.findChild(AhkInstallConfig.FILE_NAME);
-        return file != null && !file.isDirectory() ? file : null;
+        if (root == null) return null;
+        for (String name : new String[]{AhkDeployConfig.FILE_NAME, AhkDeployConfig.LEGACY_FILE_NAME}) {
+            VirtualFile file = root.findChild(name);
+            if (file != null && !file.isDirectory()) return file;
+        }
+        return null;
     }
 
-    /** Is there a {@code settings.ahk-plugin.ini} in the folder? */
+    /** Is there a settings file in the folder (also one of version 2.1)? */
     static boolean hasSettings(@NotNull Path root) {
-        return Files.isRegularFile(root.resolve(AhkInstallConfig.FILE_NAME));
-    }
-
-    /**
-     * Should the project actions be offered? Only in an AutoHotkey project, so that they do not clutter the menus of
-     * other projects: with a {@code settings.ahk-plugin.ini} in the root, an AutoHotkey file as {@code file}, a
-     * selected AutoHotkey run configuration, or at least one AutoHotkey file in the project (no file has to be open).
-     */
-    public static boolean isAvailable(@NotNull Project project, @Nullable VirtualFile file) {
-        if (root(project) == null) return false;
-        return settings(project) != null || AhkValidator.hasTarget(project, file) || containsAhkFiles(project);
+        return AhkDeployConfig.file(root) != null;
     }
 
     /**
      * Does the project contain an AutoHotkey file (file type index, project scope)? False while the indexes are
-     * being built.
+     * being built. Decides whether a new {@code settings.ahk-v2-plugin.ini} shows the examples of an AutoHotkey tool.
      */
     static boolean containsAhkFiles(@NotNull Project project) {
         if (project.isDisposed() || DumbService.isDumb(project)) return false;
@@ -86,8 +80,9 @@ public final class AhkProjectRoot {
     }
 
     /**
-     * Updates the presentation of a project action: visible if {@link #isAvailable} (and, with
-     * {@code onlyWithoutSettings}, while the root has no {@code settings.ahk-plugin.ini}); the text of the bundle key
+     * Updates the presentation of a project action: visible in every project with a local root, also without
+     * AutoHotkey files, because deploying and setting versions work for tools in any language (with
+     * {@code onlyWithoutSettings} only while the root has no {@code settings.ahk-v2-plugin.ini}); the text of the bundle key
      * {@code textKey} names the project ({@code Deploy 'Name' to Local Target...}), the description adds the root.
      */
     public static void update(@NotNull AnAction action, @NotNull AnActionEvent event, @NotNull String textKey,
@@ -95,8 +90,7 @@ public final class AhkProjectRoot {
         Presentation presentation = event.getPresentation();
         Project project = event.getProject();
         VirtualFile root = project == null ? null : root(project);
-        boolean visible = root != null && isAvailable(project, event.getData(CommonDataKeys.VIRTUAL_FILE))
-                && !(onlyWithoutSettings && settings(project) != null);
+        boolean visible = root != null && !(onlyWithoutSettings && settings(project) != null);
         presentation.setEnabledAndVisible(visible);
         if (!visible) return;
         // no mnemonic: names often contain '_' or '&'

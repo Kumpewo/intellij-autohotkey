@@ -184,7 +184,7 @@ public class AhkAnnotator implements Annotator {
      *   <li>free-standing name (variable, call, command MsgBox "x", extends, parameter, declaration, for variable
      *       ...): variables/classes/functions (variables.txt, classes.txt, functions.txt); a name declared with
      *       ;@declare-type gets AHK_DECLARED_TYPE (built-in names only with an explicit declaration, not via a
-     *       wildcard; extends names never)</li>
+     *       wildcard; extends names and names that are certainly called never, see {@link #isCallName})</li>
      * </ol>
      * v2.1 modules: a built-in function, class or variable name that the own module defines or imports
      * explicitly is not colored as built-in (a module may hide built-ins); after {@code AHK.} (the built-in module)
@@ -246,9 +246,33 @@ public class AhkAnnotator implements Annotator {
         // built-in, via wildcard only without built-in
         TextAttributesKey builtin = names.nonMember(name);
         if (builtin != null && builtin != AhkColors.AHK_BUILTIN_VARIABLE && hiddenByModule(identifier, name)) builtin = null;
+        // Only variables: a name that is certainly called (f(), f "x", f alone) never gets the declared color
+        if (isCallName(identifier)) return builtin;
         AhkTypeDeclarations.Declared declared = AhkTypeDeclarations.lookup(identifier, name);
         if (declared != null && (declared.explicit() || builtin == null)) return AhkColors.AHK_DECLARED_TYPE;
         return builtin;
+    }
+
+    /**
+     * The free-standing name is certainly a function call: callee of {@code f(x)}, name of the command form
+     * {@code f "x"} or a statement consisting of the name alone ({@code f}). Other places ({@code x := f},
+     * {@code SetTimer f}) may be a variable or a function reference and do not count.
+     */
+    static boolean isCallName(@NotNull PsiElement identifier) {
+        PsiElement parent = identifier.getParent();
+        IElementType parentType = parent.getNode().getElementType();
+        if (parentType == AhkTypes.COMMAND_STMT) return parent.getFirstChild() == identifier;
+        if (parentType != AhkTypes.REF_EXPR) return false;
+        PsiElement outer = parent.getParent();
+        if (outer == null) return false;
+        IElementType outerType = outer.getNode().getElementType();
+        if (outerType == AhkTypes.CALL_EXPR) return outer.getFirstChild() == parent;
+        if (outerType == AhkTypes.EXPR_STMT) {
+            // the name alone, not one item of "a, b"
+            return PsiTreeUtil.skipWhitespacesAndCommentsBackward(parent) == null
+                    && PsiTreeUtil.skipWhitespacesAndCommentsForward(parent) == null;
+        }
+        return false;
     }
 
     /**

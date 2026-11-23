@@ -103,7 +103,7 @@ If WinExist("ahk_class Notepad") and A_Index > 1
   <tr><td>After @returns</td><td>off</td><td>After <code>@returns</code>.</td></tr>
   <tr><td>Before @example</td><td>off</td><td>Before every <code>@example</code>.</td></tr>
   <tr><td colspan="3"><strong>Other</strong></td></tr>
-  <tr><td>Wrap at right margin</td><td>on</td><td>Paragraphs of the description and tag texts are joined and wrapped at <em>Hard wrap at</em> (<em>Settings &gt; Editor &gt; Code Style &gt; General</em>, default 120).</td></tr>
+  <tr><td>Wrap at right margin</td><td>on</td><td>Paragraphs of the description and tag texts are joined and wrapped at <a href="#FillParagraph"><em>Hard wrap at</em></a>.</td></tr>
   <tr><td>Do not wrap one line comments</td><td>off</td><td><code>/** Text. */</code> stays in one line if it fits; off = three lines.</td></tr>
   <tr><td>Preserve line feeds</td><td>off</td><td>The lines of a paragraph are not joined; only lines that are too long are wrapped.</td></tr>
   <tr><td>Enable leading asterisks</td><td>on</td><td>Every line starts with <code> * </code>; off = a comment written without stars stays without.</td></tr>
@@ -113,6 +113,10 @@ If WinExist("ahk_class Notepad") and A_Index > 1
   <tr><td>Sort @param in the order of the parameters</td><td>off</td><td>Unknown names go to the end.</td></tr>
   <tr><td>Add missing @param tags</td><td>off</td><td>Adds <code>@param name</code> for every parameter without one (after the last <code>@param</code>); such empty tags are then kept.</td></tr>
 </table>
+
+<h2 id="FillParagraph">Line width and Fill Paragraph</h2>
+<p>The width for comments is <em>Hard wrap at</em> on the tab <em>Wrapping and Braces</em> of the code style page; without a value there, the one under <em>Settings &gt; Editor &gt; Code Style &gt; General</em> applies (default 120). Code is never wrapped, because the end of a line ends a statement.</p>
+<p><em>Edit &gt; Fill Paragraph</em> joins and wraps the paragraph at the caret: in <code>;</code> comments, block comments and <a href="doc-comments.htm">doc comments</a> on lines of their own. It ends at blank lines and where the indentation changes; every list item and every tag is a paragraph of its own. Directives (<code>;@...</code>), separator lines, headings, tables, code blocks and <code>@example</code> stay as they are.</p>
 <p>Never changed: the code of <code>@example</code>, Markdown code blocks (<code>```</code> or indented by 4), headings, tables and the end of a line with a hard break (two spaces or a backslash). A list item is wrapped with its further lines below its text. Words are never split, so a long URL may go past the margin, and a word that would change the meaning at the start of a line (<code>@tag</code>, <code>-</code>, <code>#</code>, <code>1.</code>) stays at the end of the line before. Blank lines between paragraphs are kept (several become one); blank lines between tags follow the switches above.</p>
 
 <h2 id="Related">Related</h2>

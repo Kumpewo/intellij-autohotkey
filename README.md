@@ -1,6 +1,6 @@
 # AutoHotkey v2 Plugin for IntelliJ-based IDEs
 
-Language support for [AutoHotkey](https://www.autohotkey.com/) **v2** scripts (`.ahk`) in IntelliJ-based IDEs.
+Language support for [AutoHotkey](https://www.autohotkey.com/) **v2** scripts (`.ahk`, also `.ah2` and `.ahk2`) in IntelliJ-based IDEs.
 
 | Completion inside option strings | Doc comments of your own code | Debugger with inline values |
 |---|---|---|
@@ -57,9 +57,14 @@ More screenshots: [library completion](docs/images/include-completion.png),
   `;@Ahk2Exe-Base`; errors are clickable in the console. A run configuration can compile first and run the
   executable in a real console (terminal in the Run tool window or a separate console window).
 - **Deploying tools** (one tool = one project, *Code > Deploy to Local Target...*): copies the tool to a fixed
-  folder as described by the `settings.ahk-plugin.ini` in the project root, optionally after compiling the
+  folder as described by the `settings.ahk-v2-plugin.ini` in the project root, optionally after compiling the
   executables it copies (e.g. a GUI and a console variant). **Versions** (*Code > Set Version...*): sets
   `;@Ahk2Exe-SetVersion` in all scripts of the project, commits the project and sets the tag `v<version>`.
+  Both also work in projects without AutoHotkey files, for tools in any language.
+- **Library projects**: develop each of your libraries in a project of its own (with tests and, if you like, Git)
+  and deploy it into the Lib folder; the copies there are read-only, carry a banner with project and version, and
+  lead back to their project. Editing libraries directly in the Lib folder stays fully supported.
+- **Old ANSI files**: a notification bar above a file that is not valid UTF-8 converts it from the ANSI code page to UTF-8.
 
 Only AutoHotkey v2 is supported. Files that require another version (`#Requires AutoHotkey v1.1`) are left
 unparsed and only get a warning.
@@ -82,7 +87,7 @@ From the JetBrains Marketplace: [AutoHotkey v2 Language Support](https://plugins
 
 ## Building from source
 
-The build uses Gradle with the IntelliJ Platform Gradle Plugin and Grammar-Kit. A JDK 21 is required.
+The build uses Gradle with the IntelliJ Platform Gradle Plugin and Grammar-Kit. It compiles with a Java 21 toolchain: Gradle itself may run on a newer JDK and uses an installed JDK 21, or downloads one.
 
 ```
 ./gradlew buildPlugin      # plugin ZIP in build/distributions/
@@ -108,7 +113,7 @@ src/main/grammar/            Grammar (Grammar-Kit) and lexer (JFlex)
 src/main/java/.../autohotkey Plugin sources, one package per feature (see docs/architecture.md)
 src/main/resources/
     META-INF/plugin.xml      Plugin descriptor with all extensions
-    META-INF/pluginIcon.svg  Plugin logo (shown in the plugin list and on the Marketplace)
+    META-INF/pluginIcon.svg  Plugin logo (shown in the plugin list and on the Marketplace; icons/plugin.svg: 16 px for the manual, Create Settings, Set Version and Deploy)
     messages/                All texts the user sees (AhkBundle.properties)
     names/                   Name lists for highlighting, completion and parameter info (v2.1/: differences)
     help/                    AutoHotkey help (docs/, v2.0.31; v2.1/docs/, v2.1-alpha.39), own pages and manual (extra/), lookup files,
@@ -126,5 +131,5 @@ version (SPDX: `GPL-2.0-or-later`). See [LICENSE](LICENSE).
 
 The bundled AutoHotkey help pages (`src/main/resources/help/docs/`) are part of the AutoHotkey documentation and are
 distributed under the GNU General Public License version 2, like AutoHotkey itself (see `help/docs/license.htm`).
-The icon of the menu entries and run configurations (`src/main/resources/icons/autohotkey-action*.png`) is the program icon of
-`AutoHotkey64.exe` and is distributed under the same license.
+The icon of the menu entries (except the plugin manual, Create Settings, Set Version and Deploy) and run configurations (`src/main/resources/icons/autohotkey-action*.png`) is the program icon of
+`AutoHotkey64.exe`; the library project actions use its green variant (`autohotkey-library*.png`, from the same file). Both are distributed under the same license.

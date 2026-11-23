@@ -15,91 +15,231 @@
   <li><a href="#Deploy"><em>Deploy to Local Target...</em></a> copies the tool to a fixed place (for example <code>C:\bin</code>), optionally after compiling it.</li>
   <li><a href="#Version"><em>Set Version...</em></a> sets the version of the tool in its scripts, commits the project and sets a Git tag.</li>
 </ul>
-<p>The two are independent: you decide when a version is worth a number and when it is deployed. Both first save all modified files, also <code>settings.ahk-plugin.ini</code>, so that Deploy reads and Set Version commits what you see in the editor. Both are in the <em>Code</em> menu and in the context menus of the editor and the Project view.</p>
-<p id="Project">They follow one rule: <strong>one tool = one project</strong>. A tool may consist of several scripts and executables, for example a GUI and a console variant, but it is one unit with one version, deployed together. So both actions always work on the whole project, whatever file is open, and their menu entries name it (<em>Deploy 'MyTool' to Local Target...</em>). They appear in every project that contains an AutoHotkey file or a <code>settings.ahk-plugin.ini</code>; no file has to be open. Tools that have nothing in common but the language get a project each; the overhead of a project is small.</p>
+<p>The two are independent: you decide when a version is worth a number and when it is deployed. Both first save all modified files, also <code>settings.ahk-v2-plugin.ini</code>, so that Deploy reads and Set Version commits what you see in the editor. Both are in the <em>Code</em> menu and in the context menus of the editor and the Project view.</p>
+<p id="Project">They follow one rule: <strong>one tool = one project</strong>. A tool may consist of several scripts and executables, for example a GUI and a console variant, but it is one unit with one version, deployed together. So both actions always work on the whole project, whatever file is open, and their menu entries name it (<em>Deploy 'MyTool' to Local Target...</em>). They appear in every project, also in one without AutoHotkey files: deploying and setting versions work for tools in any language. Tools that have nothing in common but the language get a project each; the overhead of a project is small.</p>
 
-<h2 id="Ini">settings.ahk-plugin.ini</h2>
-<p>The settings of <em>Deploy</em> are in the file <code>settings.ahk-plugin.ini</code> in the project root; <em>Set Version</em> only reads its section <a href="#Exclude"><code>[SetVersion]</code></a> and also works without the file:</p>
-<pre>[Install]
+<h2 id="Ini">settings.ahk-v2-plugin.ini</h2>
+<p>The settings of <em>Deploy</em> are in the file <code>settings.ahk-v2-plugin.ini</code> in the project root; <em>Set Version</em> only reads its section <a href="#Exclude"><code>[SetVersion]</code></a> and also works without the file:</p>
+<pre>[Deploy]
 Destination=C:\bin
 Message=Close the running tool first.`nThen press Deploy.
-RequiresAdmin=false
-GenerateOverview=true
-CompileBeforeInstall=true
+GenerateOverview=yes
+RequiresAdmin=no
+Compile=yes
+EmbedOrigin=yes
 
-[Overwrite]
+[Install]
 mytool.exe=.
 console\mytool-console.exe=.
 pictures\*.png=pictures
 
-[KeepExisting]
-mytool.ini=%APPDATA%\mytool\
+[InstallIfMissing]
+mytool.ini=%A_AppData%\mytool\
+
+[Cleanup]
+old-name.exe=.
 
 [SetVersion]
-scratch\=exclude</pre>
-<p><em>Create Settings...</em> (in the same menus, as long as the project root has no such file) writes a documented default <code>settings.ahk-plugin.ini</code> into the project root and opens it: every option is explained in comments and commented out, so the defaults apply until you remove a <code>;</code>. A commented-out switch shows the value that changes its default (usually <code>true</code>), so removing the <code>;</code> is all it takes. Examples use the name of the project. <em>Deploy to Local Target...</em> offers the same when the file is missing.</p>
-<p>Comments are lines starting with <code>;</code> (spaces before it are allowed); a <code>;</code> later in a line is part of the value. Section and key names are case-insensitive. Keys and values may be enclosed in double quotes, which are removed; spaces inside a file name are kept (<code>my console\my console.exe=.</code>), only <code>=</code> cannot be part of it. Every key, and every source in a section, may appear only once. Unknown sections and keys are errors. A mistake of the file itself (unknown section, a line without <code>=</code>, a line twice) stops every action; a mistake in a section only stops the action that uses it (<code>[Install]</code>, <code>[Overwrite]</code> and <code>[KeepExisting]</code>: Deploy; <code>[SetVersion]</code>: Set Version).</p>
+scratch\=no</pre>
+<p><em>Create Settings...</em> (in the same menus, as long as the project root has no such file) writes a documented default <code>settings.ahk-v2-plugin.ini</code> into the project root and opens it: every option is explained in comments and commented out, so the defaults apply until you remove a <code>;</code>; only <code>[SetVersion]</code> leaves the folders <code>scratch\</code> and <code>test\</code> out from the start. Explanations start with <code>;;</code>, commented-out options with a single <code>;</code>. A commented-out switch shows the value that changes its default (usually <code>yes</code>), so removing the <code>;</code> is all it takes. Examples use the name of the project and the files in the project root (<code>;notes.md=.</code>, <code>;*.md=yes</code>; without such files <code>;MyTool.cmd=.</code>). <em>Deploy to Local Target...</em> offers the same when the file is missing.</p>
+<p>Comments are lines starting with <code>;</code> (spaces before it are allowed); a <code>;</code> later in a line is part of the value. Section and key names are case-insensitive. Keys and values may be enclosed in double quotes, which are removed; spaces inside a file name are kept (<code>my console\my console.exe=.</code>), only <code>=</code> cannot be part of it. Every key, and every source in a section, may appear only once (except in <code>[Cleanup]</code>). Unknown sections and keys are errors. A mistake of the file itself (unknown section, a line without <code>=</code>, a line twice) stops every action; a mistake in a section only stops the action that uses it (<code>[Deploy]</code>, <code>[Install]</code>, <code>[InstallIfMissing]</code>, <code>[AddBanner]</code> and <code>[Cleanup]</code>: Deploy; <code>[SetVersion]</code>: Set Version).</p>
+<p id="Variables"><strong>Variables</strong> in <code>Destination</code>, targets, <code>Message</code> and <code>Banner=file:</code> are written in percent signs: the folder variables of AutoHotkey, found like AutoHotkey finds them (also a "Documents" folder that Windows redirects): <code>%A_MyDocuments%</code>, <code>%A_AppData%</code>, <code>%A_AppDataCommon%</code>, <code>%A_Desktop%</code>, <code>%A_DesktopCommon%</code>, <code>%A_ProgramFiles%</code>, <code>%A_Programs%</code>, <code>%A_ProgramsCommon%</code>, <code>%A_StartMenu%</code>, <code>%A_StartMenuCommon%</code>, <code>%A_Startup%</code>, <code>%A_StartupCommon%</code>, <code>%A_Temp%</code>, <code>%A_UserName%</code>, <code>%A_ComputerName%</code>, <code>%A_WinDir%</code>; <code>%LIBRARY_PROJECTS%</code> (the setting <a href="settings.htm#Library"><em>Library projects folder</em></a>); in targets and <code>Message</code> also <code>%DESTINATION%</code>. <code>%%</code> is a percent sign. Environment variables such as <code>%USERPROFILE%</code> are not resolved; an unknown name is an error.</p>
+<p id="Legacy"><strong>Settings of plugin version 2.1</strong> were in <code>settings.ahk-plugin.ini</code>, with other names: <code>[Install]</code> for the options (now <code>[Deploy]</code>), <code>[Overwrite]</code> (now <code>[Install]</code>), <code>[KeepExisting]</code> (now <code>[InstallIfMissing]</code>), <code>[ApplyCopyNotice]</code> (now <code>[AddBanner]</code>), <code>CopyNotice</code> (now <code>Banner</code>) and <code>CompileBeforeInstall</code> (now <code>Compile</code>). This version still reads such a file if the project has no <code>settings.ahk-v2-plugin.ini</code>. The confirmation of <em>Deploy</em> then shows a gray hint and the button <em>Update Settings</em>: it turns the old file into <code>settings.ahk-v2-plugin.ini</code> with the new names, also in its comments (Git sees a rename), and shows the confirmation again. If both files exist, the new one counts and the confirmation warns about the old one. Plugin version 2.5.0 will no longer read the old file. Old names in the new file are errors that name the new name.</p>
 
-<h3 id="Install">[Install]</h3>
+<h3 id="Install">[Deploy]</h3>
 <table class="info">
   <tr><th>Key</th><th>Meaning</th></tr>
-  <tr><td><code>Destination</code></td><td>Absolute folder for relative targets, usable as <code>%DESTINATION%</code> (it wins over an environment variable of that name). May be omitted; then all targets must be absolute.</td></tr>
-  <tr><td><code>Message</code></td><td>Text shown in the confirmation, for example "close the running tool first". <code>`n</code> is a line break; <code>%DESTINATION%</code> and environment variables are resolved, <code>%%</code> is a percent sign.</td></tr>
-  <tr><td><code>RequiresAdmin</code></td><td><code>true</code>: all files are copied by one elevated process (one UAC prompt); the confirmation then always shows a prominent notice. The plugin does not find out by itself whether administrator rights are needed; without them copying into a protected folder fails with an error.</td></tr>
-  <tr><td><code>GenerateOverview</code></td><td>Show an overview in the confirmation (default <code>true</code>): the destination, "compile mytool.ahk" for each script to compile, and the lines of <code>[Overwrite]</code> and <code>[KeepExisting]</code> as written, without comments.</td></tr>
-  <tr><td><code>CompileBeforeInstall</code></td><td>Compile what is copied (default <code>true</code>): see <a href="#Compile">Compiling before copying</a>.</td></tr>
+  <tr><td><code>Destination</code></td><td>Absolute folder for relative targets, usable as <code>%DESTINATION%</code>. May be omitted; then all targets must be absolute. For a library it is the user library folder that <code>#Include &lt;Name&gt;</code> searches; the default file shows it as a second commented-out line (<code>%A_MyDocuments%\AutoHotkey\Lib\</code>).</td></tr>
+  <tr><td><code>Message</code></td><td>Text shown in the confirmation, for example "close the running tool first". <code>`n</code> is a line break; <a href="#Variables">variables</a> are resolved.</td></tr>
+  <tr><td><code>GenerateOverview</code></td><td>Show an overview in the confirmation (default <code>yes</code>): the destination, "compile mytool.ahk" for each script to compile, and the lines of <code>[Install]</code> and <code>[InstallIfMissing]</code> as written, without comments.</td></tr>
+  <tr><td><code>Banner</code></td><td>Text written as comment lines at the start of each copy named in <a href="#Banner"><code>[AddBanner]</code></a>, for example "Installed copy, do not modify. Edit the source in project {project-name} and deploy."</td></tr>
+  <tr><td><code>RequiresAdmin</code></td><td><code>yes</code>: all files are copied by one elevated process (one UAC prompt); the confirmation then always shows a prominent notice. The plugin does not find out by itself whether administrator rights are needed; without them copying into a protected folder fails with an error.</td></tr>
+  <tr><td><code>Compile</code></td><td>Compile what is copied (default <code>yes</code>): see <a href="#Compile">Compiling before copying</a>.</td></tr>
+  <tr><td><code>EmbedOrigin</code></td><td>The copies tell their project and this computer (default <code>yes</code>):
+    see <a href="#Origin">Where a copy comes from</a>.</td></tr>
 </table>
-<p>Missing switches are <code>false</code>, except <code>GenerateOverview</code> and <code>CompileBeforeInstall</code>.</p>
+<p>Switches take <code>yes</code> or <code>no</code>. Missing switches are <code>no</code>, except
+<code>GenerateOverview</code>, <code>Compile</code> and <code>EmbedOrigin</code>.</p>
 
-<h3 id="Copy">[Overwrite] and [KeepExisting]</h3>
-<p>Each line is <code>source=target</code>. <code>[Overwrite]</code> replaces existing files; <code>[KeepExisting]</code> only copies if the target does not exist yet (for configuration files the user may have changed) and reports the others as skipped.</p>
+<h3 id="Copy">[Install] and [InstallIfMissing]</h3>
+<p>Each line is <code>source=target</code>. <code>[Install]</code> replaces existing files; <code>[InstallIfMissing]</code> only copies if the target does not exist yet (for configuration files the user may have changed) and reports the others as skipped.</p>
+<p>The copies of <code>[Install]</code> are made <strong>read-only</strong> in the file system, as a reminder to edit the source instead (where the drive does not allow it, for example some network drives, the copy simply stays writable). The next deployment overwrites them without asking. Copies of <code>[InstallIfMissing]</code> stay writable, as the user may change them.</p>
 <ul>
-  <li><strong>Source:</strong> a file relative to the project root, never outside of it (<code>..</code> and absolute paths are not allowed). The wildcards <code>*</code> and <code>?</code> are allowed in the file name, not in folder names; they are not recursive and match only files. A missing file or a wildcard without a match is an error, except for the executables that the compilation creates.</li>
-  <li><strong>Target:</strong> absolute, or relative to <code>Destination</code>. Environment variables of the IDE (<code>%APPDATA%</code>) and <code>%DESTINATION%</code> are resolved. The target is a <strong>folder</strong> if it ends with <code>\</code>, <code>/</code>, <code>.</code> or <code>..</code>, if it is <code>Destination</code> itself (<code>.</code> or <code>%DESTINATION%</code>, also before it exists), or if it already exists as a folder; the file keeps its name. Otherwise it is the new file name. With a wildcard in the source the target is always a folder. Missing folders are created.</li>
+  <li><strong>Source:</strong> a file path that always starts at the project root (also without a leading <code>\</code>), never outside of it (<code>..</code> and absolute paths are not allowed). The wildcards <code>*</code> and <code>?</code> are allowed in the file name, not in folder names; they are not recursive and match only files. A missing file or a wildcard without a match is an error, except for the executables that the compilation creates.</li>
+  <li><strong>Target:</strong> absolute, or relative to <code>Destination</code>. <a href="#Variables">Variables</a> such as <code>%A_AppData%</code> and <code>%DESTINATION%</code> are resolved. The target is a <strong>folder</strong> if it ends with <code>\</code>, <code>/</code>, <code>.</code> or <code>..</code>, if it is <code>Destination</code> itself (<code>.</code> or <code>%DESTINATION%</code>, also before it exists), or if it already exists as a folder; the file keeps its name. Otherwise it is the new file name. With a wildcard in the source the target is always a folder. Missing folders are created.</li>
   <li><strong>Several targets for one file:</strong> a source may appear only once per section; use wildcards to name it again: <code>tool.exe=dest1</code>, <code>tool.ex?=dest2</code>, <code>tool.e?e=dest3</code>.</li>
+  <li><strong>One target, one line:</strong> two lines must not give the same target, also not one in <code>[Install]</code> and one in <code>[InstallIfMissing]</code>; the deployment stops with an error, so you decide which one you mean.</li>
+</ul>
+
+<h3 id="Cleanup">[Cleanup]</h3>
+<p>Removes leftovers of earlier deployments, for example the old file after a tool was renamed. Each line is <code>files=folder</code>:</p>
+<ul>
+  <li><strong>Folder</strong> (after the <code>=</code>): absolute, or relative to <code>Destination</code>, with <a href="#Variables">variables</a> as in targets. It is always a folder; a file there is an error.</li>
+  <li><strong>Files</strong> (before the <code>=</code>): relative to that folder, with the wildcards <code>*</code> and <code>?</code> in the file name. Only files are removed, not folders, and not in subfolders.</li>
+  <li>Examples: <code>pictures\*.png=.</code> removes <code>&lt;Destination&gt;\pictures\*.png</code>; <code>test.exe=C:\bin</code> removes <code>C:\bin\test.exe</code>.</li>
+  <li>A folder that does not exist, or files without a match, remove nothing. A file that the same deployment writes is an error. The same files may be named for several folders.</li>
+</ul>
+<p>This is a risky step, so it always asks: if there is something to remove, a second dialog after the confirmation lists <strong>every</strong> file with its full path, with three buttons: <em>Remove and Deploy</em>, <em>Deploy Without Removing</em> and <em>Cancel</em> (the default). The files are moved to the <strong>Recycle Bin</strong> before copying, with <code>RequiresAdmin=yes</code> by the same elevated process. They are never deleted for good: on a drive without a Recycle Bin (a network or removable drive) the deployment stops with an error. The report names every removed file.</p>
+
+<h3 id="Rename">Renaming files of the project</h3>
+<p>Renaming or moving a file or folder of the project in the IDE (<em>Rename</em>, <em>Move</em>, drag and drop in the Project view) also updates <code>settings.ahk-v2-plugin.ini</code>: the sources of <code>[Install]</code> and <code>[InstallIfMissing]</code> that name it (for a script also the executable of the same name next to it, <code>Gui.exe</code> for <code>Gui.ahk</code>), and the selectors of <code>[SetVersion]</code> and <code>[AddBanner]</code> that name exactly this file or folder (no wildcards).</p>
+<ul>
+  <li><strong>The file name changes and the file is deployed to a folder</strong> (<code>Gui.ahk=v2\</code>) <strong>or under its old name:</strong> a dialog asks what happens to the deployed file.
+    <ul>
+      <li><em>Keep Target Name</em> (the default): <code>Gui-v2.ahk=v2\Gui.ahk</code>. Scripts that use the deployed file (<code>#Include &lt;Gui&gt;</code>) keep working.</li>
+      <li><em>Rename Target Too</em>: <code>Gui-v2.ahk=v2\</code>, and a line <code>Gui.ahk=v2\</code> in <a href="#Cleanup">[Cleanup]</a> removes the old copy at the next deployment (not for <code>[InstallIfMissing]</code>, whose files belong to the user).</li>
+      <li><em>Edit Myself</em>: only the source changes, and the file opens at the target.</li>
+      <li><em>Cancel</em>: nothing changes.</li>
+    </ul></li>
+  <li><strong>Other changes</strong> (moving, a renamed folder, a target with another name) are made at once, and a dialog shows them; <em>Edit Myself</em> opens the file. <em>Undo</em> in its editor reverts the change.</li>
+  <li>A line of <code>[Cleanup]</code> that would remove a new target is removed. If the script names its executable with <code>;@Ahk2Exe-ExeName</code>, the dialog reminds you to adjust that line.</li>
+</ul>
+<p class="note"><strong>Not every change can be followed.</strong> Renaming or moving in Windows Explorer or another program is not noticed, and lines with wildcards (<code>*.ahk=v2\</code>) stay as they are, so their targets take the new name. After such changes, and whenever a deployment does something unexpected, check <code>settings.ahk-v2-plugin.ini</code> carefully: the overview in the confirmation of <em>Deploy</em> shows what will be copied where.</p>
+
+<h3 id="Rules">Selectors and values of [AddBanner] and [SetVersion]</h3>
+<p>Both sections have lines <code>selector=value</code>. The selector is written like a line of <code>.gitignore</code>, relative to the project root:</p>
+<ul>
+  <li>Without a separator (except at the end) it applies in every folder: <code>*.ahk</code>, <code>test.ahk</code>. With one at the start or in the middle it starts at the project root: <code>/x.ahk</code>, <code>lib/*.ahk</code>. <code>/</code> and <code>\</code> are both separators.</li>
+  <li>A separator at the end names a folder with everything below it: <code>scratch\</code> (every folder of that name), <code>/scratch\</code> (only the one in the root).</li>
+  <li><code>*</code> matches any characters except a separator, <code>?</code> one, <code>[a-z]</code> one of a range; <code>**</code> any number of folders: <code>**/gen/*.js</code>, <code>docs/**</code>. Case does not matter.</li>
+  <li>If several lines match, the <strong>last</strong> one wins, as in <code>.gitignore</code>: write exceptions below the general line (<code>*.md=yes</code>, then <code>drafts\=no</code>).</li>
+</ul>
+<table class="info">
+  <tr><th>Value</th><th>Meaning</th></tr>
+  <tr><td nowrap="nowrap"><code>yes</code></td><td>The files are included, with the comment of their type (see <a href="#Comments">Known comment styles</a>), e.g. <code>;</code> for <code>.ahk</code>, <code>#</code> for <code>.py</code>, <code>//</code> for <code>.js</code>. For a type the plugin does not know, <code>yes</code> is an error; then the value must name the comment.</td></tr>
+  <tr><td nowrap="nowrap"><code>no</code></td><td>The files are left alone.</td></tr>
+  <tr><td nowrap="nowrap"><code>line:&lt;start&gt; [&lt;end&gt;]</code></td><td>Included; every comment line is <code>&lt;start&gt; text &lt;end&gt;</code>: <code>line:REM</code>, <code>line:#</code>, <code>line:&lt;!-- --&gt;</code>.</td></tr>
+  <tr><td nowrap="nowrap"><code>block:&lt;start&gt; &lt;end&gt;</code></td><td>Included; one block comment: <code>block:/* */</code>.</td></tr>
+</table>
+<p>Binary files (<code>.exe</code>, <code>.dll</code>, <code>.png</code>, <code>.jpg</code>, <code>.jpeg</code>, <code>.gif</code>, <code>.bmp</code>, <code>.ico</code>, <code>.zip</code>, <code>.pdf</code>, <code>.chm</code>) are never changed; a line that includes them only gives a warning.</p>
+<h3 id="Comments">Known comment styles</h3>
+<p>With <code>yes</code>, the plugin writes the banner and the version line in the comment of the file type. A first line <code>&lt;?xml ...</code>, <code>#!...</code>, the header of a registry file or <code>@echo off</code> stays first. Other types (for example <code>.txt</code>, which has no comment) need <code>line:</code> or <code>block:</code>. If you prefer another comment for a known type, write it as the value as well: <code>*.cmd=line:REM</code> instead of <code>*.cmd=yes</code>.</p>
+<table class="info">
+  <tr><th>Comment</th><th>File types</th></tr>
+  <tr><td nowrap="nowrap"><code>;</code></td><td><code>.ahk</code>, <code>.ah2</code>, <code>.ahk2</code>, <code>.ini</code>, <code>.au3</code>, <code>.asm</code>, <code>.reg</code></td></tr>
+  <tr><td nowrap="nowrap"><code>#</code></td><td><code>.ps1</code>, <code>.psm1</code>, <code>.psd1</code>, <code>.py</code>, <code>.pyw</code>, <code>.sh</code>, <code>.bash</code>, <code>.rb</code>, <code>.pl</code>, <code>.r</code>, <code>.yaml</code>, <code>.yml</code>, <code>.toml</code>, <code>.conf</code>, <code>.cfg</code>, <code>.properties</code></td></tr>
+  <tr><td nowrap="nowrap"><code>//</code></td><td><code>.js</code>, <code>.mjs</code>, <code>.ts</code>, <code>.java</code>, <code>.kt</code>, <code>.kts</code>, <code>.groovy</code>, <code>.gradle</code>, <code>.cs</code>, <code>.c</code>, <code>.cpp</code>, <code>.cc</code>, <code>.h</code>, <code>.hpp</code>, <code>.go</code>, <code>.rs</code>, <code>.swift</code>, <code>.scala</code>, <code>.dart</code></td></tr>
+  <tr><td nowrap="nowrap"><code>/* */</code></td><td><code>.css</code>, <code>.scss</code>, <code>.less</code></td></tr>
+  <tr><td nowrap="nowrap"><code>--</code></td><td><code>.sql</code>, <code>.lua</code>, <code>.hs</code></td></tr>
+  <tr><td nowrap="nowrap"><code>::</code></td><td><code>.cmd</code>, <code>.bat</code> (a version line with <code>REM</code> is found as well and rewritten with <code>::</code>)</td></tr>
+  <tr><td nowrap="nowrap"><code>'</code></td><td><code>.vbs</code>, <code>.bas</code></td></tr>
+  <tr><td nowrap="nowrap"><code>&lt;!-- --&gt;</code></td><td><code>.xml</code>, <code>.xaml</code>, <code>.htm</code>, <code>.html</code>, <code>.svg</code>, <code>.md</code></td></tr>
+  <tr><td nowrap="nowrap"><code>%</code></td><td><code>.tex</code></td></tr>
+</table>
+
+<h3 id="Banner">Banner</h3>
+<p>A copy can say where its source is, so that nobody changes it by mistake, also outside the IDE. <code>Banner</code> in <code>[Deploy]</code> is the text; it is written as comments at the start of the copies:</p>
+<pre>[Deploy]
+Destination=%A_MyDocuments%\AutoHotkey\Lib\
+Banner=Installed copy of {source-relative} {version}, do not modify.`nEdit the source in project {project-name} and deploy.
+
+[Install]
+*.ahk=.
+setup.cmd=.
+readme.txt=.
+
+[AddBanner]
+test.ahk=no
+setup.cmd=yes
+readme.txt=line:#</pre>
+<ul>
+  <li><strong>Which files:</strong> every AutoHotkey file that <code>[Install]</code> copies, unless a line of <a href="#Rules"><code>[AddBanner]</code></a> excludes it; other files only if a line includes them. Files of <code>[InstallIfMissing]</code> never get a banner, because the copy belongs to the user from then on (a banner saying "do not modify" would be wrong, and its version would never be updated); a line that includes one gives a gray hint. Without <code>Banner</code> nothing gets a banner.</li>
+  <li><strong>Warnings:</strong> the confirmation tells you when the banner and the files do not fit together. With <code>Banner</code> but no file that gets it, it warns if a file could take a banner (for example <code>run.cmd</code> without a line <code>*.cmd=yes</code>); exclude such files with <code>no</code> to deploy them without a banner. If none of the deployed file types can take a banner (only <code>.exe</code>, <code>.txt</code> ...), a gray hint says so. Without <code>Banner</code>, it warns about a line that includes a deployed file, and about AutoHotkey files that would get a banner: set <code>Banner</code>, or write <code>*.ahk=no</code> in <code>[AddBanner]</code> if the tool is meant to be deployed without one.</li>
+  <li><strong>Text:</strong> the value itself (<code>`n</code> starts a new line), a built-in template
+    (<code>@standard</code> or <code>@library</code>, see below), <code>file:&lt;path&gt;</code>: the lines of a text
+    file (UTF-8), relative to the project root, with <a href="#Variables">variables</a>, or
+    <code>find:&lt;name&gt;</code>: the text file of that name in the project root or the nearest folder above it, for
+    example <code>Banner=find:banner.txt</code> with one <code>banner.txt</code> in the folder that holds your projects.
+    With <code>find:</code> you can move a project or reorganize the folders without changing its settings; a
+    <code>banner.txt</code> deeper down (for example in the library projects folder) wins for the projects below it. If
+    no folder contains the file, the deployment stops with a message: create the file, or switch to a built-in template.
+    <code>{project-name}</code> is the folder name of the project, <code>{project-path}</code> its full path,
+    <code>{source-name}</code> the file name of the source, <code>{source-relative}</code> its path relative to the
+    project root (<code>src\Gui.ahk</code>), <code>{source-path}</code> its full path, <code>{version}</code> the
+    version of its version line, <code>{commit}</code> the short Git commit of the project (with <code>+</code> if the
+    source has uncommitted changes), <code>{timestamp}</code> the time of the deployment (<code>2026-11-20
+    14:30</code>), <code>{computer}</code> the name of this computer and <code>{include}</code> the line that includes a
+    copy in a Lib folder (<code>#Include &lt;v2\Gui&gt;</code>). A line whose placeholders are all empty is left out:
+    without a version line, without Git, or for a copy outside the Lib folders.</li>
+  <li><strong>Templates:</strong> <code>@library</code> looks like this; its lines are as long as those of the <a href="compile.htm#Head">head of Ahk2Exe directives</a>, and the values are aligned four spaces after the longest label. <code>@standard</code>, for every other copy (a tool, a configuration ...), starts with <code>INSTALLED ARTIFACT -- Do not modify here. Edit the source and deploy again.</code> and has no line Use.
+<pre>; ---------------------------------------------------------------------------
+; INSTALLED LIBRARY  -  Do not modify here. Edit the source and deploy again.
+;
+; Project     Gui [D:\Projects\Gui]
+; Source      Gui.ahk
+; Version     1.2.0
+; Commit      a1b2c3d+
+; Deployed    2026-11-20 14:30 on MYCOMPUTER
+; Use         #Include &lt;v2\Gui&gt;
+; ---------------------------------------------------------------------------</pre></li>
+  <li><strong>Comment:</strong> every line is a comment line in the first column (<code>; text</code>); with <code>block:</code> the start comes before the first line and the end after the last one. To put the start or the end on a line of its own, begin or end the text with <code>`n</code>.</li>
+  <li><strong>Placement:</strong> the banner comes first in the copy, after a first line <code>&lt;?xml ...?&gt;</code>, <code>#!...</code>, the header of a registry file or <code>@echo off</code>; the rest of the file is copied unchanged. Only if the text uses <code>{version}</code>, a file that is no AutoHotkey file loses its own line <code>@SetVersion</code> in the copy, because the banner shows the version already. The source in the project is never changed.</li>
+  <li><strong>Encoding:</strong> a file with a byte order mark (UTF-8 or UTF-16) gets the text in its encoding. Any other file gets plain ASCII: every other character becomes <code>_</code>. The line break is the one of the first line of the file.</li>
+  <li><strong>Line numbers:</strong> the banner moves the lines of the copy down. An error message of a script that runs from the copy names the line of the copy; <a href="#Library"><em>Open Library Project</em></a> takes the banner into account.</li>
 </ul>
 
 <h3 id="Compile">Compiling before copying</h3>
-<p>By default (<code>CompileBeforeInstall=true</code>) the plugin compiles what is copied, and only that. Every source of <code>[Overwrite]</code> and <code>[KeepExisting]</code> that names an executable (<code>.exe</code>, without wildcards) and has a script of the same name next to it is compiled from that script with Ahk2Exe before anything is copied, like <a href="compile.htm">Compile with Ahk2Exe</a>:</p>
+<p>By default (<code>Compile=yes</code>) the plugin compiles what is copied, and only that. Every source of <code>[Install]</code> and <code>[InstallIfMissing]</code> that names an executable (<code>.exe</code>, without wildcards) and has a script of the same name next to it is compiled from that script with Ahk2Exe before anything is copied, like <a href="compile.htm">Compile with Ahk2Exe</a>:</p>
 <ul>
   <li><code>mytool.exe</code> is compiled from <code>mytool.ahk</code>, <code>console\mytool-console.exe</code> from <code>console\mytool-console.ahk</code>. Each script is compiled once, in the order of the lines, every time (there is no check whether an executable is up to date).</li>
   <li>Such a script needs a line <code>;@Ahk2Exe-Base</code>, and a line <code>;@Ahk2Exe-ExeName</code> in it must not name another file. Otherwise the deployment stops before anything happens: add the line to the script, or remove the executable from the settings.</li>
   <li>An executable without a script of the same name is just copied; it must exist. Lines with wildcards (<code>*.exe</code>) are never compiled.</li>
   <li>A compilation error stops the deployment before anything is copied.</li>
 </ul>
-<p>With <code>CompileBeforeInstall=false</code> nothing is compiled and the executables are copied as they are; the confirmation warns if an executable is older than the scripts next to it.</p>
+<p>With <code>Compile=no</code> nothing is compiled and the executables are copied as they are; the confirmation warns if an executable is older than the scripts next to it.</p>
+
+<h3 id="Origin">Where a copy comes from</h3>
+<p>By default (<code>EmbedOrigin=yes</code>) the copies lead back to their project:</p>
+<ul>
+  <li>The built-in banners <code>@standard</code> and <code>@library</code> name the project folder and the computer on
+    which you deployed.</li>
+  <li>An executable of <code>[Install]</code> with a script of the same name next to it gets the same as text at its
+    end, with or without <code>Compile</code>. The program itself and its version information stay as they are, and the
+    executable in the project is not changed:
+<pre>[ahk-v2-plugin]
+ProjectPath=C:\Projects\MyTool
+ProjectComputer=MYCOMPUTER</pre>
+  A tool of your own can read the end of the file (UTF-8, the last <code>[ahk-v2-plugin]</code> counts) to open the
+  project. Other executables and the files of <code>[InstallIfMissing]</code> are copied unchanged, and so is a signed
+  executable, whose signature would become invalid (a gray hint says so).</li>
+</ul>
+<p class="note"><strong>Privacy:</strong> the project folder (often with your user name) and the computer name are
+readable for everyone who gets such a copy. If you pass deployed files on, set <code>EmbedOrigin=no</code>: then the
+built-in banners name only the project, and nothing is added to executables. Your own banner texts and files are not
+affected; there the placeholders decide.</p>
 
 <h2 id="Deploy">Deploy to Local Target</h2>
-<p><em>Deploy to Local Target...</em> needs <code>settings.ahk-plugin.ini</code> in the project root with at least one line in <code>[Overwrite]</code> or <code>[KeepExisting]</code>. The plugin then</p>
+<p><em>Deploy to Local Target...</em> needs <code>settings.ahk-v2-plugin.ini</code> in the project root with at least one line in <code>[Install]</code> or <code>[InstallIfMissing]</code>. The plugin then</p>
 <ol>
   <li>reads the file and checks everything: sources, targets, variables, the scripts to compile. Any problem is shown at once and nothing happens;</li>
   <li>always asks for confirmation (with the notice about administrator rights, the message, the overview and warnings; see below);</li>
-  <li>compiles (unless <code>CompileBeforeInstall=false</code>) and copies, in this order;</li>
+  <li>if <a href="#Cleanup"><code>[Cleanup]</code></a> finds files, asks a second time and lists each of them;</li>
+  <li>compiles (unless <code>Compile=no</code>), moves the files of <code>[Cleanup]</code> to the Recycle Bin (if confirmed) and copies, in this order;</li>
   <li>shows a report in the Run tool window: what was compiled, copied and skipped. At the first failure the remaining steps are stopped; nothing is rolled back.</li>
 </ol>
-<p>The confirmation warns if an executable is older than the scripts next to it (with <code>CompileBeforeInstall=false</code>), and if the project has <a href="#Uncommitted">uncommitted changes</a>. Deploying never commits or tags anything.</p>
-<p>Copying writes the content into the target: a new file gets the permissions of its folder, an overwritten file keeps its own. The modification time of the source is kept. Environment variables are always resolved in the IDE, also with <code>RequiresAdmin=true</code>, so <code>%APPDATA%</code> is your folder even if the elevated process runs as another administrator.</p>
+<p>The confirmation warns if an executable is older than the scripts next to it (with <code>Compile=no</code>), if the <a href="#Banner">banner</a> and the files do not fit together, and if the project has <a href="#Uncommitted">uncommitted changes</a>. Deploying never commits or tags anything.</p>
+<p>Copying writes the content into the target: a new file gets the permissions of its folder, an overwritten file keeps its own. The modification time of the source is kept. Variables are always resolved in the IDE, also with <code>RequiresAdmin=yes</code>, so <code>%A_AppData%</code> is your folder even if the elevated process runs as another administrator.</p>
 <p>There is no step to stop a running tool or to run a program before or after the deployment; use <code>Message</code> to remind yourself.</p>
 
 <h3 id="Package">A tool with several programs</h3>
 <p>A tool may consist of scripts that are deployed as they are and of programs that are compiled. Example: a script started by the Windows Task Scheduler (easy to change and restart) and two compiled variants of the tool, one with a GUI and one for the console:</p>
 <pre>MyTool\                        ; the project root
-  settings.ahk-plugin.ini
+  settings.ahk-v2-plugin.ini
   watch.ahk                    ; ;@Ahk2Exe-SetVersion 1.4.0 (not compiled)
   mytool.ahk                   ; ;@Ahk2Exe-Base ..., ;@Ahk2Exe-SetVersion 1.4.0
   console\mytool-console.ahk   ; ;@Ahk2Exe-Base ..., ;@Ahk2Exe-SetVersion 1.4.0
   lib\shared.ahk               ; included by both variants</pre>
-<pre>[Install]
+<pre>[Deploy]
 Destination=C:\bin\mytool
-CompileBeforeInstall=true
+Compile=yes
 
-[Overwrite]
+[Install]
 watch.ahk=.
 mytool.exe=.
 console\mytool-console.exe=.</pre>
 <ul>
   <li><strong>Deploy</strong> compiles both variants and copies everything, whatever file is open.</li>
-  <li><strong>Versions:</strong> all three scripts carry the line <code>;@Ahk2Exe-SetVersion</code>; <em>Set Version...</em> changes all of them at once, also in <code>watch.ahk</code>, which is not compiled. <code>lib\shared.ahk</code> needs no line.</li>
+  <li><strong>Versions:</strong> all three scripts carry the line <code>;@Ahk2Exe-SetVersion</code>; <em>Set Version...</em> changes all of them at once, also in <code>watch.ahk</code>, which is not compiled. <code>lib\shared.ahk</code> gets the line as well; a line <code>lib\=no</code> in <code>[SetVersion]</code> leaves it alone. If an included file keeps another version, the compiled program gets it: Ahk2Exe uses the last line <code>;@Ahk2Exe-SetVersion</code> it reads.</li>
   <li><strong>Validate and Compile</strong> use the script of the selected AutoHotkey run configuration, from whatever file is open. To test both variants independently, create a run configuration for each and select the one you work on; without a run configuration they use the current file.</li>
 </ul>
 
@@ -109,26 +249,54 @@ console\mytool-console.exe=.</pre>
 <h2 id="Version">Set Version</h2>
 <p>The version lives in the scripts, in the compiler directive that sets the file and product version of the executable:</p>
 <pre>;@Ahk2Exe-SetVersion 1.0.2</pre>
-<p><em>Set Version...</em> reads this line in every AutoHotkey file of the project (excluded folders are skipped; files without the line are left alone) and shows a dialog:</p>
+<p><em>Set Version...</em> sets this line in every AutoHotkey file (<code>.ahk</code>, <code>.ah2</code>, <code>.ahk2</code>) of the project, deployed or not; a file without the line gets one (see <a href="#Exclude"><code>[SetVersion]</code></a> to leave files out or to include other files). It shows a dialog:</p>
 <ul>
   <li>the current version and the scripts that get the new one. If the scripts have different versions, the dialog says so; the highest counts as the current one, and all get the new version;</li>
-  <li>the next <strong>patch</strong>, <strong>minor</strong> or <strong>major</strong> version (<code>1.0.2</code> becomes <code>1.0.3</code>, <code>1.1.0</code> or <code>2.0.0</code>; a text after the numbers such as <code>-beta</code> and a leading <code>v</code> are dropped), or any <strong>other</strong> version (without a leading <code>v</code>, which is unusual for Windows versions, and without spaces, commas, <code>%</code>, <code>;</code> and <code>`</code>);</li>
+  <li>the next <strong>patch</strong>, <strong>minor</strong> or <strong>major</strong> version (<code>1.0.2</code> becomes <code>1.0.3</code>, <code>1.1.0</code> or <code>2.0.0</code>; a text after the numbers such as <code>-beta</code> and a leading <code>v</code> are dropped; without any version yet <code>0.0.1</code>, <code>0.1.0</code> or <code>1.0.0</code>), or any <strong>other</strong> version (without a leading <code>v</code>, which is unusual for Windows versions, and without spaces, commas, <code>%</code>, <code>;</code> and <code>`</code>). The field always shows the chosen version, so you can start from it: choose <em>Minor</em>, then add <code>-beta</code> in the field;</li>
   <li><strong>Commit the project and create tag</strong> <code>v&lt;version&gt;</code>: commits all changes of the project together with the new version and sets an annotated tag on that commit, so the tag marks exactly the sources of the deployed tool. Staged changes outside the project stay staged. An existing tag is refused: choose another version;</li>
   <li>the message of commit and tag, proposed as "Release MyTool v1.0.3".</li>
 </ul>
 <p id="Clean">Commit and tag are only possible if every file of the project is either versioned or ignored (<code>.gitignore</code>): a new file nobody added yet would be missing in the tagged state. Otherwise the check box is disabled and the dialog names these files; add them to Git or to <code>.gitignore</code> and set the version again. Uncommitted changes of versioned files are listed in the dialog and committed together with the version. Without Git, or if the project is not in a repository, the check box is disabled as well. Without the check box only the lines are changed.</p>
-<p id="Exclude">Scripts that should keep their own version line, such as experiments or old variants, are listed in the section <code>[SetVersion]</code> of <code>settings.ahk-plugin.ini</code>:</p>
+<p id="Exclude">The section <code>[SetVersion]</code> of <code>settings.ahk-v2-plugin.ini</code> changes which files get the version, with the <a href="#Rules">selectors and values</a> of <code>[AddBanner]</code>:</p>
 <pre>[SetVersion]
-scratch\=exclude
-old\mytool-v1.ahk=exclude
-test\*.ahk=exclude</pre>
-<p>Each line is <code>path=exclude</code>. The path is relative to the project root and names files like a source of <code>[Overwrite]</code> (<code>*</code> and <code>?</code> only in the last name, no <code>..</code>); ending with <code>\</code> it names a folder with everything below it, as in <code>.gitignore</code> (but always from the project root). <code>test\*.ahk</code> only names the files directly in <code>test</code>. Excluded scripts are left out silently. They still count for commit and tag: to keep files out of Git, list them in <code>.gitignore</code>.</p>
+scratch\=no
+/old\mytool-v1.ahk=no
+readme.md=yes
+version.txt=line:#</pre>
+<ul>
+  <li><strong>Excluded</strong> files keep their own version line, for example experiments or old variants. They still count for commit and tag: to keep files out of Git, list them in <code>.gitignore</code>.</li>
+  <li><strong>Included</strong> files of other types get the version as well. A file without a version line gets one: <code>;@Ahk2Exe-SetVersion 1.0.3</code> in an AutoHotkey file, below its <code>#Requires</code> line (without one, as the first line); <code>@SetVersion 1.0.3</code> in the comment of any other file, as its first line (after a first line <code>&lt;?xml</code>, <code>#!</code> or <code>@echo off</code>) (<code># @SetVersion 1.0.3</code>, <code>&lt;!-- @SetVersion 1.0.3 --&gt;</code>). A version line at the very start, right before such a first line, moves behind it. The dialog names the files that get a new line.</li>
+  <li>Files that no line names: AutoHotkey files get the new version, all others are left alone.</li>
+</ul>
+<p>If no file gets the version (the project has no AutoHotkey files, or all are excluded), Set Version says why: the project has no <code>settings.ahk-v2-plugin.ini</code> (button <em>Create Settings</em>) or its <code>[SetVersion]</code> includes no file (button <em>Edit Settings</em>); both open the file at the section.</p>
+<p>The head of compiler directives (<a href="compile.htm#Head"><em>Add Ahk2Exe compiler directives</em></a>) takes over a version line that Set Version added: the line is removed, and its version becomes the default of the head.</p>
 <p>The plugin then changes the lines in the editor (one <em>Undo</em> takes them all back), saves the files, commits and tags, and reports the result in a notification.</p>
 <p>The line is read as Ahk2Exe reads it: <code>;@Ahk2Exe-SetVersion</code> in any case at the start of the line (spaces before it allowed), then the version; a comment after spaces (<code>;@Ahk2Exe-SetVersion 1.0.2 ; comment</code>) is not part of it. Lines in block comments <code>/* */</code> and between <code>;@Ahk2Exe-IgnoreBegin</code> and <code>;@Ahk2Exe-IgnoreEnd</code> do not count. A script may have only one such line, with the version written out (a version computed with <code>%...%</code> cannot be changed). Ahk2Exe turns a text such as <code>1.0.2-dev</code> into the binary version <code>1.0.2.0</code>.</p>
 <p>Code shared by several tools usually lies in a library folder outside the project; a deployed <code>.exe</code> contains the library as it was when it was compiled, a deployed <code>.ahk</code> uses the current library.</p>
 
+<h2 id="Library">Libraries</h2>
+<p class="note">Why library projects exist and how to work with them, step by step: <a href="library-projects.htm">Library projects</a>. This section describes the rules.</p>
+<p>A library is a file in the user library folder <code>%A_MyDocuments%\AutoHotkey\Lib</code> that scripts include with <code>#Include &lt;Name&gt;</code> (<code>#Include &lt;v2\Gui&gt;</code> loads <code>Lib\v2\Gui.ahk</code>). The plugin supports two ways to work with libraries:</p>
+<ul>
+  <li><strong>Directly</strong> (the setting <a href="settings.htm#Library"><em>Library projects folder</em></a> is empty): the files are edited in the library folder. <em>File &gt; New &gt; AutoHotkey Library File</em> creates one there; the name may contain folders (<code>v2\Gui</code>). A notification bar above such a file points to library projects, with the links <em>Set Library Projects Folder...</em> and <em>Don't Show Again</em>.</li>
+  <li><strong>As library projects</strong> (the setting names a folder): <strong>one library = one project</strong> in that folder, with its own version, deployed into the library folder (<code>Destination=%A_MyDocuments%\AutoHotkey\Lib\</code>). The files in the library folder are copies; you change the project and deploy it.</li>
+</ul>
+<h3 id="LibraryProjects">Library projects</h3>
+<p>The names match: the project of <code>Lib\v2\Gui.ahk</code> is <code>&lt;Library projects folder&gt;\Gui</code>, with the source <code>Gui.ahk</code>. New projects lie directly in the library projects folder; the folders of the name (<code>v2\</code>) only become the target in the <code>settings.ahk-v2-plugin.ini</code> (<code>Gui.ahk=v2\</code>), while <code>Destination</code> is always the library folder itself. So one project can deploy several versions of a library, for example <code>Lib\Gui.ahk</code> and <code>Lib\v2\Gui.ahk</code>. You may still organize the projects in subfolders of the library projects folder; a folder with a <code>settings.ahk-v2-plugin.ini</code> is a project.</p>
+<ul>
+  <li><em>File &gt; New &gt; AutoHotkey Library Project...</em> (also on the welcome screen) asks for the name (<code>Json</code>, <code>v2\Gui</code>) and creates the folder with the source (<code>#Requires AutoHotkey v2.0</code> and <code>;@Ahk2Exe-SetVersion 0.1.0</code>) and a <code>settings.ahk-v2-plugin.ini</code> that deploys it into the library folder with <code>Banner=@library</code> (or <code>Banner=find:banner.txt</code> if the library projects folder or a folder above it contains a <code>banner.txt</code>) and a <code>[SetVersion]</code> that leaves out the AutoHotkey files in <code>scratch\</code> and <code>test\</code>. The project opens in a window of its own. An existing folder is never touched.</li>
+  <li><em>Create Library Project 'Gui'</em> in the context menu of a file of the library folder (here <code>Lib\v2\Gui.ahk</code>) that has no project yet, or the link of the same name in the notification bar "Library file without a library project." above that file, creates its project in the same way, with a copy of the file as source. The file in the library folder stays as it is and counts as a copy from then on; deploy the project to replace it.</li>
+  <li><em>Add to Library Project...</em> (same places, and a second link in the notification bar) adds such a file to an existing library project instead: choose the project from the list (type to filter; projects in the same subfolder as the file come first). The file is copied into the project root, gets a line in <code>[Install]</code> that deploys it back to its place (<code>Gui.ahk=v2\</code>, relative to <code>Destination</code>), and the project opens. If the project already has a file of that name, the copy is called <code>Gui_added.ahk</code> and its line <code>Gui_added.ahk={set target}</code>: Deploy refuses it until you replace <code>{set target}</code> with the target. Rename the file later with <em>Rename</em>, and the line follows (see <a href="#Rename">Renaming files of the project</a>).</li>
+  <li><em>File &gt; New &gt; AutoHotkey Library File</em> still works, but warns and offers to create a library project instead.</li>
+  <li>A copy in the library folder is <strong>read-only</strong> in the editor, and a notification bar says "Installed copy of library project 'Json' &ndash; edit the source and deploy" with the link <em>Open Library Project</em>.</li>
+  <li><em>Open Library Project 'Json'</em> in the context menu of the editor and of the Project view (also below <em>External Libraries &gt; AutoHotkey Lib</em>) opens the project in a window of its own, or brings its window to the front, and there the source at the line of the caret.</li>
+  <li><kbd>Ctrl</kbd>+click on <code>#Include &lt;Json&gt;</code> still leads to the copy, because that is the file AutoHotkey loads; from there <em>Open Library Project</em> leads on to the source.</li>
+</ul>
+<p>The plugin knows a copy by the copy lines of the projects: a file that a project deploys is its copy, also a second file of a project (<code>JsonHelper.ahk</code> in the project <code>Json</code>). If two projects deploy the same file, the one whose name matches wins. Libraries without a project are opened and edited as before. Use <code>%LIBRARY_PROJECTS%</code> in <code>settings.ahk-v2-plugin.ini</code> for files shared by all library projects; a banner shared by several projects is simpler with <code>Banner=find:banner.txt</code>.</p>
+<p>A name whose first folder contains <code>_</code> needs care: AutoHotkey may read <code>#Include &lt;a_b\c&gt;</code> as <code>a.ahk</code> if <code>a_b\c.ahk</code> is missing. To change the interface of a library without breaking the tools that use it, add the new function and mark the old one with <a href="doc-comments.htm"><code>@deprecated</code></a>: its uses are struck out in every project that includes the library, and <em>Code &gt; Inspect Code</em> lists them.</p>
+
 <h2 id="Related">Related</h2>
-<p><a href="index.htm">Plugin manual</a>, <a href="compile.htm">Compiling with Ahk2Exe</a>, <a href="validate.htm">Validating</a></p>
+<p><a href="index.htm">Plugin manual</a>, <a href="library-projects.htm">Library projects</a>, <a href="compile.htm">Compiling with Ahk2Exe</a>, <a href="validate.htm">Validating</a></p>
 
 </body>
 </html>

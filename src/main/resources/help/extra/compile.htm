@@ -14,7 +14,7 @@
 
 <h2 id="Requirements">Requirements</h2>
 <ul>
-  <li><strong>Ahk2Exe</strong> installed, normally as <code>Compiler\Ahk2Exe.exe</code> in the AutoHotkey folder (the AutoHotkey dash offers to install it). The plugin finds it by itself; otherwise set the path under <a href="settings.htm#Ahk2Exe">Settings</a>.</li>
+  <li><strong>Ahk2Exe</strong> installed, normally as <code>Compiler\Ahk2Exe.exe</code> in the AutoHotkey folder. If it is missing, start <em>AutoHotkey Dash</em> from the Windows Start menu and click <em>Compile</em>, which installs it. The plugin finds it by itself; otherwise set the path under <a href="settings.htm#Ahk2Exe">Settings</a>.</li>
   <li>The script names its <strong>base file</strong> with a line <code>;@Ahk2Exe-Base</code>. The base file is the AutoHotkey interpreter that becomes part of the executable; it decides the AutoHotkey version and 32 or 64 bit.</li>
 </ul>
 
@@ -50,7 +50,7 @@
   <li>The placeholders (product name, version, description, copyright) are selected one after another; type the value and press <kbd>Tab</kbd> for the next one, <kbd>Enter</kbd> or <kbd>Esc</kbd> to keep the rest. The name defaults to the file name.</li>
   <li>The base file is <code>AutoHotkey64.exe</code>, or <code>AutoHotkey32.exe</code> if <code>#Requires</code> asks for <code>32-bit</code>.</li>
   <li>Write the values <strong>without quotes</strong>: Ahk2Exe takes the rest of the line as it is, quotes would appear in the properties of the executable. Spaces are fine; a comma must be written as <code>`,</code>; a comment after the value needs a space before the <code>;</code>.</li>
-  <li><code>;@Ahk2Exe-SetVersion</code> sets file and product version. <a href="installer.htm#Version">Set Version...</a> changes this line in all scripts of the project for you, with commit and version tag.</li>
+  <li><code>;@Ahk2Exe-SetVersion</code> sets file and product version. <a href="installer.htm#Version">Set Version...</a> changes this line in all scripts of the project for you, with commit and version tag. If the script already has such a line (for example one that Set Version added), the head takes it over: the line is removed and its version becomes the default.</li>
   <li>Lines starting with <code>;;@</code> are disabled directives. Remove one <code>;</code> to set an icon or to build a console application.</li>
   <li><code>0x0409</code> is the language code for English (United States), e.g. <code>0x0407</code> for German.</li>
 </ul>

@@ -127,6 +127,9 @@ Half(x) => x / 2
   <li><kbd>Enter</kbd> indents the new line according to the code style, also after <code>case x:</code>.</li>
 </ul>
 
+<h2 id="Ansi">Old ANSI files</h2>
+<p>AutoHotkey v2 reads a file without byte order mark as UTF-8, and so does the IDE. An old file saved in the ANSI code page of Windows (with umlauts or accents) is therefore shown wrong, and AutoHotkey reads it wrong as well. Above such a file the plugin shows the notification bar "File is not UTF-8 (probably ANSI)." with the link <em>Convert from ANSI to UTF-8</em>: the file is read in the ANSI code page of Windows and saved as UTF-8 without byte order mark. <em>Undo</em> restores the previous text in the editor. This works for every text file except <code>.cmd</code> and <code>.bat</code>, which stay in their code page.</p>
+
 <h2 id="Related">Related</h2>
 <p><a href="index.htm">Plugin manual</a>, <a href="settings.htm#Colors">Color settings</a>, <a href="validate.htm">Validating with AutoHotkey</a>, <a href="limitations.htm">Known limitations</a></p>
 

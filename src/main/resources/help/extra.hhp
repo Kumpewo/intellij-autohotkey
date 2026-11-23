@@ -31,6 +31,7 @@ extra\settings.htm
 extra\running.htm
 extra\validate.htm
 extra\compile.htm
+extra\library-projects.htm
 extra\installer.htm
 extra\debugger.htm
 extra\pragmas.htm
@@ -43,6 +44,9 @@ extra\images\settings-autohotkey.png
 extra\images\debugger-overview.png
 extra\images\debugger-exception-breakpoint.png
 extra\images\debugger-attach.png
+extra\images\library-add-to-project.png
+extra\images\library-added-file.png
+extra\images\library-installed-copy.png
 styles\theme.css
 styles\content.css
 styles\icons.ttf

@@ -6,7 +6,9 @@ import com.intellij.psi.util.CachedValueProvider;
 import com.intellij.psi.util.CachedValuesManager;
 import com.intellij.psi.util.PsiModificationTracker;
 import com.intellij.psi.util.PsiTreeUtil;
+import de.kumpewo.autohotkey.navigation.AhkFieldTarget;
 import de.kumpewo.autohotkey.psi.AhkClass;
+import de.kumpewo.autohotkey.psi.AhkClassProperty;
 import de.kumpewo.autohotkey.psi.AhkFunc;
 import de.kumpewo.autohotkey.psi.AhkParameter;
 import de.kumpewo.autohotkey.psi.AhkTypes;
@@ -21,11 +23,14 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Doc comment of a function, method or class: a block comment {@code /** ... *}{@code /} directly before the
- * definition (only whitespace and at most one line break in between). The leading {@code *} of each line is removed;
+ * Doc comment of a function, method, class, property or field: a block comment {@code /** ... *}{@code /} directly
+ * before the definition (for a field before its statement in the class body) (only whitespace and at most one line break in between). The leading {@code *} of each line is removed;
  * the text before the first tag is the description (Markdown). Tags at the start of a line:
  * {@code @param [{Type|Type}] name text}, {@code @returns [{Type}] text} (also {@code @return}), {@code @throws text},
  * {@code @example} (code, the following lines as written), {@code @see name|url [text]}, {@code @deprecated [text]}.
+ * Tolerated JSDoc tags ({@link #TOLERATED_TAGS}, e.g. {@code @author text}) are kept with their text for the quick
+ * documentation. Any other tag at the start of a line is unknown: it stays normal text of the description and is
+ * reported by the inspection "Unknown doc comment tag" (probably a typo).
  * A tag continues on the following lines up to the next tag; other words with {@code @} are normal text.
  */
 public final class AhkDocComment {
@@ -43,6 +48,21 @@ public final class AhkDocComment {
     public record Returns(@NotNull List<Type> types, @NotNull String text) {
     }
 
+    /** The tags with a meaning, in the order of the completion (aliases: {@code @return}, {@code @throw}). */
+    public static final List<String> TAGS = List.of("param", "returns", "throws", "example", "see", "deprecated");
+
+    /** JSDoc tags that are accepted and shown in the quick documentation, but not offered by the completion. */
+    public static final List<String> TOLERATED_TAGS = List.of("author", "since", "version", "todo", "license",
+            "copyright");
+
+    /** A tolerated tag ({@link #TOLERATED_TAGS}) with its text; {@code tag} in lower case. */
+    public record Other(@NotNull String tag, @NotNull String text) {
+    }
+
+    /** An unknown tag: name as written (without {@code @}) and the absolute range of {@code @name}. */
+    public record UnknownTag(@NotNull String name, @NotNull TextRange range) {
+    }
+
     private static final Pattern TAG = Pattern.compile("^@([A-Za-z]+)(?=\\s|$)");
     private static final Pattern TYPES = Pattern.compile("^\\s*\\{([^}]*)}");
     private static final Pattern PARAM_NAME = Pattern.compile("^\\s*[&]?([A-Za-z0-9_\\x{80}-\\x{FFFF}]+)[*?]?");
@@ -54,9 +74,12 @@ public final class AhkDocComment {
     private final List<String> examples;
     private final List<String> sees;
     private final @Nullable String deprecated;
+    private final List<Other> others;
+    private final List<UnknownTag> unknownTags;
 
     private AhkDocComment(String description, List<Param> params, @Nullable Returns returns, List<String> throwsList,
-                          List<String> examples, List<String> sees, @Nullable String deprecated) {
+                          List<String> examples, List<String> sees, @Nullable String deprecated, List<Other> others,
+                          List<UnknownTag> unknownTags) {
         this.description = description;
         this.params = params;
         this.returns = returns;
@@ -64,6 +87,8 @@ public final class AhkDocComment {
         this.examples = examples;
         this.sees = sees;
         this.deprecated = deprecated;
+        this.others = others;
+        this.unknownTags = unknownTags;
     }
 
     /** Description before the first tag (Markdown), may be empty. */
@@ -109,12 +134,54 @@ public final class AhkDocComment {
         return deprecated;
     }
 
-    /** Doc comment of a function, method or class (cached until the next PSI change), {@code null} = none. */
+    /** The tolerated tags ({@code @author} ...) in their order. */
+    public @NotNull List<Other> others() {
+        return others;
+    }
+
+    /** The unknown tags in their order. */
+    public @NotNull List<UnknownTag> unknownTags() {
+        return unknownTags;
+    }
+
+    /** Is the tag (without {@code @}, any case) one with a meaning, including {@code @return} and {@code @throw}? */
+    public static boolean isKnownTag(@NotNull String tag) {
+        String lower = tag.toLowerCase(Locale.ROOT);
+        return TAGS.contains(lower) || lower.equals("return") || lower.equals("throw");
+    }
+
+    /** Is the tag (without {@code @}, any case) a tolerated JSDoc tag? */
+    public static boolean isToleratedTag(@NotNull String tag) {
+        return TOLERATED_TAGS.contains(tag.toLowerCase(Locale.ROOT));
+    }
+
+    /**
+     * Doc comment of a function, method, class, property ({@link AhkClassProperty}) or field ({@link AhkFieldTarget})
+     * (cached until the next PSI change), {@code null} = none.
+     */
     public static @Nullable AhkDocComment of(@Nullable PsiElement definition) {
-        if (!(definition instanceof AhkFunc) && !(definition instanceof AhkClass)) return null;
-        return CachedValuesManager.getCachedValue(definition, () -> CachedValueProvider.Result.create(
-                Optional.ofNullable(parse(definition)), PsiModificationTracker.getInstance(definition.getProject())))
+        PsiElement documented = documented(definition);
+        if (documented == null) return null;
+        return CachedValuesManager.getCachedValue(documented, () -> CachedValueProvider.Result.create(
+                Optional.ofNullable(parse(documented)), PsiModificationTracker.getInstance(documented.getProject())))
                 .orElse(null);
+    }
+
+    /**
+     * The element the doc comment stands directly before: the definition itself, for a field the statement in the
+     * class body that declares it ({@code /** ... *}{@code /} before {@code a := 1, b := 2} documents both names);
+     * {@code null} for other elements.
+     */
+    private static @Nullable PsiElement documented(@Nullable PsiElement definition) {
+        if (definition instanceof AhkFunc || definition instanceof AhkClass || definition instanceof AhkClassProperty) {
+            return definition;
+        }
+        if (!(definition instanceof AhkFieldTarget target)) return null;
+        PsiElement statement = target.identifier();
+        while (statement.getParent() != null && statement.getParent().getNode().getElementType() != AhkTypes.BLOCK) {
+            statement = statement.getParent();
+        }
+        return statement.getParent() == null ? null : statement;
     }
 
     /** Parameter names of the function (as written, without {@code &}), for the check of {@code @param}. */
@@ -216,6 +283,8 @@ public final class AhkDocComment {
         List<String> examples = new ArrayList<>();
         List<String> sees = new ArrayList<>();
         String deprecated = null;
+        List<Other> others = new ArrayList<>();
+        List<UnknownTag> unknownTags = new ArrayList<>();
         int i = 0;
         while (i < lines.size() && tag(lines.get(i)) == null) {
             description.append(lines.get(i).text()).append('\n');
@@ -260,14 +329,20 @@ public final class AhkDocComment {
                 case "see" -> sees.add(joinText(first.text(), more));
                 case "deprecated" -> deprecated = joinText(first.text(), more);
                 default -> {
+                    if (isToleratedTag(tag)) {
+                        others.add(new Other(tag.toLowerCase(Locale.ROOT), joinText(first.text(), more)));
+                        break;
+                    }
                     // unknown tag: normal text of the description
+                    unknownTags.add(new UnknownTag(tag, TextRange.from(head.offset(), 1 + tag.length())));
                     description.append(head.text()).append('\n');
                     for (Line line : block) description.append(line.text()).append('\n');
                 }
             }
         }
         return new AhkDocComment(description.toString().strip(), List.copyOf(params), returns,
-                List.copyOf(throwsList), List.copyOf(examples), List.copyOf(sees), deprecated);
+                List.copyOf(throwsList), List.copyOf(examples), List.copyOf(sees), deprecated, List.copyOf(others),
+                List.copyOf(unknownTags));
     }
 
     /** Removes leading whitespace, one {@code *} and one space after it (indentation after that is kept). */

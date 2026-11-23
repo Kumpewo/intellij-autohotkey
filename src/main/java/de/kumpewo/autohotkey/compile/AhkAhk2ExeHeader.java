@@ -27,9 +27,11 @@ import java.util.regex.Pattern;
  * file ({@code ;@Ahk2Exe-Base}), product name, version ({@code ;@Ahk2Exe-SetVersion}, the line that "Set Version"
  * changes), description, language, copyright, and disabled lines for icon and console application. The values are
  * written without quotes, because Ahk2Exe would keep them in the executable; their column is aligned. Inserted below the first {@code #Requires} line (otherwise at the start of the file) as a
- * live template whose placeholders (name, version, description, copyright) are visited with Tab. Offered by the
- * intention {@link AhkAddAhk2ExeHeaderIntention} and by the notification of {@link AhkCompiler} when the base
- * directive is missing.
+ * live template whose placeholders (name, version, description, copyright) are visited with Tab. A line
+ * {@code ;@Ahk2Exe-SetVersion x} that the script has already (for example added by "Set Version") is taken into the
+ * head: it is removed and {@code x} becomes the default of the version (other existing directives stay as they are).
+ * Offered by the intention {@link AhkAddAhk2ExeHeaderIntention} and by the notification of {@link AhkCompiler} when
+ * the base directive is missing.
  */
 public final class AhkAhk2ExeHeader {
 
@@ -78,12 +80,12 @@ public final class AhkAhk2ExeHeader {
 
     /**
      * The head as live template: {@code name} (file name without extension) is the default for the product name,
-     * {@code <name> description} for the description, {@code 1.0.0} for the version, {@code © year Your Name} for the
-     * copyright; commas in the defaults are escaped ({@code `,}), because Ahk2Exe separates arguments with them.
+     * {@code <name> description} for the description, {@code version} for the version, {@code © year Your Name} for
+     * the copyright; commas in the defaults are escaped ({@code `,}), because Ahk2Exe separates arguments with them.
      * {@code lineBreakBefore} puts a line break in front (behind a last line without one).
      */
     public static @NotNull Template template(@NotNull Project project, @NotNull String name, @NotNull String bits,
-                                             boolean lineBreakBefore) {
+                                             boolean lineBreakBefore, @NotNull String version) {
         Template t = TemplateManager.getInstance(project).createTemplate("", "");
         t.setToReformat(false);
         if (lineBreakBefore) t.addTextSegment("\n");
@@ -92,7 +94,7 @@ public final class AhkAhk2ExeHeader {
         t.addTextSegment(directive(";@Ahk2Exe-SetProductName"));
         t.addVariable("PRODUCT", new ConstantNode(value), new ConstantNode(value), true);
         t.addTextSegment("\n" + directive(";@Ahk2Exe-SetVersion"));
-        t.addVariable("VERSION", new ConstantNode("1.0.0"), new ConstantNode("1.0.0"), true);
+        t.addVariable("VERSION", new ConstantNode(version), new ConstantNode(version), true);
         t.addTextSegment("\n" + directive(";@Ahk2Exe-SetDescription"));
         String description = value + " description";
         t.addVariable("DESCRIPTION", new ConstantNode(description), new ConstantNode(description), true);
@@ -111,14 +113,48 @@ public final class AhkAhk2ExeHeader {
         return directive + " ".repeat(Math.max(1, VALUE_COLUMN - directive.length()));
     }
 
-    /** Inserts the head into the file of the editor as live template (call on the EDT). */
+    /** Version default of the head without an existing line. */
+    static final String DEFAULT_VERSION = "1.0.0";
+
+    /**
+     * The existing line {@code ;@Ahk2Exe-SetVersion} to take into the head: exactly one, with a written value;
+     * {@code null} otherwise.
+     */
+    static @Nullable de.kumpewo.autohotkey.install.AhkVersionDirective.Line existingVersion(@NotNull CharSequence text) {
+        var lines = de.kumpewo.autohotkey.install.AhkVersionDirective.find(text);
+        return lines.size() == 1 && !lines.get(0).computed() && !lines.get(0).value().isEmpty() ? lines.get(0) : null;
+    }
+
+    /** Start and end (after its line break) of the line that contains the offset. */
+    static int @NotNull [] lineRange(@NotNull CharSequence text, int offset) {
+        int start = offset;
+        while (start > 0 && text.charAt(start - 1) != '\n') start--;
+        int end = offset;
+        while (end < text.length() && text.charAt(end) != '\n') end++;
+        if (end < text.length()) end++;
+        return new int[]{start, end};
+    }
+
+    /**
+     * Inserts the head into the file of the editor as live template (call on the EDT, in a write command: the removal
+     * of an existing version line and the head are one undo step).
+     */
     public static void insert(@NotNull Project project, @NotNull Editor editor, @NotNull PsiFile file) {
         Document document = editor.getDocument();
         PsiDocumentManager.getInstance(project).commitDocument(document);
+        String version = DEFAULT_VERSION;
+        var existing = existingVersion(document.getCharsSequence());
+        if (existing != null) {
+            version = existing.value();
+            int[] range = lineRange(document.getCharsSequence(), existing.valueStart());
+            document.deleteString(range[0], range[1]);
+            PsiDocumentManager.getInstance(project).commitDocument(document);
+        }
         CharSequence text = document.getCharsSequence();
         int offset = insertionOffset(text);
         String name = FileUtilRt.getNameWithoutExtension(file.getName());
-        Template template = template(project, name, bits(text), needsLineBreakBefore(text, offset));
+        Template template = template(project, name, bits(text), needsLineBreakBefore(text, offset),
+                version.replace(",", "`,"));
         editor.getCaretModel().moveToOffset(offset);
         TemplateManager.getInstance(project).startTemplate(editor, template);
     }
@@ -128,6 +164,10 @@ public final class AhkAhk2ExeHeader {
         Editor editor = FileEditorManager.getInstance(project).openTextEditor(new OpenFileDescriptor(project, script), true);
         if (editor == null) return;
         PsiFile file = PsiDocumentManager.getInstance(project).getPsiFile(editor.getDocument());
-        if (isApplicable(file)) insert(project, editor, file);
+        if (isApplicable(file)) {
+            com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project,
+                    de.kumpewo.autohotkey.AhkBundle.message("compile.no.base.action"), null,
+                    () -> insert(project, editor, file));
+        }
     }
 }

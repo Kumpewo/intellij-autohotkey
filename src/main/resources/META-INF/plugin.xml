@@ -96,6 +96,9 @@ the editor.</p>
       attaching to a running script.</li>
   <li>Compiling with Ahk2Exe from the <code>;@Ahk2Exe-...</code> directives in the script, and running the
       compiled console program in the IDE.</li>
+  <li><i>Deploy to Local Target</i> copies a tool to its folder as described by <code>settings.ahk-v2-plugin.ini</code>
+      and <i>Set Version</i> sets the version in its files and tags it in Git; both also work for tools in any
+      other language, in every project.</li>
 </ul>
 
 <p><b>Good to know</b></p>
@@ -129,7 +132,7 @@ the editor.</p>
                 implementationClass="de.kumpewo.autohotkey.AhkFileType"
                 fieldName="INSTANCE"
                 language="AutoHotkey"
-                extensions="ahk"/>
+                extensions="ahk;ah2;ahk2"/>
         <lang.parserDefinition
                 language="AutoHotkey"
                 implementationClass="de.kumpewo.autohotkey.parser.AhkParserDefinition"/>
@@ -148,7 +151,7 @@ the editor.</p>
         <!-- keys in the replacement text of hotstrings: {Enter}, ^c; unknown key names -->
         <annotator language="AutoHotkey"
                    implementationClass="de.kumpewo.autohotkey.annotation.AhkSendKeysAnnotator"/>
-        <!-- doc comments: unknown @param / classes, deprecated definitions struck out -->
+        <!-- doc comments: unknown @param / classes (deprecated definitions: AhkDeprecatedInspection) -->
         <annotator language="AutoHotkey"
                    implementationClass="de.kumpewo.autohotkey.annotation.AhkDocCommentAnnotator"/>
         <annotator language="AutoHotkey"
@@ -175,6 +178,21 @@ the editor.</p>
                    implementationClass="de.kumpewo.autohotkey.annotation.AhkTypedPropertyAnnotator"/>
         <annotator language="AutoHotkey"
                    implementationClass="de.kumpewo.autohotkey.annotation.AhkTypeDeclarationAnnotator"/>
+        <!-- uses of definitions marked @deprecated, struck out; also in Code > Inspect Code -->
+        <localInspection language="AutoHotkey" shortName="AhkDeprecated" bundle="messages.AhkBundle"
+                         key="inspection.deprecated.name" groupKey="inspection.group" enabledByDefault="true"
+                         level="WARNING" implementationClass="de.kumpewo.autohotkey.inspection.AhkDeprecatedInspection"/>
+        <!-- installed copies of library projects: read-only, with a banner leading to the source -->
+        <writingAccessProvider implementation="de.kumpewo.autohotkey.install.AhkLibraryCopyAccess"/>
+        <editorNotificationProvider implementation="de.kumpewo.autohotkey.install.AhkLibraryCopyNotification"/>
+        <!-- text files opened as UTF-8 that are no valid UTF-8 (old ANSI files): banner with conversion -->
+        <editorNotificationProvider implementation="de.kumpewo.autohotkey.encoding.AhkAnsiNotification"/>
+        <!-- renaming or moving a project file updates the paths in settings.ahk-v2-plugin.ini (with confirmation) -->
+        <refactoring.elementListenerProvider implementation="de.kumpewo.autohotkey.install.AhkSettingsRenameListener"/>
+        <!-- tags in doc comments without a meaning (typos such as @retruns), with a quick fix -->
+        <localInspection language="AutoHotkey" shortName="AhkUnknownDocTag" bundle="messages.AhkBundle"
+                         key="inspection.unknown.tag.name" groupKey="inspection.group" enabledByDefault="true"
+                         level="WARNING" implementationClass="de.kumpewo.autohotkey.inspection.AhkUnknownDocTagInspection"/>
         <!-- No "Non-ASCII characters" warning for names (AutoHotkey allows them, e.g. "§" as prefix) -->
         <lang.inspectionSuppressor language="AutoHotkey"
                 implementationClass="de.kumpewo.autohotkey.annotation.AhkInspectionSuppressor"/>
@@ -252,6 +270,10 @@ the editor.</p>
         <!-- doc comments: the lines with * get the indentation of the /** line -->
         <postFormatProcessor
                 implementation="de.kumpewo.autohotkey.formatter.AhkDocCommentPostFormatProcessor"/>
+        <!-- Edit > Fill Paragraph in comments -->
+        <codeInsight.fillParagraph
+                language="AutoHotkey"
+                implementationClass="de.kumpewo.autohotkey.formatter.AhkParagraphFillHandler"/>
         <codeStyleSettingsProvider
                 implementation="de.kumpewo.autohotkey.formatter.AhkCodeStyleSettingsProvider"/>
         <langCodeStyleSettingsProvider
@@ -342,28 +364,49 @@ the editor.</p>
         <action id="AutoHotkey.NewFile" class="de.kumpewo.autohotkey.template.AhkCreateFileAction" icon="/icons/autohotkey.png">
             <add-to-group group-id="NewGroup" anchor="after" relative-to-action="NewFile"/>
         </action>
+        <!-- New file in the user library folder, new library project (install/AhkLibraryActions) -->
+        <action id="AutoHotkey.NewLibraryFile" class="de.kumpewo.autohotkey.install.AhkLibraryActions$NewFile" icon="/icons/autohotkey.png">
+            <add-to-group group-id="NewGroup" anchor="after" relative-to-action="AutoHotkey.NewFile"/>
+        </action>
+        <action id="AutoHotkey.NewLibraryProject" class="de.kumpewo.autohotkey.install.AhkLibraryActions$NewProject" icon="/icons/autohotkey-library.png">
+            <add-to-group group-id="NewGroup" anchor="after" relative-to-action="AutoHotkey.NewLibraryFile"/>
+            <add-to-group group-id="WelcomeScreen.QuickStart" anchor="last"/>
+        </action>
         <!-- Validation with AutoHotkey /validate (AhkValidator) -->
         <action id="AutoHotkey.Validate" class="de.kumpewo.autohotkey.validate.AhkValidateAction" icon="/icons/autohotkey-action.png">
             <keyboard-shortcut keymap="$default" first-keystroke="alt shift V"/>
         </action>
         <!-- Compilation into an executable with Ahk2Exe (AhkCompiler) -->
         <action id="AutoHotkey.Compile" class="de.kumpewo.autohotkey.compile.AhkCompileAction" icon="/icons/autohotkey-action.png"/>
-        <!-- Copying a tool to its local target as described by settings.ahk-plugin.ini (install/AhkInstaller) -->
-        <action id="AutoHotkey.Install" class="de.kumpewo.autohotkey.install.AhkInstallAction" icon="/icons/autohotkey-action.png"/>
-        <!-- Documented default settings.ahk-plugin.ini (install/AhkSettingsFile) -->
-        <action id="AutoHotkey.CreateSettings" class="de.kumpewo.autohotkey.install.AhkCreateSettingsAction" icon="/icons/autohotkey-action.png"/>
+        <!-- Copying a tool to its local target as described by settings.ahk-v2-plugin.ini (install/AhkDeployer) -->
+        <action id="AutoHotkey.Install" class="de.kumpewo.autohotkey.install.AhkDeployAction" icon="/icons/plugin.svg"/>
+        <!-- Documented default settings.ahk-v2-plugin.ini (install/AhkSettingsFile) -->
+        <action id="AutoHotkey.CreateSettings" class="de.kumpewo.autohotkey.install.AhkCreateSettingsAction" icon="/icons/plugin.svg"/>
         <!-- Version line ;@Ahk2Exe-SetVersion, commit and tag (install/AhkSetVersion) -->
-        <action id="AutoHotkey.SetVersion" class="de.kumpewo.autohotkey.install.AhkSetVersionAction" icon="/icons/autohotkey-action.png"/>
+        <action id="AutoHotkey.SetVersion" class="de.kumpewo.autohotkey.install.AhkSetVersionAction" icon="/icons/plugin.svg"/>
+        <!-- From an installed copy to its library project (install/AhkLibraryProjects), only visible on such a copy -->
+        <action id="AutoHotkey.OpenLibraryProject" class="de.kumpewo.autohotkey.install.AhkOpenLibraryProjectAction" icon="/icons/autohotkey-library.png"/>
+        <!-- Library project of a library file without one (install/AhkLibraryActions), only in Lib-src mode -->
+        <action id="AutoHotkey.CreateLibraryProject" class="de.kumpewo.autohotkey.install.AhkLibraryActions$FromFile" icon="/icons/autohotkey-library.png"/>
+        <!-- A library file without a project becomes a source of an existing one (install/AhkAddToLibraryProject) -->
+        <action id="AutoHotkey.AddToLibraryProject" class="de.kumpewo.autohotkey.install.AhkLibraryActions$AddToProject" icon="/icons/autohotkey-library.png"/>
         <!--
-            The AutoHotkey entries of the Code menu and of the editor and project view context menus, in the order of
-            work: Validate, Compile, Create Settings, Set Version, Deploy; enclosed in separators, because other plugins
-            may append their entries. The platform collapses adjacent separators, so both lines appear as soon as one
-            of the entries is visible, whichever it is.
+            The AutoHotkey entries of the Code menu and of the editor and project view context menus, in three blocks
+            separated by lines: the script (Validate, Compile), library projects (Create, Add to, Open; green icon) and
+            the project (Create Settings, Set Version, Deploy; plugin logo, they work for tools in any language and are
+            visible in every project). The whole group is enclosed in separators, because other
+            plugins may append their entries. The platform drops separators next to invisible entries and collapses
+            adjacent ones, so an empty block leaves no extra line.
         -->
         <group id="AutoHotkey.CodeActions">
             <separator/>
             <reference ref="AutoHotkey.Validate"/>
             <reference ref="AutoHotkey.Compile"/>
+            <separator/>
+            <reference ref="AutoHotkey.CreateLibraryProject"/>
+            <reference ref="AutoHotkey.AddToLibraryProject"/>
+            <reference ref="AutoHotkey.OpenLibraryProject"/>
+            <separator/>
             <reference ref="AutoHotkey.CreateSettings"/>
             <reference ref="AutoHotkey.SetVersion"/>
             <reference ref="AutoHotkey.Install"/>
@@ -377,7 +420,7 @@ the editor.</p>
             <add-to-group group-id="RunMenu" anchor="after" relative-to-action="XDebugger.AttachToProcess"/>
         </action>
         <!-- User manual of the plugin (help/extra/, AhkManual) -->
-        <action id="AutoHotkey.Manual" class="de.kumpewo.autohotkey.documentation.AhkManualAction" icon="/icons/autohotkey-action.png">
+        <action id="AutoHotkey.Manual" class="de.kumpewo.autohotkey.documentation.AhkManualAction" icon="/icons/plugin.svg">
             <add-to-group group-id="HelpMenu" anchor="after" relative-to-action="HelpTopics"/>
         </action>
         <!-- Help of AutoHotkey v2.0 and v2.1 (AhkExternalHelp.openDocs) -->

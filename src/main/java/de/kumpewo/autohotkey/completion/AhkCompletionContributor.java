@@ -62,9 +62,11 @@ import java.util.Set;
  *       (in files with {@code #Module}/{@code #Import}); after a module ({@code X.}) only its exports, after
  *       {@code AHK.} the built-in names; in {@code #Import} the module names (modules of the group, module files
  *       of the search path, {@code AHK}) and in its list the names the module exports</li>
+ *   <li>in a doc comment after "@" at the start of a line: the tags, after "@param ": the parameters without
+ *       {@code @param} yet (AhkDocTagCompletion)</li>
  * </ul>
  * Functions and methods are inserted with "()" (caret in between). Case does not matter; the spelling of the list
- * is inserted. No suggestions in comments and other strings.
+ * is inserted. No suggestions in other comments and in other strings.
  * The roles correspond to highlighting (AhkAnnotator.identifierColor).
  */
 public class AhkCompletionContributor extends CompletionContributor {
@@ -136,7 +138,11 @@ public class AhkCompletionContributor extends CompletionContributor {
             addHotkeyKeyNames(leaf, parameters.getOffset(), result);
             return;
         }
-        if (type != AhkTypes.IDENTIFIER) return;   // comments, numbers ...
+        if (type == AhkTypes.BLOCK_COMMENT) {
+            AhkDocTagCompletion.add(parameters, result);
+            return;
+        }
+        if (type != AhkTypes.IDENTIFIER) return;   // other comments, numbers ...
         CompletionResultSet out = result.caseInsensitive();
 
         PsiElement parent = leaf.getParent();

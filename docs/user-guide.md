@@ -17,6 +17,7 @@ Shortcuts are given for the default Windows keymap of IntelliJ IDEA.
 - [Live templates and file template](#live-templates-and-file-template)
 - [Running scripts](#running-scripts)
 - [Deploying tools and setting versions](#deploying-tools-and-setting-versions)
+- [Old ANSI files](#old-ansi-files)
 - [Settings overview](#settings-overview)
 - [Known limitations](#known-limitations)
 
@@ -24,7 +25,7 @@ Shortcuts are given for the default Windows keymap of IntelliJ IDEA.
 
 1. Install the plugin: *Settings > Plugins > Marketplace*, search for "AutoHotkey" (plugin page:
    [AutoHotkey v2 Language Support](https://plugins.jetbrains.com/plugin/36153-autohotkey-v2-language-support)).
-2. Open a folder with `.ahk` files as a project, or create a script with *File > New > AutoHotkey Script*.
+2. Open a folder with AutoHotkey files (`.ahk`, also `.ah2` and `.ahk2`) as a project, or create a script with *File > New > AutoHotkey Script*.
 3. Optionally check *Settings > Languages & Frameworks > AutoHotkey*. The plugin detects a standard
    AutoHotkey installation by itself; the path is only needed for unusual locations.
 
@@ -406,7 +407,7 @@ Nothing is folded when a file is opened.
   of that pragma. Links in the page open further pages in the same popup. For a member that exists in several classes (for
   example `Add` of `Gui` and `Menu`), the popup shows a list of the variants; if the class is known (see
   [type declarations](#type-declarations)), only the matching variant is shown.
-- **External help** (*Shift+F1*) opens the topic in an external viewer. By default this is `hh.exe` with the
+- **External help** (*Shift+F1*, or the link at the bottom of the popup) opens the topic in an external viewer. By default this is `hh.exe` with the
   `AutoHotkey.chm` of the AutoHotkey installation. A different program can be configured under
   *Settings > Languages & Frameworks > AutoHotkey > External help*; `%s` is replaced by the key of the help
   page (e.g. `/docs/lib/MsgBox.htm` or `/docs/lib/File.htm#Close`). Help pages added by the plugin itself
@@ -447,6 +448,10 @@ OpenBox(name, force := false) {
 - The leading `*` of each line is removed; the text before the first tag is Markdown.
 - Tags: `@param [{Type}] name text`, `@returns [{Type}] text`, `@throws text`, `@example` (code below it),
   `@see name|url [text]` (link to an own definition, the AutoHotkey help or a web page), `@deprecated [text]`.
+- The JSDoc tags `@author`, `@since`, `@version`, `@todo`, `@license` and `@copyright` are accepted and shown in
+  the popup. Any other tag at the start of a line is marked as unknown (inspection *Unknown doc comment tag*), with
+  a quick fix to the most similar tag (`@retruns` → `@returns`); `@` inside the text (`name@example.com`) is no tag.
+- Completion: after `@` at the start of a line the tags, after `@param ` the parameters not yet described.
 - *Ctrl+Q* or hover on the definition or any use shows the signature, the description, a section per tag and the
   file. The definitions are found by name like *Ctrl+B*; an own definition takes precedence over built-in help of
   the same name, several matching definitions are listed with links. *Ctrl+hover* shows the signature.
@@ -456,7 +461,9 @@ OpenBox(name, force := false) {
   text of the current parameter.
 - `@param {Gui} g` works like `;@declare-type g as Gui`, but only inside that function (several types with `|`).
 - Uses of a definition marked `@deprecated` are struck out (only if all definitions with that name are
-  deprecated).
+  deprecated). Properties and fields (`count := 0`, `static count := 0`) can be marked as well. This is the
+  inspection *Use of a deprecated definition* (*Settings > Editor > Inspections > AutoHotkey*), so
+  *Code > Inspect Code* lists all uses in a project.
 - `/**` + *Enter* above a definition adds the skeleton with one `@param` per parameter and `@returns` if the
   function returns a value; *Enter* inside a doc comment continues with ` * `. A `@param` without such a
   parameter and an unknown class in `{...}` are marked.
@@ -479,11 +486,14 @@ nameEdit.   ; completion offers the members of Gui.Edit, Gui.Control, Object and
     included file (also nested, `Outer.Inner`).
 - `;@declare-auto-type ClassPattern, ...` declares a suffix pattern per matching built-in class:
   `;@declare-auto-type Gui*` covers e.g. `mainGui` as `Gui` and `okButton` as `Gui.Button`; `*` covers all
-  built-in classes.
+  built-in classes. The class pattern has at most one wildcard, at the start, the end or inside
+  (`Gui.*Box` for `Gui.CheckBox`, `Gui.ComboBox` ...).
 
 Declared names get their own color and narrow completion, parameter info and help variants to the declared
 class and its base classes. A declaration with a wildcard does not override the color of a built-in name;
-an exact name does.
+an exact name does. The color is meant for variables: a name that is called (`myFunc()`, `myFunc "x"` or
+`myFunc` alone on a line) keeps its normal color; where a name may be a variable or a function (`x := myFunc`),
+it gets the color.
 
 Mistakes in a pragma are marked in the comment ("Unknown class.", "Invalid pattern.", "'as' expected." ...).
 
@@ -522,7 +532,8 @@ default off), with switches like the JavaDoc settings of IntelliJ (defaults in b
   lines (off), parameter descriptions on a new line (off).
 - Blank lines (on = exactly one, off = none): after the description (on), after the parameters (off), after
   `@returns` (off), before `@example` (off).
-- Other: wrap at the right margin (on; *Hard wrap at* under *Editor > Code Style > General*, default 120), keep
+- Other: wrap at the right margin (on; *Hard wrap at* on the tab
+  *Wrapping and Braces*, otherwise the one under *Editor > Code Style > General*, default 120), keep
   one-line comments (off), preserve line feeds (off), leading asterisks (on).
 - Tags: keep `@param` without a parameter (on), keep empty tags (on), sort `@param` (off), add missing `@param`
   (off).
@@ -530,7 +541,11 @@ default off), with switches like the JavaDoc settings of IntelliJ (defaults in b
 `@example` code, Markdown code blocks, headings, tables and hard line breaks are never changed; list items are
 wrapped below their text; words (and URLs) are never split.
 
-Line breaks are never added or removed, because the end of a line ends a statement. The space before `(` or
+*Edit > Fill Paragraph* joins and wraps just the paragraph at the caret at *Hard wrap at*, in `;` comments, block
+comments and doc comments on lines of their own. List items and tags are paragraphs of their own; directives
+(`;@...`), separator lines, headings, tables, code blocks and `@example` stay as they are.
+
+In code, line breaks are never added or removed, because the end of a line ends a statement. The space before `(` or
 `[` in calls is never changed either (`f (x)` is a concatenation, not a call).
 
 ### Case adjustment
@@ -679,7 +694,8 @@ reports an error. Here, too, the same rule applies (saving an included file vali
 ## Compiling with Ahk2Exe
 
 *Code > Compile with Ahk2Exe* (also in the context menu of the editor and the project view) turns a script into
-an executable with Ahk2Exe, the compiler of the AutoHotkey installation (`Compiler\Ahk2Exe.exe`).
+an executable with Ahk2Exe, the compiler of the AutoHotkey installation (`Compiler\Ahk2Exe.exe`). If it is missing,
+start *AutoHotkey Dash* from the Windows Start menu and click *Compile*, which installs it.
 
 - Like the validation, it compiles the script of the selected AutoHotkey run configuration if the current file
   belongs to it, otherwise the current file. Modified files are saved first.
@@ -728,72 +744,202 @@ configuration is available as `A_InitialWorkingDir`.
 ## Deploying tools and setting versions
 
 Three actions in the *Code* menu (also in the context menus of the editor and the project view) help with tools you
-use every day. Deploy and Set Version first save all modified files, also `settings.ahk-plugin.ini`. They follow one rule: **one tool = one project**. A tool may consist of several scripts and
+use every day. Deploy and Set Version first save all modified files, also `settings.ahk-v2-plugin.ini`. They follow one rule: **one tool = one project**. A tool may consist of several scripts and
 executables (e.g. a GUI and a console variant), but it is one unit with one version. The actions always work on the
 whole project, whatever file is open, and name it in the menu (*Deploy 'MyTool' to Local Target...*). They appear
-in every project that contains an AutoHotkey file or a `settings.ahk-plugin.ini` (no file has to be open).
+in every project, also in one without AutoHotkey files: deploying and setting versions work for tools in any
+language.
 
-The settings of *Deploy* are in the file `settings.ahk-plugin.ini` in the project root:
+The settings of *Deploy* are in the file `settings.ahk-v2-plugin.ini` in the project root:
 
 ```ini
-[Install]
+[Deploy]
 Destination=C:\bin
 Message=Close the running tool first.
-RequiresAdmin=false
-GenerateOverview=true
-CompileBeforeInstall=true
+GenerateOverview=yes
+RequiresAdmin=no
+Compile=yes
+EmbedOrigin=yes
 
-[Overwrite]
+[Install]
 mytool.exe=.
 console\mytool-console.exe=.
 pictures\*.png=pictures
 
-[KeepExisting]
-mytool.ini=%APPDATA%\mytool\
+[InstallIfMissing]
+mytool.ini=%A_AppData%\mytool\
+
+[Cleanup]
+old-name.exe=.
 
 [SetVersion]
-scratch\=exclude
+scratch\=no
 ```
 
+Plugin version 2.1 read `settings.ahk-plugin.ini`, with other names: `[Install]` for the options (now `[Deploy]`),
+`[Overwrite]` (now `[Install]`), `[KeepExisting]` (now `[InstallIfMissing]`), `[ApplyCopyNotice]` (now `[AddBanner]`),
+`CopyNotice` (now `Banner`) and `CompileBeforeInstall` (now `Compile`). This version still reads such a file if the
+project has no `settings.ahk-v2-plugin.ini`; the confirmation of *Deploy* then shows a gray hint and the button *Update
+Settings*, which turns it into `settings.ahk-v2-plugin.ini` with the new names (also in its comments; Git sees a rename)
+and shows the confirmation again. If both files exist, the new one counts and the confirmation warns about the old one.
+Plugin version 2.5.0 will no longer read the old file. Old names in the new file are errors that name the new name.
+
 *Create Settings...* (same menus, only while the project root has no such file) writes a documented default
-`settings.ahk-plugin.ini` into the project root and opens it: every option is explained in comments and commented
-out (switches with the value that changes the default, usually `true`), so the file does nothing until you remove a
-`;`.
+`settings.ahk-v2-plugin.ini` into the project root and opens it: every option is explained in comments and commented
+out (switches with the value that changes the default, usually `yes`), so the file does nothing until you remove a
+`;`; only `[SetVersion]` leaves the folders `scratch\` and `test\` out from the start. Explanations start with `;;`,
+commented-out options with a single `;`. The commented-out examples come from the files in the project root (e.g.
+`;notes.md=.` and `;*.md=yes`; without such files `;MyTool.cmd=.`). Switches and the values of `[AddBanner]` and
+`[SetVersion]` are `yes` or `no`.
 
 *Deploy to Local Target...* copies the tool to a fixed place, so that compiling in the project does not replace the
-version in use. It needs `settings.ahk-plugin.ini`; without one it offers to create the default file.
+version in use. It needs `settings.ahk-v2-plugin.ini`; without one it offers to create the default file.
 
 - Everything is checked first (sources, targets, variables, scripts to compile); any problem stops the deployment
   before anything happens. Then a confirmation is always shown (message, overview, warnings), and the steps run in
-  this order: compile, copy. The report appears in the Run tool window; a failure stops the remaining steps (no
+  this order: compile, remove (`[Cleanup]`), copy. The report appears in the Run tool window; a failure stops the remaining steps (no
   rollback). Nothing is committed or tagged.
-- `CompileBeforeInstall` (on by default) compiles what is copied: every executable named in `[Overwrite]` or `[KeepExisting]`
+- `Compile` (on by default) compiles what is copied: every executable named in `[Install]` or `[InstallIfMissing]`
   (a source ending in `.exe`, without wildcards) that has a script of the same name next to it
   (`console\mytool-console.exe` from `console\mytool-console.ahk`) is compiled from that script first, each script
   once, in the order of the lines. Each such script needs a line `;@Ahk2Exe-Base`, and a line
   `;@Ahk2Exe-ExeName` must not name another file; otherwise the deployment stops, and you fix the script or the
   settings. An executable without such a script is just copied. Only executables that are actually copied are
-  compiled; `CompileBeforeInstall=false` copies them as they are.
-- Sources are relative to the project root (no `..`), with `*` and `?` in the file name (not recursive, files only).
-  Targets are absolute or relative to `Destination`; `%DESTINATION%`, environment variables of the IDE and `%%`
-  are resolved. A target ending with `\` or `/`, `.` or `..`, `Destination` itself (also before it exists), an
-  existing folder, or the target of a wildcard is a folder.
-  `[KeepExisting]` skips existing targets. Each source only once per section (use wildcards for more targets).
+  compiled; `Compile=no` copies them as they are.
+- Sources always start at the project root (also without a leading `\`, no `..`), with `*` and `?` in the file
+  name (not recursive, files only). Targets are absolute or relative to `Destination`. A target ending with `\` or
+  `/`, `.` or `..`, `Destination` itself (also before it exists), an existing folder, or the target of a wildcard is
+  a folder. Two lines (also one of each section) must not give the same target.
+  `[InstallIfMissing]` skips existing targets. Each source only once per section (use wildcards for more targets).
+  Targets of `[Install]` are made read-only (a reminder not to edit the copy; where the drive does not allow it,
+  nothing happens) and overwritten at the next deployment without asking; targets of `[InstallIfMissing]` stay
+  writable.
   Keys and values may be enclosed in double quotes; spaces in file names are kept.
-- `RequiresAdmin=true` copies in one elevated process (one UAC prompt); the confirmation then always shows a
-  prominent notice. `GenerateOverview` (on by default) shows the destination, the compile steps and the lines of
-  `[Overwrite]` and `[KeepExisting]` without comments. `RequiresAdmin` is off by default.
-- The confirmation warns if an executable is older than the scripts next to it (with `CompileBeforeInstall=false`)
-  and if the project has uncommitted changes (Git).
+- `[Cleanup]` removes leftovers of earlier deployments, e.g. a file that was renamed. Each line is `files=folder`:
+  the folder is absolute or relative to `Destination` (variables as in targets), the files are relative to it, with
+  `*` and `?` in the file name (`pictures\*.png=.` removes `<Destination>\pictures\*.png`, `test.exe=C:\bin` removes
+  `C:\bin\test.exe`). Only files, not recursive; a folder that does not exist or files without match remove nothing.
+  A file the same deployment writes is an error, and so is a file after the `=`. If there is something to remove, a
+  second dialog after the confirmation lists every file: *Remove and Deploy* moves them to the Recycle Bin before
+  copying, *Deploy Without Removing* only copies, *Cancel* (the default) stops. Files are never deleted for good: on
+  a drive without Recycle Bin (network or removable drive) the deployment stops with an error.
+- Variables (in `Destination`, targets, `Message`, `Banner=file:`): the folder variables of AutoHotkey
+  (`%A_MyDocuments%`, `%A_AppData%`, `%A_AppDataCommon%`, `%A_Desktop%`, `%A_DesktopCommon%`, `%A_ProgramFiles%`,
+  `%A_Programs%`, `%A_ProgramsCommon%`, `%A_StartMenu%`, `%A_StartMenuCommon%`, `%A_Startup%`, `%A_StartupCommon%`,
+  `%A_Temp%`, `%A_UserName%`, `%A_ComputerName%`, `%A_WinDir%`; folders found like AutoHotkey finds them, also a
+  redirected "Documents"), `%LIBRARY_PROJECTS%` (the setting *Library projects folder*), `%DESTINATION%` in targets
+  and `Message`, `%%`. Environment variables are not resolved. For a library, `Destination` is the user library
+  folder `%A_MyDocuments%\AutoHotkey\Lib\`, shown as a second commented-out line in the default file.
+- `[AddBanner]` and `[SetVersion]` have lines `selector=value`. The selector is written like a line of
+  `.gitignore` (`*.ahk` in every folder, `/x.ahk` or `lib/*.ahk` from the root, `scratch\` a folder with everything
+  below it, `**` any number of folders; `/` and `\` both separate, case is ignored); the **last** matching line wins.
+  Values: `yes` (comment of the file type, e.g. `;` for `.ahk` and `.ini`, `#` for `.py` and `.ps1`, `//` for
+  `.js` and `.cs`, `::` for `.cmd` and `.bat`, `<!-- -->` for `.html` and `.md`, `/* */` for `.css`; the manual lists all
+  known types; for another type `yes` is an error that asks for one of the next two), `no`,
+  `line:<start> [<end>]`, `block:<start> <end>` (also to replace the comment of a known type, e.g.
+  `*.cmd=line:REM`). Binary files (`.exe`, `.png` ...) are never changed (warning).
+- `Banner` in `[Deploy]`: comments at the start of every AutoHotkey file copied by `[Install]` (unless
+  `[AddBanner]` excludes it) and of other files of `[Install]` that `[AddBanner]` includes; files of
+  `[InstallIfMissing]` never get one, since the copy belongs to the user from then on (a line that includes one
+  gets a gray hint). Text: the value (`` `n `` = new line), `@library`
+  or `@standard` (built-in, see below), `file:<path>` (relative to the project root, with variables) or `find:<name>`
+  (the file of that name in the project root or the nearest folder above it, e.g. `find:banner.txt` with one
+  file for all projects of a folder; projects can be moved without changing the setting; not found = the
+  deployment stops, the message suggests creating the file or a built-in template). *Create Settings* writes
+  `Banner=find:banner.txt` active if the project folder or a folder above contains `banner.txt`.
+  Placeholders
+  `{project-name}` (folder name of the project), `{project-path}` (its full path), `{source-name}` (file name of the
+  source), `{source-relative}` (source relative to the project root), `{source-path}` (full path of the source),
+  `{version}`, `{commit}` (short Git commit of the project, `+` if the source has uncommitted
+  changes), `{timestamp}`, `{computer}`, `{include}` (`#Include <v2\Gui>` for a copy in a Lib folder). A line whose
+  placeholders are all empty is left out (no version, no Git, not in a Lib folder). With `block:` the start comes before
+  the first line, the end after the last one. `@library` gives (the lines as long as those of the Ahk2Exe head, the
+  values aligned four spaces after the longest label):
 
-*Set Version...* sets the version of the tool in every AutoHotkey file of the project that has a line
-`;@Ahk2Exe-SetVersion 1.2.0` (file and product version of the executable); it needs no settings. Files listed in
-the section `[SetVersion]` of `settings.ahk-plugin.ini` (lines `path=exclude`, the path relative to the project root
-like a source of `[Overwrite]`; ending with `\` a folder with everything below it, e.g. `scratch\=exclude`) are left
-alone silently. They still count for commit and tag; to keep files out of Git use `.gitignore`. A mistake in the
-settings stops Set Version only if it concerns the file itself or `[SetVersion]`. The dialog shows
+  ```
+  ; ---------------------------------------------------------------------------
+  ; INSTALLED LIBRARY  -  Do not modify here. Edit the source and deploy again.
+  ;
+  ; Project     Gui [D:\Projects\Gui]
+  ; Source      Gui.ahk
+  ; Version     1.2.0
+  ; Commit      a1b2c3d+
+  ; Deployed    2026-11-20 14:30 on MYCOMPUTER
+  ; Use         #Include <v2\Gui>
+  ; ---------------------------------------------------------------------------
+  ```
+
+  `@standard` (any other copy: a tool, a configuration ...) starts with
+  `INSTALLED ARTIFACT -- Do not modify here. Edit the source and deploy again.`, without the line Use. Placed after a
+  first line `<?xml`, `#!`, a registry header or `@echo off`. A file with a byte order mark
+  (UTF-8, UTF-16) gets the text in its encoding, any other file ASCII (other characters become `_`); line break as
+  in the first line. With `{version}` in the text, a file that is no AutoHotkey file loses its own `@SetVersion`
+  line in the copy. The source is never changed. The confirmation warns if `Banner` is set but no file gets it
+  while a file could (exclude it with `no` to stay silent), and shows a gray hint if no deployed file type can take a
+  banner; without `Banner` it warns about a line that includes a deployed file and about AutoHotkey files that
+  would get one (`*.ahk=no` in `[AddBanner]` says that the tool is deployed without a banner).
+- Libraries (files of `%A_MyDocuments%\AutoHotkey\Lib`, `#Include <v2\Gui>` = `Lib\v2\Gui.ahk`): without the
+  setting *Library projects folder* they are edited directly; *File > New > AutoHotkey Library File* creates one
+  (name with folders, e.g. `v2\Gui`), and a notification bar above them points to library projects (*Set Library Projects
+  Folder...*, *Don't Show Again*). With the setting, one library = one project in that folder (`v2\Gui` lives
+  in `<folder>\Gui\Gui.ahk` and deploys into `Lib\v2\`, so one project can also deploy other versions such as
+  `Lib\Gui.ahk`; any folder below with a `settings.ahk-v2-plugin.ini` is a project, so the projects may also be
+  organized in subfolders), deployed into the Lib folder. *File > New > AutoHotkey Library Project...* (also on the welcome screen) creates such a project
+  (source with `;@Ahk2Exe-SetVersion 0.1.0`, settings with `Destination=%A_MyDocuments%\AutoHotkey\Lib\` and the
+  folders of the name in the target, e.g. `Gui.ahk=v2\`,
+  `Banner=@library` or, if the library projects folder or a folder above contains `banner.txt`,
+  `Banner=find:banner.txt`, and `[SetVersion]` with `scratch\=no`,
+  `test\=no`) and opens it in its own window; *Create Library Project 'Gui'* (context menu or notification bar
+  of a library file without project) does the same with a copy of the file; *AutoHotkey Library File* then warns and
+  offers a project instead. *Add to Library Project...* (same places) adds such a file to an existing project chosen
+  from a list (type to filter; projects of the same subfolder first): it copies the file into the project root, adds
+  a line to `[Install]` that deploys it back to its place (`Gui.ahk=v2\`) and opens the project. If the project
+  has a file of that name already, the copy is called `Gui_added.ahk` and the line `Gui_added.ahk={set target}`:
+  Deploy refuses it until you write the target. The files a project deploys are read-only in the editor, with a notification bar and the action
+  *Open Library Project 'Name'* (context menus of editor and Project view, also below *External Libraries*): it
+  opens the project in its own window at the source line of the caret (shifted by the lines the copy has more than
+  the source). If two projects deploy the same file, the one of the naming rule wins.
+- `RequiresAdmin=yes` copies in one elevated process (one UAC prompt); the confirmation then always shows a
+  prominent notice. `GenerateOverview` (on by default) shows the destination, the compile steps and the lines of
+  `[Install]` and `[InstallIfMissing]` without comments. `RequiresAdmin` is off by default.
+- `EmbedOrigin` (on by default) lets the copies lead back to their project: the built-in banners name the project
+  folder and the computer, and an executable of `[Install]` with a script of the same name next to it gets them as
+  text at its end (`[ahk-v2-plugin]`, `ProjectPath=`, `ProjectComputer=`; UTF-8). The program itself and the executable
+  in the project stay as they are; signed executables are not changed (gray hint). **Privacy:** everyone who gets such a
+  copy can read the folder and the computer name; `EmbedOrigin=no` leaves both out. Own banner texts and files are not
+  affected.
+- The confirmation warns if an executable is older than the scripts next to it (with `Compile=no`)
+  and if the project has uncommitted changes (Git).
+- Renaming or moving a file or folder of the project in the IDE (*Rename*, *Move*, drag and drop in the Project
+  view) also updates `settings.ahk-v2-plugin.ini`: the sources of `[Install]` and `[InstallIfMissing]` that name it
+  (for a script also the executable of the same name next to it, `Gui.exe` for `Gui.ahk`) and the selectors of
+  `[SetVersion]` and `[AddBanner]` that name exactly this file or folder.
+  - If the file name changes and a line deploys the file to a folder (`Gui.ahk=v2\`) or under its old name, a
+    dialog asks about the target: *Keep Target Name* (the default: `Gui-v2.ahk=v2\Gui.ahk`, so scripts that use the
+    deployed file keep working), *Rename Target Too* (`Gui-v2.ahk=v2\`, and a line `Gui.ahk=v2\` in `[Cleanup]`
+    removes the old copy at the next deployment; not for `[InstallIfMissing]`), *Edit Myself* (only the source
+    changes, and the file opens at the target) or *Cancel* (nothing changes).
+  - Otherwise (moving, a renamed folder, a target with another name) the lines change at once and a dialog shows
+    them; *Edit Myself* opens the file. *Undo* in its editor reverts the change.
+  - A line of `[Cleanup]` that would remove a new target is removed. If the script names its executable with
+    `;@Ahk2Exe-ExeName`, the dialog reminds you to adjust that line.
+  - Not every change can be followed: renaming in Windows Explorer or another program is not noticed, and lines
+    with wildcards (`*.ahk=v2\`) stay as they are, so their targets take the new name. After such changes, and
+    whenever a deployment does something unexpected, check `settings.ahk-v2-plugin.ini` carefully.
+
+*Set Version...* sets the version of the tool in every AutoHotkey file (`.ahk`, `.ah2`, `.ahk2`) of the project,
+deployed or not, in the line `;@Ahk2Exe-SetVersion 1.2.0` (file and product version of the executable); it needs
+no settings. The section `[SetVersion]` of `settings.ahk-v2-plugin.ini` (selectors and values as above) excludes
+files (`scratch\=no`; they still count for commit and tag, to keep files out of Git use `.gitignore`) or includes
+other files. A file without a version line gets one: `;@Ahk2Exe-SetVersion x` in AutoHotkey files below the
+`#Requires` line (without one, as the first line), `<comment> @SetVersion x` in others as the first line (after
+`<?xml`, `#!` or `@echo off`; in `.cmd`/`.bat` a line with `REM` is found too and rewritten with `::`; a version line at the start right
+before such a first line moves behind it). A mistake in the settings stops
+Set Version only if it concerns the file itself or `[SetVersion]`. If no file gets the version, a message says
+why and offers *Create Settings* (no `settings.ahk-v2-plugin.ini` yet) or *Edit Settings* (`[SetVersion]` includes no
+file); *Create Settings* opens the new file at `[SetVersion]`. The dialog shows
 the current version (the highest, with a warning if the scripts differ) and the scripts it changes, proposes the next
-patch, minor or major version or takes any other one (never with a leading `v`), then changes the lines (undoable
+patch, minor or major version (without any version yet `0.0.1`, `0.1.0`, `1.0.0`) or takes any other one (never with a leading `v`; the field shows the chosen version to start from), then changes the lines (undoable
 with *Undo*). With *Commit the project and create tag v1.2.1* it commits all changes of the project and sets the
 annotated tag `v<version>` on that commit, so the tag marks exactly the sources of the deployed tool. This is only
 possible if every file of the project is versioned or ignored (`.gitignore`); otherwise, and without Git, the check
@@ -803,11 +949,33 @@ version (not computed with `%...%`); Ahk2Exe reads it as a directive in any case
 
 Details and reasons: *Help > AutoHotkey Plugin Manual*, page "Deploying tools and setting versions".
 
+### Library projects
+
+Libraries in the Lib folder (`#Include <Logger>`) can be edited directly, which is simple and fully supported. But
+every change reaches all scripts at once, and there is no room for tests or Git. A library project separates the
+two: the Lib folder is only the shop window, the work is done in a project of its own (with tests, notes and, if you
+like, Git), and *Deploy* brings the finished state into the Lib folder, with a banner of project and version at the
+top of the copy. The scripts keep their `#Include`; Ctrl+click leads to the read-only copy and *Open Library
+Project* on to the source. Git is recommended but not required.
+
+Typical ways in: *Create Library Project* from an existing library file, *File > New > AutoHotkey Library
+Project...* for a new one, one project with a v1 and a v2 version deployed to `Lib\Encode.ahk` and
+`Lib\v2\Encode.ahk`, and *Add to Library Project...* for a library file that belongs to an existing project.
+Step by step with screenshots: manual page "Library projects".
+
+## Old ANSI files
+
+AutoHotkey v2 reads a file without byte order mark as UTF-8, and so does the IDE. An old file saved in the ANSI code
+page of Windows (umlauts, accents) is shown wrong in both. Above such a file the plugin shows the notification bar *File is not
+UTF-8 (probably ANSI)* with the link *Convert from ANSI to UTF-8*: the file is read in the ANSI code page of Windows
+and saved as UTF-8 without byte order mark (*Undo* restores the previous text in the editor). This works for every
+text file except `.cmd` and `.bat`, which stay in their code page.
+
 ## Settings overview
 
 | Where | What |
 |-------|------|
-| *Languages & Frameworks > AutoHotkey* | path to AutoHotkey and to the AutoHotkey v2.1 interpreter (empty = automatic), command line of the external help, automatic validation, Ahk2Exe path and compression, language level of files without `#Requires`, language level in the Project view |
+| *Languages & Frameworks > AutoHotkey* | path to AutoHotkey and to the AutoHotkey v2.1 interpreter (empty = automatic), command line of the external help, automatic validation, Ahk2Exe path and compression, language level of files without `#Requires`, language level in the Project view, library projects folder |
 | *Editor > Color Scheme > AutoHotkey* | colors |
 | *Editor > Code Style > AutoHotkey* | indent, spaces, tab *Case* |
 | *Editor > Live Templates > AutoHotkey* | templates |

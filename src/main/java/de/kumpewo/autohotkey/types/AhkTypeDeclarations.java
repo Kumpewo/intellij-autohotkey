@@ -43,8 +43,8 @@ import java.util.regex.Pattern;
  *       (also {@code Gui.Edit}) or an own class from the file or the files included directly with #Include (also
  *       nested, {@code Outer.Inner}). Built-in takes precedence (AutoHotkey does not allow an own class with the
  *       name of a built-in class).</li>
- *   <li>{@code ;@declare-auto-type ClassPattern, ...}: wildcard on the class names ({@code Gui*}, {@code *Box},
- *       {@code *} = all); every matching class K becomes {@code *K as K}, for {@code Gui.X} it becomes
+ *   <li>{@code ;@declare-auto-type ClassPattern, ...}: at most one wildcard anywhere in the class name
+ *       ({@code Gui*}, {@code *Box}, {@code Gui.*Box}, {@code *} = all); every matching class K becomes {@code *K as K}, for {@code Gui.X} it becomes
  *       {@code *X as Gui.X}. Only built-in classes, not own ones.</li>
  *   <li>{@code ;@declare-private Pattern, ...}: member names (methods, properties, fields) shown in the color for
  *       private members ({@link #privacy}).</li>
@@ -75,8 +75,12 @@ public final class AhkTypeDeclarations {
      * as in AutoHotkey: letters, digits, underscore and every non-ASCII character (e.g. a prefix like "§").
      */
     private static final Pattern NAME_PATTERN = Pattern.compile("(\\*?)([A-Za-z0-9_\\x{80}-\\x{FFFF}]+)(\\*?)");
-    /** Class pattern: as above, but with a dot (Gui.Edit, Gui.*), or "*" alone. */
-    private static final Pattern CLASS_PATTERN = Pattern.compile("(\\*?)([\\p{L}\\p{N}_.]+)(\\*?)|\\*");
+    /**
+     * Class pattern: name with a dot (Gui.Edit) and at most one wildcard anywhere (Gui*, *Box, Gui.*Box, "*" alone).
+     * With a wildcard: group 1 = part before, group 2 = part after (each may be empty); without: group 3 = name.
+     */
+    private static final Pattern CLASS_PATTERN =
+            Pattern.compile("([\\p{L}\\p{N}_.]*)\\*([\\p{L}\\p{N}_.]*)|([\\p{L}\\p{N}_.]+)");
     private static final Pattern WORD = Pattern.compile("\\S+");
 
     /** Kind of a pattern: exact name, prefix* or *suffix. */
@@ -525,23 +529,31 @@ public final class AhkTypeDeclarations {
             return;
         }
         Matcher pattern = CLASS_PATTERN.matcher(patternRange.substring(text));
-        if (!pattern.matches() || pattern.group(2) != null && !pattern.group(1).isEmpty()
-                && !pattern.group(3).isEmpty()) {
+        if (!pattern.matches()) {
             problems.add(new Problem(patternRange.shiftRight(offset), INVALID_PATTERN));
             return;
         }
-        Kind kind = pattern.group(2) == null ? Kind.PREFIX                // "*" alone: prefix "" always matches
-                : !pattern.group(1).isEmpty() ? Kind.SUFFIX
-                : !pattern.group(3).isEmpty() ? Kind.PREFIX : Kind.EXACT;
-        Entry classPattern = new Entry(kind,
-                pattern.group(2) == null ? "" : pattern.group(2).toLowerCase(Locale.ROOT), "");
+        boolean wildcard = pattern.group(3) == null;
+        String before = (wildcard ? pattern.group(1) : pattern.group(3)).toLowerCase(Locale.ROOT);
+        String after = wildcard ? pattern.group(2).toLowerCase(Locale.ROOT) : "";
         boolean found = false;
         for (AhkNames.BuiltinClass cls : names.builtinClasses()) {
-            if (!classPattern.matches(cls.name().toLowerCase(Locale.ROOT))) continue;
+            if (!matchesClassPattern(cls.name().toLowerCase(Locale.ROOT), wildcard, before, after)) continue;
             found = true;
             String simple = cls.name().substring(cls.name().lastIndexOf('.') + 1);
             entries.add(new Entry(Kind.SUFFIX, simple.toLowerCase(Locale.ROOT), cls.name()));
         }
         if (!found) problems.add(new Problem(patternRange.shiftRight(offset), UNKNOWN_CLASS));
+    }
+
+    /**
+     * Does the (lower-case) class name match the class pattern? Without wildcard: equal to {@code before}. With
+     * wildcard: starts with {@code before} and ends with {@code after}, the wildcard standing for any characters
+     * (also none) between them, so the two parts must not overlap.
+     */
+    private static boolean matchesClassPattern(String lowerName, boolean wildcard, String before, String after) {
+        if (!wildcard) return lowerName.equals(before);
+        return lowerName.length() >= before.length() + after.length()
+                && lowerName.startsWith(before) && lowerName.endsWith(after);
     }
 }

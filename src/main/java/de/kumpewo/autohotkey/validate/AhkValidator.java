@@ -14,6 +14,7 @@ import com.intellij.execution.ui.ConsoleView;
 import com.intellij.execution.ui.ConsoleViewContentType;
 import com.intellij.execution.ui.RunContentDescriptor;
 import com.intellij.execution.ui.RunContentManager;
+import com.intellij.openapi.application.WriteAction;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.markup.TextAttributes;
@@ -24,6 +25,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.util.Key;
 import com.intellij.openapi.util.io.FileUtil;
+import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiErrorElement;
@@ -57,9 +59,11 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -190,7 +194,7 @@ public final class AhkValidator {
             }
             return;
         }
-        saveAllDocuments();
+        if (!saveAllDocuments(project, manual ? AhkBundle.message("validate.title", script.getName()) : null)) return;
         Map<VirtualFile, Long> stamps = new HashMap<>();
         FileDocumentManager documents = FileDocumentManager.getInstance();
         for (VirtualFile checked : file == null || file.equals(script) ? List.of(script) : List.of(script, file)) {
@@ -256,17 +260,98 @@ public final class AhkValidator {
 
     /**
      * Saves all modified documents, not only the AutoHotkey ones (the script and the files it includes are read from
-     * disk, Deploy reads {@code settings.ahk-plugin.ini}, and Set Version commits the whole project). Used before
+     * disk, Deploy reads {@code settings.ahk-v2-plugin.ini}, and Set Version commits the whole project). Used before
      * every action: Validate, Compile, Deploy, Set Version; while it saves, AhkValidateTriggers does not start a
-     * validation.
+     * validation. A document that is still unsaved afterwards is saved once more on its own. The platform may also
+     * drop a modified document from its unsaved ones without writing it (seen in IntelliJ 2026.3 after a line was
+     * commented and uncommented again with a save in between); so every document that was unsaved before is compared
+     * with its file on disk, and one that differs is written here ({@link #writeStale}). If a document still differs
+     * or is unsaved, the action must not run on the old content on disk: the files are logged and, with a title,
+     * named in an error dialog.
+     *
+     * @param project the project of the action (owner of the dialog)
+     * @param title   title of the error dialog, or null to fail silently (automatic validation)
+     * @return true if no modified document is left
      */
-    public static void saveAllDocuments() {
+    public static boolean saveAllDocuments(@NotNull Project project, @Nullable String title) {
+        FileDocumentManager documents = FileDocumentManager.getInstance();
+        Document[] before = documents.getUnsavedDocuments();
         saving = true;
         try {
-            FileDocumentManager.getInstance().saveAllDocuments();
+            documents.saveAllDocuments();
+            for (Document document : documents.getUnsavedDocuments()) documents.saveDocument(document);
+            for (Document document : before) {
+                if (!documents.isDocumentUnsaved(document)) writeStale(project, document);
+            }
         } finally {
             saving = false;
         }
+        Set<String> unsaved = new LinkedHashSet<>();
+        for (Document document : documents.getUnsavedDocuments()) {
+            VirtualFile file = documents.getFile(document);
+            if (file != null) unsaved.add(file.getPresentableUrl());
+        }
+        for (Document document : before) {
+            VirtualFile file = documents.getFile(document);
+            if (file != null && differsFromDisk(document, file)) unsaved.add(file.getPresentableUrl());
+        }
+        if (unsaved.isEmpty()) return true;
+        LOG.warn("Modified documents could not be saved: " + unsaved);
+        if (title != null && !project.isDisposed()) {
+            Messages.showErrorDialog(project, AhkBundle.message("save.failed", String.join("\n", unsaved)), title);
+        }
+        return false;
+    }
+
+    /**
+     * Writes a document that the platform counts as saved although its file on disk has a different text: in the
+     * encoding of the file (with its byte order mark) and with its line separator. Logs the case with the
+     * modification stamps of document and file (equal stamps make the platform skip the document). Errors are
+     * logged; the caller notices them because the file still differs.
+     */
+    private static void writeStale(@NotNull Project project, @NotNull Document document) {
+        FileDocumentManager documents = FileDocumentManager.getInstance();
+        VirtualFile file = documents.getFile(document);
+        if (file == null || !differsFromDisk(document, file)) return;
+        LOG.warn("Document counted as saved but differs from the file on disk, writing it: " + file.getPresentableUrl()
+                + " (document stamp " + document.getModificationStamp() + ", file stamp "
+                + file.getModificationStamp() + ")");
+        String separator = documents.getLineSeparator(file, project);
+        byte[] text = StringUtil.convertLineSeparators(document.getText(), separator)
+                .getBytes(file.getCharset());
+        byte[] bom = file.getBOM();
+        ByteArrayOutputStream content = new ByteArrayOutputStream(text.length + 4);
+        if (bom != null) content.writeBytes(bom);
+        content.writeBytes(text);
+        try {
+            WriteAction.run(() -> file.setBinaryContent(content.toByteArray()));
+        } catch (IOException | RuntimeException e) {
+            LOG.warn("Could not write " + file.getPresentableUrl(), e);
+        }
+    }
+
+    /**
+     * True if the text of the document differs from its file on disk (read directly, not from the cache of the
+     * platform; decoded in the encoding of the file, byte order mark removed, line separators as in documents). Only
+     * local files are compared; a file that cannot be read counts as different.
+     */
+    static boolean differsFromDisk(@NotNull Document document, @NotNull VirtualFile file) {
+        if (!file.isInLocalFileSystem() || !file.isValid()) return false;
+        byte[] bytes;
+        try {
+            bytes = Files.readAllBytes(file.toNioPath());
+        } catch (IOException | RuntimeException e) {
+            return true;
+        }
+        byte[] bom = file.getBOM();
+        int start = 0;
+        if (bom != null && bytes.length >= bom.length
+                && Arrays.equals(bytes, 0, bom.length, bom, 0, bom.length)) {
+            start = bom.length;
+        }
+        String text = StringUtil.convertLineSeparators(
+                new String(bytes, start, bytes.length - start, file.getCharset()));
+        return !StringUtil.equals(text, document.getCharsSequence());
     }
 
     /** Path of the temporary copy: next to the script (same {@code A_ScriptDir}, Lib folder and relative includes). */
