@@ -753,25 +753,6 @@ A difference file of v2.1 (`AhkResources`) holds only what is new or different: 
 lines with the same key (signature and lookup: the name; values and options: `Name Position` or `@Group`), and
 `-Key` removes them. Without a difference file v2.1 uses the v2.0 file.
 
-## Tools (`tools/`)
-
-Maintainer tools; they are not part of the published repository (`export-ignore` in `.gitattributes`). Python
-scripts that read the AutoHotkey help under `src/main/resources/help/docs/` (class tree `objlist.htm`, linked
-pages such as `lib/Array.htm`; the case of file names is ignored):
-
-- `klassenmember/klassenmember.py` → `names/members.txt`
-- `methodensignaturen/methodensignaturen.py` → `names/method-signatures.txt` (run after `klassenmember.py`)
-- both with `--level 2.1`: from `help/v2.1/docs/` to `names/v2.1/`
-- `bezeichnerliste/bezeichnerliste.py` → `tools/bezeichnerliste/bezeichner-komplett.txt`, the list of all
-  identifiers the plugin recognizes, used to check which help pages exist.
-
-`dbgp-probe/dbgp_probe.py` is a development tool for the planned debugger: it starts
-`AutoHotkey64.exe /Debug=127.0.0.1:port` on test scripts, sends DBGp commands and logs the raw traffic, to observe
-how the engine behaves (written from the DBGp specification only).
-
-`publish/publish.py` builds the public repository: it exports a branch with `git archive` (without the files marked
-`export-ignore`) into a local clone of the public repository and commits it there, without the private history.
-
 ## Tests
 
 - `AhkParsingTest` (`ParsingTestCase`): parses small inputs and checks the tree and the errors. Every input runs
