@@ -29,7 +29,7 @@ public class AhkDeployTest extends BasePlatformTestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        root = Files.createTempDirectory("ahk-deploy-test");
+        root = Files.createTempDirectory("ahk-deploy-test").toRealPath();
     }
 
     @Override
@@ -1740,8 +1740,8 @@ public class AhkDeployTest extends BasePlatformTestCase {
      * (same encoding); with both files the new one wins and the old one is a warning.
      */
     public void testLegacySettingsDeploy() throws Exception {
-        Path root = Files.createTempDirectory("ahk-legacy");
-        Path dest = Files.createTempDirectory("ahk-legacy-dest");
+        Path root = Files.createTempDirectory("ahk-legacy").toRealPath();
+        Path dest = Files.createTempDirectory("ahk-legacy-dest").toRealPath();
         write(root.resolve("tool.ahk"), "MsgBox 1\r\n");
         Path old = root.resolve(AhkDeployConfig.LEGACY_FILE_NAME);
         Path ini = root.resolve(AhkDeployConfig.FILE_NAME);
