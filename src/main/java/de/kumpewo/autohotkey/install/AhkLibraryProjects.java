@@ -185,6 +185,21 @@ public final class AhkLibraryProjects {
         for (Path child : children) collect(child, depth + 1, projects);
     }
 
+    /**
+     * Is a project root without settings a library project to be: a folder at any depth below the folder of the library
+     * projects ({@code null}: not set), but not inside another library project?
+     */
+    static boolean isBelow(@NotNull Path root, @Nullable Path projects) {
+        if (projects == null) return false;
+        Path top = projects.toAbsolutePath().normalize();
+        Path folder = root.toAbsolutePath().normalize();
+        if (folder.equals(top) || !folder.startsWith(top)) return false;
+        for (Path parent = folder.getParent(); parent != null && parent.startsWith(top); parent = parent.getParent()) {
+            if (AhkDeployConfig.file(parent) != null) return false;
+        }
+        return true;
+    }
+
     /** The lookup key of a path: absolute, normalized, lower case (Windows ignores case). */
     private static String key(Path file) {
         return file.toAbsolutePath().normalize().toString().toLowerCase(Locale.ROOT);

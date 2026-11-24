@@ -1,8 +1,12 @@
 package de.kumpewo.autohotkey.install;
 
+import de.kumpewo.autohotkey.compile.AhkCompiler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -10,19 +14,27 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * The version of a script for "Set Version" ({@link AhkSetVersion}): the compiler directive
- * {@code ;@Ahk2Exe-SetVersion 1.2.0}, which sets file and product version of the compiled executable. The line is read
- * as Ahk2Exe reads it: the trimmed line starts with {@code ;@Ahk2Exe-} directly followed by the directive name (any
- * case) and whitespace; a comment {@code  ; ...} after whitespace is not part of the value; the value is trimmed,
- * quotes belong to it. Lines in block comments {@code /* ... * /} and between {@code ;@Ahk2Exe-IgnoreBegin} and
+ * The version of a script for "Set Version" ({@link AhkSetVersion}): in a script with {@code ;@Ahk2Exe-Base} the
+ * compiler directive {@value #DIRECTIVE_KEYWORD} (file and product version of the executable), in any other AutoHotkey
+ * file the plain comment {@value #TAG_KEYWORD}: Ahk2Exe also obeys the directives of included files, and the last
+ * version wins, so a directive in a library would replace the version of the program ({@link #keyword}). Both are read
+ * in any file, as Ahk2Exe reads its directive: the trimmed line starts with the keyword (any case), followed by
+ * whitespace; a comment {@code  ; ...} after whitespace is not part of the value; the value is trimmed, quotes belong
+ * to it. Lines in block comments {@code /* ... * /} and between {@code ;@Ahk2Exe-IgnoreBegin} and
  * {@code ;@Ahk2Exe-IgnoreEnd} are ignored, as by Ahk2Exe. Also the next version ({@link #bump}) and the tag name
  * ({@link #tagName}) and the order of versions ({@link #compare}).
  */
 public final class AhkVersionDirective {
 
-    /** {@code ;@Ahk2Exe-SetVersion value} (group 1 = the rest of the line after the whitespace). */
+    /** The compiler directive, for scripts with {@code ;@Ahk2Exe-Base}. */
+    static final String DIRECTIVE_KEYWORD = ";@Ahk2Exe-SetVersion";
+
+    /** The comment that Ahk2Exe does not read, for all other AutoHotkey files. */
+    static final String TAG_KEYWORD = ";@SetVersion";
+
+    /** Directive or comment with the value (group 1 = the rest of the line after the whitespace). */
     private static final Pattern DIRECTIVE =
-            Pattern.compile("(?i)^[ \\t]*;@Ahk2Exe-SetVersion(?:[ \\t]+(.*))?$");
+            Pattern.compile("(?is)^[ \\t]*;(?:@Ahk2Exe-|[ \\t]*@)SetVersion(?:[ \\t]+(.*))?$");
 
     /** A comment after the value: whitespace and {@code ;}. */
     private static final Pattern COMMENT = Pattern.compile("[ \\t]+;");
@@ -40,7 +52,7 @@ public final class AhkVersionDirective {
     }
 
     /**
-     * One {@code ;@Ahk2Exe-SetVersion} line.
+     * One version line.
      *
      * @param line       0-based line number
      * @param valueStart offset of the value in the text (for an empty value: where it would start)
@@ -55,8 +67,8 @@ public final class AhkVersionDirective {
     }
 
     /**
-     * The version lines of a file: in an AutoHotkey file the lines {@code ;@Ahk2Exe-SetVersion} ({@link #find}), in
-     * any other file the lines {@code <start> @SetVersion <value> [<end>]} of its comment style (each start of
+     * The version lines of a file: in an AutoHotkey file those of {@link #find}, in any other file the lines
+     * {@code <start> @SetVersion <value> [<end>]} of its comment style (each start of
      * {@link AhkFileRules#readStarts}), with the value up to whitespace or the end of the comment.
      */
     public static @NotNull List<Line> findIn(@NotNull String fileName, @NotNull CharSequence text,
@@ -82,7 +94,59 @@ public final class AhkVersionDirective {
         return result;
     }
 
-    /** All {@code ;@Ahk2Exe-SetVersion} lines that Ahk2Exe reads, in file order. */
+    /** The keyword for an AutoHotkey file with this text: the directive only in a script with a base directive. */
+    static @NotNull String keyword(@NotNull CharSequence text) {
+        return AhkCompiler.hasBaseDirective(text) ? DIRECTIVE_KEYWORD : TAG_KEYWORD;
+    }
+
+    /** Start and end of the keyword of a line of {@link #find}, from {@code ;} to {@code SetVersion}. */
+    static int @NotNull [] keywordRange(@NotNull CharSequence text, @NotNull Line line) {
+        int start = line.valueStart();
+        while (start > 0 && text.charAt(start - 1) != '\n' && text.charAt(start - 1) != '\r') start--;
+        while (text.charAt(start) != ';') start++;
+        int end = start + 1;
+        while (text.charAt(end) == ' ' || text.charAt(end) == '\t') end++;
+        while (end < line.valueStart() && text.charAt(end) != ' ' && text.charAt(end) != '\t') end++;
+        return new int[]{start, end};
+    }
+
+    /**
+     * The content of an AutoHotkey file for its deployed copy: without a base directive each
+     * {@value #DIRECTIVE_KEYWORD} becomes {@value #TAG_KEYWORD}; everything else stays byte by byte, and so does the
+     * number of lines.
+     */
+    static byte @NotNull [] tagged(byte @NotNull [] content) {
+        Charset charset = StandardCharsets.ISO_8859_1;
+        int bom = 0;
+        if (content.length >= 2 && (content[0] & 0xFF) == 0xFF && (content[1] & 0xFF) == 0xFE) {
+            charset = StandardCharsets.UTF_16LE;
+            bom = 2;
+        } else if (content.length >= 2 && (content[0] & 0xFF) == 0xFE && (content[1] & 0xFF) == 0xFF) {
+            charset = StandardCharsets.UTF_16BE;
+            bom = 2;
+        } else if (content.length >= 3 && (content[0] & 0xFF) == 0xEF && (content[1] & 0xFF) == 0xBB
+                && (content[2] & 0xFF) == 0xBF) {
+            bom = 3;
+        }
+        String text = new String(content, bom, content.length - bom, charset);
+        if (AhkCompiler.hasBaseDirective(text)) return content;
+        ByteArrayOutputStream out = new ByteArrayOutputStream(content.length);
+        int width = charset == StandardCharsets.ISO_8859_1 ? 1 : 2;
+        int done = 0;
+        for (Line line : find(text)) {
+            int[] range = keywordRange(text, line);
+            if (!text.substring(range[0], range[1]).equalsIgnoreCase(DIRECTIVE_KEYWORD)) continue;
+            int start = bom + range[0] * width;
+            out.write(content, done, start - done);
+            out.writeBytes(TAG_KEYWORD.getBytes(charset));
+            done = bom + range[1] * width;
+        }
+        if (done == 0) return content;
+        out.write(content, done, content.length - done);
+        return out.toByteArray();
+    }
+
+    /** All version lines (directive or comment) outside of block comments and ignored sections, in file order. */
     public static @NotNull List<Line> find(@NotNull CharSequence text) {
         List<Line> result = new ArrayList<>();
         boolean blockComment = false;

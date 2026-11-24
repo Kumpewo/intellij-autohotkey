@@ -38,10 +38,12 @@ import java.util.concurrent.ConcurrentHashMap;
  * {@link AhkFileRules}, the last matching line wins):
  * <ul>
  *   <li>every AutoHotkey file unless a line excludes it, and every other file that a line includes: its version line
- *       ({@link AhkVersionDirective}) is changed, or added if it has none
- *       ({@code ;@Ahk2Exe-SetVersion x} in AutoHotkey files below the first {@code #Requires} line, otherwise
- *       {@code <comment> @SetVersion x} in the comment style of the line or of the file type as the first line, after a
- *       first line {@code <?xml}, {@code #!}, registry header or {@code @echo off}); a line read with another comment
+ *       ({@link AhkVersionDirective}) is changed, or added if it has none (in AutoHotkey files below the first
+ *       {@code #Requires} line, otherwise {@code <comment> @SetVersion x} in the comment style of the line or of the
+ *       file type as the first line, after a first line {@code <?xml}, {@code #!}, registry header or
+ *       {@code @echo off}); in an AutoHotkey file its keyword becomes that of
+ *       {@link AhkVersionDirective#keyword}: the compiler directive {@code ;@Ahk2Exe-SetVersion} with
+ *       {@code ;@Ahk2Exe-Base}, otherwise the comment {@code ;@SetVersion}; a line read with another comment
  *       start ({@code REM} in a batch file) is written in the style ({@code ::}, {@link #otherMarker}); a line at the
  *       start right before such a first line moves behind it ({@link #moveBehindHeader});</li>
  *   <li>binary files never (warning), excluded and other files not at all.</li>
@@ -102,7 +104,7 @@ public final class AhkSetVersion {
      * @param tool       name of the tool (the project name), for messages
      * @param scripts    the scripts with a version line, sorted by path
      * @param errors     problems that prevent setting the version
-     * @param warnings   hints shown in the dialog (e.g. different versions)
+     * @param warnings   hints shown in the dialog (binary files)
      * @param repository Git is installed and the project root lies in a repository
      * @param untracked  files of the project that are neither versioned nor ignored (then no commit is possible)
      * @param changed    versioned files of the project with uncommitted changes (they are committed with the version)
@@ -133,6 +135,18 @@ public final class AhkSetVersion {
                 if (current.isEmpty() || AhkVersionDirective.compare(value, current) > 0) current = value;
             }
             return current;
+        }
+
+        /** The scripts with their versions ({@code name version}) if they differ, otherwise empty. */
+        public @NotNull List<String> differentVersions() {
+            Set<String> versions = new LinkedHashSet<>();
+            List<String> each = new ArrayList<>();
+            for (Script script : scripts) {
+                if (script.line() == null) continue;
+                versions.add(script.line().value());
+                each.add(script.name() + " " + script.line().value());
+            }
+            return versions.size() > 1 ? each : List.of();
         }
 
         /** Can the version be committed and tagged (Git repository, no untracked files)? */
@@ -208,7 +222,6 @@ public final class AhkSetVersion {
         List<Script> scripts = new ArrayList<>();
         AhkDeployConfig config = readConfig(dir, errors);
         errors.addAll(config.versionErrors());
-        List<String> added = new ArrayList<>();
         Map<Path, String> sorted = new java.util.TreeMap<>(texts);
         for (Map.Entry<Path, String> entry : sorted.entrySet()) {
             String name = AhkDeployer.relative(dir, entry.getKey().toAbsolutePath().normalize());
@@ -236,7 +249,6 @@ public final class AhkSetVersion {
             } else {
                 // an AutoHotkey file or an included file without a version line: the line is added
                 scripts.add(new Script(entry.getKey(), name, null, style));
-                added.add(name);
             }
         }
         Missing missing = null;
@@ -244,16 +256,6 @@ public final class AhkSetVersion {
             if (AhkDeployConfig.file(dir) == null) missing = Missing.SETTINGS;
             else if (config.versionRules().stream().anyMatch(AhkFileRules.Rule::include)) missing = Missing.NO_MATCH;
             else missing = Missing.NO_INCLUDE;
-        }
-        if (!added.isEmpty()) warnings.add(AhkBundle.message("version.dialog.added", String.join(", ", added)));
-        Set<String> versions = new LinkedHashSet<>();
-        for (Script script : scripts) if (script.line() != null) versions.add(script.line().value());
-        if (versions.size() > 1) {
-            List<String> each = new ArrayList<>();
-            for (Script script : scripts) {
-                if (script.line() != null) each.add(script.name() + " " + script.line().value());
-            }
-            warnings.add(AhkBundle.message("version.dialog.different", String.join(", ", each)));
         }
         AhkDeployGit git = new AhkDeployGit(dir);
         boolean repository = gitEnabled && git.inRepository();
@@ -337,7 +339,7 @@ public final class AhkSetVersion {
         String lineBreak = text.subSequence(breakAt, lineEnd).toString();
         CharSequence rest = text.subSequence(lineEnd, text.length());
         if (!AhkBanner.hasHeaderLine(rest)) return null;
-        String newLine = versionLine(name, style, version);
+        String newLine = versionLine(name, text, style, version);
         int header = AhkBanner.indexOfLineEnd(rest);
         if (header < 0) return new Move(text.length(), lineBreak + newLine, lineStart, lineEnd);
         return new Move(lineEnd + header, newLine + lineBreak, lineStart, lineEnd);
@@ -364,12 +366,12 @@ public final class AhkSetVersion {
     }
 
     /**
-     * The version line to add:{@code ;@Ahk2Exe-SetVersion x} in an AutoHotkey file, otherwise
-     * {@code <start> @SetVersion x [<end>]}.
+     * The version line to add to a file with this text: in an AutoHotkey file with
+     * {@link AhkVersionDirective#keyword}, otherwise {@code <start> @SetVersion x [<end>]}.
      */
-    static @NotNull String versionLine(@NotNull String name, @NotNull AhkFileRules.Style style,
-                                       @NotNull String version) {
-        if (AhkFileRules.isAutoHotkey(name)) return ";@Ahk2Exe-SetVersion " + version;
+    static @NotNull String versionLine(@NotNull String name, @NotNull CharSequence text,
+                                       @NotNull AhkFileRules.Style style, @NotNull String version) {
+        if (AhkFileRules.isAutoHotkey(name)) return AhkVersionDirective.keyword(text) + " " + version;
         return style.start() + " @SetVersion " + version + (style.end() == null ? "" : " " + style.end());
     }
 
@@ -467,7 +469,8 @@ public final class AhkSetVersion {
                 }
                 if (failure != null || !prepared.errors().isEmpty()) {
                     RUNNING.remove(key);
-                    String text = failure != null ? failure : "- " + String.join("\n- ", prepared.errors());
+                    String text = failure != null ? failure : "- " + String.join("\n- ",
+                            AhkDialogs.limit(prepared.errors(), AhkDialogs.MAX_ERRORS));
                     Messages.showErrorDialog(project, AhkBundle.message("version.errors", text), title);
                     return;
                 }
@@ -551,7 +554,7 @@ public final class AhkSetVersion {
                 if (!AhkVersionDirective.findIn(script.name(), text, script.style()).isEmpty()) return script.name();
                 boolean[] breakBefore = new boolean[1];
                 int offset = insertionOffset(script.name(), text, breakBefore);
-                String line = versionLine(script.name(), script.style(), version);
+                String line = versionLine(script.name(), text, script.style(), version);
                 changes.add(() -> document.insertString(offset, breakBefore[0] ? "\n" + line + "\n" : line + "\n"));
             } else {
                 AhkVersionDirective.Line line = currentLine(script.name(), text, script.line().value(), script.style());
@@ -566,11 +569,16 @@ public final class AhkSetVersion {
                     documents.add(document);
                     continue;
                 }
-                int[] marker = otherMarker(text, line, script.style());
+                boolean autoHotkey = AhkFileRules.isAutoHotkey(script.name());
+                int[] marker = autoHotkey ? AhkVersionDirective.keywordRange(text, line)
+                        : otherMarker(text, line, script.style());
+                String start = autoHotkey ? AhkVersionDirective.keyword(text) : script.style().start();
                 changes.add(() -> {
-                    document.replaceString(line.valueStart(), line.valueEnd(), version);
+                    // an empty value directly behind the keyword needs a space
+                    boolean space = autoHotkey && marker[1] == line.valueStart();
+                    document.replaceString(line.valueStart(), line.valueEnd(), space ? " " + version : version);
                     // the value comes after the marker: its offsets stay valid
-                    if (marker != null) document.replaceString(marker[0], marker[1], script.style().start());
+                    if (marker != null) document.replaceString(marker[0], marker[1], start);
                 });
             }
             documents.add(document);

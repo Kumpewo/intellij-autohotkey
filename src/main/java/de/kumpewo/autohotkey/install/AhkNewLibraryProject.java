@@ -5,24 +5,26 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.List;
+import java.util.TreeSet;
 
 /**
- * Creates a library project ({@link AhkLibraryLayout}): the folder {@code <projects>\Gui} (for {@code v2\Gui}), the source
- * {@code Gui.ahk} (new: {@code #Requires AutoHotkey v2.0} and {@code ;@Ahk2Exe-SetVersion 0.1.0}; or the bytes of an
- * existing library file) and the {@code settings.ahk-v2-plugin.ini} from {@value #TEMPLATE} ({@code $name$} = library
- * name, {@code $project$} = name of the project folder, {@code $target$} = the target of the source, i.e. the
- * subfolders of the library name with a final {@code \} or {@code .}, {@code $file$} = the source; not in braces,
- * which the placeholders of {@code Banner} use; CR LF): {@code Destination} is always the user library folder
- * itself, so that a project of {@code v2\Gui} deploys {@code Gui.ahk=v2\} and can get further targets in other
- * library folders ({@code Gui-v1.ahk=Gui.ahk}) without changing {@code Destination};
- * {@code Banner} is {@code find:}{@value #SHARED_BANNER} if the projects folder or a folder above it contains that
- * file ({@link AhkBanner#find}), otherwise {@code @library}, and {@code [SetVersion]} includes all AutoHotkey files. An existing
- * folder is never touched. No Git repository is created.
+ * Creates a library project ({@link AhkLibraryLayout}): the folder {@code <projects>\Gui} (for {@code v2\Gui}), the
+ * source {@code Gui.ahk} (new: {@code #Requires AutoHotkey v2.0} and {@code ;@SetVersion 0.1.0}; or the bytes
+ * of an existing library file) and the {@code settings.ahk-v2-plugin.ini} from {@value #TEMPLATE} ({@code $project$} =
+ * name of the project folder, {@code $install$} = the lines of {@code [Install]}: the
+ * source with its target, i.e. the subfolders of the library name with a final {@code \} or {@code .}; not in braces,
+ * which the placeholders of {@code Banner} use; CR LF): {@code Destination} is always the user library folder itself,
+ * so that a project of {@code v2\Gui} deploys {@code Gui.ahk=v2\} and can get further targets in other library folders
+ * ({@code Gui-v1.ahk=Gui.ahk}) without changing {@code Destination}; {@code Banner} is
+ * {@code find:}{@value #SHARED_BANNER} if the projects folder or a folder above it contains that file
+ * ({@link AhkBanner#find}), otherwise {@code @library}, and {@code [SetVersion]} includes all AutoHotkey files. An
+ * existing folder is never touched; its settings file can be created afterwards ({@link #existing}). No Git repository
+ * is created.
  */
 public final class AhkNewLibraryProject {
 
@@ -30,7 +32,7 @@ public final class AhkNewLibraryProject {
     static final String TEMPLATE = "/install/settings-library.ahk-v2-plugin.ini";
 
     /** Content of a new library source. */
-    static final String NEW_SOURCE = "#Requires AutoHotkey v2.0\r\n;@Ahk2Exe-SetVersion 0.1.0\r\n\r\n";
+    static final String NEW_SOURCE = "#Requires AutoHotkey v2.0\r\n;@SetVersion 0.1.0\r\n\r\n";
 
     private AhkNewLibraryProject() {
     }
@@ -69,19 +71,40 @@ public final class AhkNewLibraryProject {
      * {@link #SHARED_BANNER} if {@code sharedBanner}, otherwise {@code @library}; the other line stays as a comment
      * ({@code $library-banner$}/{@code $file-banner$} in the template become {@code ;} or nothing).
      */
-    static @NotNull String settings(@NotNull List<String> segments, boolean sharedBanner) throws IOException {
-        String text;
-        try (InputStream in = AhkNewLibraryProject.class.getResourceAsStream(TEMPLATE)) {
-            if (in == null) throw new IOException(TEMPLATE);
-            text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        }
+    static @NotNull String settings(@NotNull List<String> segments, boolean sharedBanner) {
         StringBuilder target = new StringBuilder();
         for (int i = 0; i < segments.size() - 1; i++) target.append(segments.get(i)).append('\\');
         if (target.isEmpty()) target.append('.');
-        return text.replace("\r\n", "\n").replace("$name$", AhkLibraryLayout.name(segments))
-                .replace("$project$", segments.get(segments.size() - 1))
-                .replace("$target$", target).replace("$file$", segments.get(segments.size() - 1) + ".ahk")
-                .replace("$library-banner$", sharedBanner ? ";" : "").replace("$file-banner$", sharedBanner ? "" : ";")
-                .replace("\n", "\r\n");
+        String project = segments.get(segments.size() - 1);
+        return settings(project, project + ".ahk=" + target + "\n", sharedBanner);
+    }
+
+    /**
+     * The settings file for an existing folder below the folder of the library projects: every AutoHotkey file directly
+     * in it becomes a source whose target is still to be set ({@value AhkDeployConfig#TARGET_PLACEHOLDER}), because it
+     * cannot be guessed; without such a file the line is only an example.
+     *
+     * @param project   the folder name
+     * @param rootFiles the names of the files in the folder
+     */
+    static @NotNull String existing(@NotNull String project, @NotNull Collection<String> rootFiles,
+                                    boolean sharedBanner) {
+        StringBuilder install = new StringBuilder();
+        for (String name : new TreeSet<>(rootFiles)) {
+            // some names cannot be written as a source
+            if (!AhkFileRules.isAutoHotkey(name) || name.contains("=") || name.startsWith(";")
+                    || name.startsWith("[")) continue;
+            install.append(name).append('=').append(AhkDeployConfig.TARGET_PLACEHOLDER).append('\n');
+        }
+        if (install.isEmpty()) install.append(';').append(project).append(".ahk=.\n");
+        return settings(project, install.toString(), sharedBanner);
+    }
+
+    /** The template with the lines of {@code [Install]}, all ending with {@code \n}. */
+    private static @NotNull String settings(@NotNull String project, @NotNull String install, boolean sharedBanner) {
+        String text = AhkSettingsExplain.template(TEMPLATE).replace("$project$", project)
+                .replace("$install$\n", install).replace("$banner$\n", ";*.cmd=yes\n")
+                .replace("$library-banner$", sharedBanner ? ";" : "").replace("$file-banner$", sharedBanner ? "" : ";");
+        return AhkSettingsFile.complete(text, true, project);
     }
 }

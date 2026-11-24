@@ -4,6 +4,35 @@
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-11-24
+
+### Fixed: wrong version in compiled programs
+
+- A compiled program could get the version of an included library instead of its own: Ahk2Exe also obeys
+  `;@Ahk2Exe-SetVersion` in included files, and *Set Version* of 2.2.0 wrote this directive into every AutoHotkey file.
+  Now *Set Version* and *Deploy* write the comment `;@SetVersion` into files without `;@Ahk2Exe-Base`. **Please deploy
+  your libraries again, then compile and deploy your programs.**
+- *Set Version*: the dialog no longer grows as wide as the screen in a project with many files.
+
+### Added
+
+- Manual and user guide mention [OpenInIDE](https://github.com/Kumpewo/open-in-ide), an optional Explorer context menu
+  entry that opens the project of a deployed file or executable in IntelliJ IDEA.
+- *Create Settings* in a folder below the library projects folder writes the settings of a library project; every
+  AutoHotkey file of the project root is listed in `[Install]` with the target `{set target}`, to be replaced.
+- *Set Version*: the message of commit and tag can have several lines (Ctrl+Enter sets the version).
+- `settings.ahk-v2-plugin.ini`: *Ctrl+Q* shows the explanation of the option or section at the caret. A bar above the
+  file offers *Remove Explanations and Compact* for a short file and *Restore Explanations*, which also adds deleted
+  sections and options again, commented out. A new setting decides whether new files contain the explanations.
+- The dialogs of *Set Version* and *Deploy* remember their size and scroll if the window is too small.
+
+### Changed
+
+- *Set Version* writes `;@Ahk2Exe-SetVersion` only into scripts with `;@Ahk2Exe-Base`; every other AutoHotkey file gets
+  the comment `;@SetVersion`, also instead of an existing directive. *Add Ahk2Exe compiler directives* takes it over.
+- *Deploy*: with `{version}` in the banner, the copy of a script without `;@Ahk2Exe-Base` loses its version line, like
+  the copies of other file types.
+
 ## [2.2.0] - 2026-11-23
 
 ### Changed: please update your projects

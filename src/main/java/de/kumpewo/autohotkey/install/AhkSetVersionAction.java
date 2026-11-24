@@ -8,7 +8,7 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * Action "Set Version..." (Code menu, editor and project view context menus): sets the version in every script of the
- * project with a line {@code ;@Ahk2Exe-SetVersion} and optionally commits the project and sets the tag
+ * project in their version line and optionally commits the project and sets the tag
  * {@code v<version>} ({@link AhkSetVersion}).
  */
 public final class AhkSetVersionAction extends DumbAwareAction {

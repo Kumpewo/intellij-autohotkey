@@ -533,18 +533,42 @@ public class AhkDeployTest extends BasePlatformTestCase {
         assertEquals(List.of("/* Copy of style.css  from Json at T */"), banners.get("style.css"));
         assertEquals(List.of("# Copy of readme.txt  from Json at T <br>"), banners.get("readme.txt"));
         assertNull(banners.get("logo.png"));
-        // {version} in the banner: other files lose their own @SetVersion line, AutoHotkey files keep theirs
+        // {version} in the banner: the copy loses its own version line
         write(tool.resolve("page.htm"), "<!-- @SetVersion 2.0 -->\n<p/>\n");
         config = AhkDeployConfig.parse("[Deploy]\nDestination=" + dest + "\nBanner=v{version}\n"
                 + "[Install]\nJson.ahk=.\npage.htm=.\n[AddBanner]\n*.htm=yes\n");
         plan = AhkDeployPlan.create(config, tool, env(), List.of());
         assertEquals(List.of("; v1.4.0"), plan.steps().get(0).banner());
-        assertEquals(-1, plan.steps().get(0).dropLine());
+        assertEquals(0, plan.steps().get(0).dropLine());
         assertEquals(List.of("<!-- v2.0 -->"), plan.steps().get(1).banner());
         assertEquals(0, plan.steps().get(1).dropLine());
+        // the copy of a script, with either keyword; a script to be compiled or without a fixed version keeps its line
+        for (String keyword : List.of(";@SetVersion", ";@Ahk2Exe-SetVersion")) {
+            for (String bom : List.of("", "﻿")) {
+                write(tool.resolve("Json.ahk"), bom + "#Requires AutoHotkey v2.0\r\n" + keyword
+                        + " 1.4.0\r\nx := 1\r\n");
+                plan = AhkDeployPlan.create(config, tool, env(), List.of());
+                AhkDeployPlan.Step step = plan.steps().get(0);
+                AhkDeployCopier.copy(List.of(step));
+                assertEquals(bom + "; v1.4.0\r\n#Requires AutoHotkey v2.0\r\nx := 1\r\n",
+                        Files.readString(step.target()));
+                AhkDeployCopier.clearReadOnlyQuietly(step.target());
+            }
+        }
+        for (String kept : List.of(";@Ahk2Exe-Base x.exe\n;@Ahk2Exe-SetVersion 1.4.0\n", ";@SetVersion\n",
+                ";@Ahk2Exe-SetVersion %A_PriorLine~x%\n", ";@SetVersion 1.0\n;@SetVersion 2.0\n")) {
+            write(tool.resolve("Json.ahk"), kept);
+            plan = AhkDeployPlan.create(config, tool, env(), List.of());
+            for (AhkDeployPlan.Step step : plan.steps()) {
+                if (step.source().endsWith("Json.ahk")) assertEquals(kept, -1, step.dropLine());
+            }
+        }
+        write(tool.resolve("Json.ahk"), ";@SetVersion 1.4.0\nx := 1\n");
         config = AhkDeployConfig.parse("[Deploy]\nDestination=" + dest + "\nBanner=copy\n"
-                + "[Install]\npage.htm=.\n[AddBanner]\n*.htm=yes\n");
-        assertEquals(-1, AhkDeployPlan.create(config, tool, env(), List.of()).steps().get(0).dropLine());
+                + "[Install]\nJson.ahk=.\npage.htm=.\n[AddBanner]\n*.htm=yes\n");
+        for (AhkDeployPlan.Step step : AhkDeployPlan.create(config, tool, env(), List.of()).steps()) {
+            assertEquals(-1, step.dropLine());
+        }
         // the last matching line wins
         config = AhkDeployConfig.parse("[Deploy]\nDestination=" + dest + "\nBanner=x\n[Install]\n*.ahk=.\n"
                 + "[AddBanner]\ntest.ahk=no\n*.ahk=yes\n");
@@ -846,12 +870,11 @@ public class AhkDeployTest extends BasePlatformTestCase {
         String ini = Files.readString(projects.resolve("Gui/settings.ahk-v2-plugin.ini"));
         assertFalse(ini, ini.contains("$"));
         // the placeholders of Banner in the comments stay as they are
-        assertTrue(ini, ini.contains("{project-name} is the folder name of this project, {project-path}"));
+        assertTrue(ini, ini.contains("{project-name} is the folder name of this project"));
         assertFalse(ini.replace("\r\n", "").contains("\n"));
         for (String line : ini.split("\r\n")) assertTrue(line, line.length() <= 120);
         assertCommentStyle(ini);
-        assertTrue(ini, ini.contains("#Include <v2\\Gui>"));
-        assertTrue(ini, ini.contains("for the library project Gui\r\n"));
+        assertTrue(ini, ini.contains("for a library project\r\n"));
         // Destination is the library folder itself, the subfolder is in the target
         assertTrue(ini, ini.contains("\r\nDestination=%A_MyDocuments%\\AutoHotkey\\Lib\\\r\n"));
         assertTrue(ini, ini.contains("\r\nGui.ahk=v2\\\r\n"));
@@ -1171,7 +1194,8 @@ public class AhkDeployTest extends BasePlatformTestCase {
         Path notes = write(root.resolve("notes.txt"), "text\n");
         var prepared = AhkSetVersion.prepare(root, "Tool", texts(gui, console, lib, notes), false);
         assertEquals(List.of(), prepared.errors());
-        assertEquals(List.of(AhkBundle.message("version.dialog.added", "lib\\helper.ahk")), prepared.warnings());
+        assertEquals(List.of(), prepared.warnings());
+        assertEquals(List.of(), prepared.differentVersions());
         assertEquals(List.of("console\\tool-console.ahk", "lib\\helper.ahk", "tool.ahk"),
                 prepared.scripts().stream().map(AhkSetVersion.Script::name).toList());
         assertTrue(prepared.scripts().get(1).added());
@@ -1183,8 +1207,7 @@ public class AhkDeployTest extends BasePlatformTestCase {
         write(console, ";@Ahk2Exe-SetVersion 1.2\nMsgBox 2\n");
         prepared = AhkSetVersion.prepare(root, "Tool", texts(gui, console), false);
         assertEquals("1.2", prepared.current());
-        assertEquals(prepared.warnings().toString(), 1, prepared.warnings().size());
-        assertTrue(prepared.warnings().get(0), prepared.warnings().get(0).contains("tool.ahk 1.0"));
+        assertEquals(List.of("console\\tool-console.ahk 1.2", "tool.ahk 1.0"), prepared.differentVersions());
 
         prepared = AhkSetVersion.prepare(root, "Tool", Map.of(gui, ";@Ahk2Exe-SetVersion 1\n;@Ahk2Exe-SetVersion 2\n",
                 console, ";@Ahk2Exe-SetVersion %U_V%\n"), false);
@@ -1288,12 +1311,12 @@ public class AhkDeployTest extends BasePlatformTestCase {
                 prepared.scripts().stream().map(AhkSetVersion.Script::name).toList());
         assertEquals("1.0", prepared.current());
         assertTrue(prepared.warnings().toString(), prepared.warnings().stream().anyMatch(w -> w.contains("logo.png")));
-        assertTrue(prepared.warnings().toString(), prepared.warnings().stream()
-                .anyMatch(w -> w.contains("lib\\helper.ahk, readme.md")));
+        assertEquals(List.of("lib\\helper.ahk", "readme.md"), prepared.scripts().stream()
+                .filter(AhkSetVersion.Script::added).map(AhkSetVersion.Script::name).toList());
         AhkSetVersion.Script added = prepared.scripts().get(2);
         assertTrue(added.added());
-        assertEquals("<!-- @SetVersion 1.1 -->", AhkSetVersion.versionLine(added.name(), added.style(), "1.1"));
-        assertEquals(";@Ahk2Exe-SetVersion 1.1", AhkSetVersion.versionLine("lib\\helper.ahk",
+        assertEquals("<!-- @SetVersion 1.1 -->", AhkSetVersion.versionLine(added.name(), "", added.style(), "1.1"));
+        assertEquals(";@SetVersion 1.1", AhkSetVersion.versionLine("lib\\helper.ahk", "h := 1\n",
                 prepared.scripts().get(1).style(), "1.1"));
         assertEquals("0.9", prepared.scripts().get(0).line().value());
         // where a line is added
@@ -1313,7 +1336,7 @@ public class AhkDeployTest extends BasePlatformTestCase {
         assertEquals(11, AhkSetVersion.insertionOffset("a.cmd", "@Echo Off\r\necho\r\n", breakBefore));
         // batch files: :: is written, REM is read too and rewritten as ::
         AhkFileRules.Style batch = AhkFileRules.builtinStyle("a.cmd");
-        assertEquals(":: @SetVersion 1.1", AhkSetVersion.versionLine("a.cmd", batch, "1.1"));
+        assertEquals(":: @SetVersion 1.1", AhkSetVersion.versionLine("a.cmd", "", batch, "1.1"));
         String cmd = "@echo off\r\n  rem @SetVersion 1.0\r\necho\r\n";
         List<AhkVersionDirective.Line> found = AhkVersionDirective.findIn("a.cmd", cmd, batch);
         assertEquals(1, found.size());
@@ -1353,9 +1376,56 @@ public class AhkDeployTest extends BasePlatformTestCase {
         assertTrue(prepared.errors().get(1), prepared.errors().get(1).contains("notes.txt"));
     }
 
+    /** The keyword of the version line: the directive only with a base directive, in copies a comment without one. */
+    public void testVersionKeyword() throws Exception {
+        String base = ";@Ahk2Exe-Base ..\\v2\\AutoHotkey64.exe\n";
+        assertEquals(";@Ahk2Exe-SetVersion", AhkVersionDirective.keyword(base));
+        assertEquals(";@SetVersion", AhkVersionDirective.keyword("x := 1\n"));
+        assertEquals(";@Ahk2Exe-SetVersion 1.1", AhkSetVersion.versionLine("a.ahk", base,
+                AhkSetVersion.AUTOHOTKEY_STYLE, "1.1"));
+        for (String line : List.of(";@SetVersion", "; @setversion", "  ;@ahk2exe-setversion")) {
+            for (String value : List.of(" 1.2", " \t1.2 ; note")) {
+                String text = "x := 1\r\n" + line + value + "\r\ny := 2";
+                List<AhkVersionDirective.Line> lines = AhkVersionDirective.find(text);
+                assertEquals(text, 1, lines.size());
+                assertEquals("1.2", lines.get(0).value());
+                int[] range = AhkVersionDirective.keywordRange(text, lines.get(0));
+                assertEquals(line.strip(), text.substring(range[0], range[1]));
+            }
+        }
+        int[] empty = AhkVersionDirective.keywordRange(";@SetVersion", AhkVersionDirective.find(";@SetVersion").get(0));
+        assertTrue(java.util.Arrays.equals(new int[]{0, 12}, empty));
+        assertEquals(List.of(), AhkVersionDirective.find(";@SetVersionX 1\n;;@SetVersion 1\n"));
+        // the copy: every encoding, everything else unchanged
+        String source = "x := \"\u00e4\"\r\n  ;@Ahk2Exe-SetVersion   1.0 ; \u2026\r\n";
+        String copy = "x := \"\u00e4\"\r\n  ;@SetVersion   1.0 ; \u2026\r\n";
+        for (java.nio.charset.Charset charset : List.of(StandardCharsets.UTF_8, StandardCharsets.UTF_16LE,
+                StandardCharsets.UTF_16BE)) {
+            for (String bom : charset == StandardCharsets.UTF_8 ? List.of("", "\ufeff") : List.of("\ufeff")) {
+                assertEquals(bom + copy, new String(AhkVersionDirective.tagged((bom + source).getBytes(charset)),
+                        charset));
+            }
+        }
+        byte[] compiled = (base + source).getBytes(StandardCharsets.UTF_8);
+        assertSame(compiled, AhkVersionDirective.tagged(compiled));
+        byte[] done = copy.getBytes(StandardCharsets.UTF_8);
+        assertSame(done, AhkVersionDirective.tagged(done));
+        // copying: [Install] with and without banner, [InstallIfMissing] as it is
+        Path lib = write(root.resolve("src/lib.ahk"), ";@Ahk2Exe-SetVersion 1.0\nf() => 1\n");
+        List<AhkDeployPlan.Step> steps = List.of(
+                new AhkDeployPlan.Step(lib, root.resolve("to/a.ahk"), false),
+                new AhkDeployPlan.Step(lib, root.resolve("to/b.ahk"), false, List.of("; v1.0")),
+                new AhkDeployPlan.Step(lib, root.resolve("to/c.ahk"), true));
+        AhkDeployCopier.copy(steps);
+        assertEquals(";@SetVersion 1.0\nf() => 1\n", Files.readString(root.resolve("to/a.ahk")));
+        assertEquals("; v1.0\n;@SetVersion 1.0\nf() => 1\n", Files.readString(root.resolve("to/b.ahk")));
+        assertEquals(Files.readString(lib), Files.readString(root.resolve("to/c.ahk")));
+        for (String name : List.of("a.ahk", "b.ahk")) AhkDeployCopier.clearReadOnlyQuietly(root.resolve("to/" + name));
+    }
+
     /** The Ahk2Exe head takes over an existing version line (value as default, the line removed). */
     public void testAhk2ExeHeaderTakesVersion() {
-        myFixture.configureByText("tool.ahk", "#Requires AutoHotkey v2.0\n;@Ahk2Exe-SetVersion 2.3.4\nMsgBox 1\n");
+        myFixture.configureByText("tool.ahk", "#Requires AutoHotkey v2.0\n;@SetVersion 2.3.4\nMsgBox 1\n");
         com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(getProject(), () ->
                 de.kumpewo.autohotkey.compile.AhkAhk2ExeHeader.insert(getProject(), myFixture.getEditor(),
                         myFixture.getFile()));
@@ -1364,6 +1434,7 @@ public class AhkDeployTest extends BasePlatformTestCase {
         if (state != null) state.gotoEnd(false);
         String text = myFixture.getEditor().getDocument().getText();
         assertEquals(text, 1, AhkVersionDirective.find(text).size());
+        assertFalse(text, text.contains(";@SetVersion"));
         assertEquals("2.3.4", AhkVersionDirective.find(text).get(0).value());
         assertTrue(text, text.contains(";@Ahk2Exe-Base"));
         assertTrue(text, text.endsWith("MsgBox 1\n"));
@@ -1612,6 +1683,355 @@ public class AhkDeployTest extends BasePlatformTestCase {
         });
         AhkSettingsFile.create(getProject(), dir);
         assertEquals("[Deploy]\nDestination=C:\\mine\n", com.intellij.openapi.vfs.VfsUtilCore.loadText(ini));
+    }
+
+    /**
+     * "Create Settings" below the folder of the library projects: the settings of a library project, all AutoHotkey
+     * files of the root with a target to be set; not in the folder itself, outside, or inside a library project.
+     */
+    public void testCreateSettingsFileOfLibraryProject() throws Exception {
+        Path projects = root.resolve("projects");
+        Path gui = projects.resolve("sub/Gui");
+        write(gui.resolve("Gui.ahk"), "f() => 1\n");
+        write(gui.resolve("Extra.ah2"), "g() => 1\n");
+        write(gui.resolve("notes.txt"), "x");
+        write(gui.resolve("test/t.ahk"), "MsgBox 1\n");
+        assertTrue(AhkLibraryProjects.isBelow(gui, projects));
+        assertFalse(AhkLibraryProjects.isBelow(projects, projects));
+        assertFalse(AhkLibraryProjects.isBelow(root.resolve("projects2"), projects));
+        assertFalse(AhkLibraryProjects.isBelow(gui, null));
+        var settings = de.kumpewo.autohotkey.settings.AhkSettings.getInstance();
+        String old = settings.getLibraryProjectsFolder();
+        try {
+            settings.setLibraryProjectsFolder(projects.toString());
+            var dir = com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByNioFile(gui);
+            assertNotNull(dir);
+            AhkSettingsFile.create(getProject(), dir);
+        } finally {
+            settings.setLibraryProjectsFolder(old);
+        }
+        String text = Files.readString(gui.resolve(AhkDeployConfig.FILE_NAME));
+        assertTrue(text, text.contains("\r\nExtra.ah2={set target}\r\nGui.ahk={set target}\r\n\r\n[InstallIfMissing]"));
+        assertFalse(text, text.contains("$"));
+        AhkDeployConfig config = AhkDeployConfig.parse(text);
+        assertEquals("@library", config.banner());
+        assertEquals("%A_MyDocuments%\\AutoHotkey\\Lib\\", config.destination());
+        assertFalse(AhkLibraryProjects.isBelow(gui.resolve("test"), projects));
+        // without AutoHotkey files only an example
+        assertTrue(AhkNewLibraryProject.existing("Str", List.of("a.txt"), true).contains("\r\n;Str.ahk=.\r\n"));
+        assertEquals("find:banner.txt",
+                AhkDeployConfig.parse(AhkNewLibraryProject.existing("Str", List.of(), true)).banner());
+    }
+
+    /** The lines of a settings file that belong to the user: neither explanations nor empty. */
+    private static List<String> userLines(String text) {
+        return text.replace("\uFEFF", "").lines().filter(l -> !l.isBlank() && !l.equals(";;") && !l.startsWith(";; ")).toList();
+    }
+
+    /** Are the lines part of the others, in the same order? */
+    private static boolean isSubsequence(List<String> lines, List<String> all) {
+        int i = 0;
+        for (String line : all) {
+            if (i < lines.size() && lines.get(i).equals(line)) i++;
+        }
+        return i == lines.size();
+    }
+
+    /** The meaning of a settings file, without line numbers. */
+    private static String meaning(String text) {
+        AhkDeployConfig c = AhkDeployConfig.parse(text);
+        StringBuilder result = new StringBuilder();
+        result.append(c.destination()).append('|').append(c.message()).append('|').append(c.banner()).append('|')
+                .append(c.requiresAdmin()).append(c.generateOverview()).append(c.compile()).append(c.embedOrigin());
+        c.entries().forEach(e -> result.append('|').append(e.source()).append('=').append(e.target())
+                .append(e.ifMissing()));
+        c.cleanup().forEach(e -> result.append('|').append(e.selector()).append('=').append(e.folder()));
+        result.append("|banner ").append(c.bannerRules().size()).append("|version ").append(c.versionRules().size())
+                .append("|errors ").append(c.errors().size()).append(c.versionErrors().size());
+        return result.toString();
+    }
+
+    /** Both actions on many files: user lines and meaning stay, a second run changes nothing. */
+    public void testExplanationsKeepTheUserLines() throws Exception {
+        List<String> files = List.of("", "\n\n", "x\n", "; only a comment",
+                AhkSettingsFile.text("tool", false), AhkSettingsFile.text("tool", true),
+                AhkNewLibraryProject.existing("Str", List.of("Str.ahk"), true),
+                "[SetVersion]\r\nscratch/=no\r\n\r\n; mine\r\n[Deploy]\r\nCompile=no\r\n",
+                "\uFEFF;; old\n;;; mine\n\n[deploy]\n;;x\n ;; y\nBANNER=@standard\nunknown=1\n;Compile=yes\n;;; end\n"
+                        + "[Other]\n;; gone\na=b\n\n\nc=d\n[Deploy]\nMessage=twice\n[Install]\na.ahk=.\n\nb.ahk=.",
+                "[Deploy]\n\"Destination\"=C:\\x\n;Destination=C:\\y\n; Message=no option\n  ;Compile=no\n[]\n");
+        for (String text : files) {
+            for (boolean library : new boolean[]{false, true}) {
+                String compact = AhkSettingsExplain.compact(text);
+                assertEquals(userLines(text), userLines(compact));
+                assertEquals(meaning(text), meaning(compact));
+                assertEquals(compact, AhkSettingsExplain.compact(compact));
+                assertFalse(compact, compact.lines().anyMatch(l -> l.equals(";;") || l.startsWith(";; ")));
+                String full = AhkSettingsExplain.restore(text, library, "tool");
+                assertTrue(full, isSubsequence(userLines(text), userLines(full)));
+                assertEquals(meaning(text), meaning(full));
+                assertEquals(full, AhkSettingsExplain.restore(full, library, "tool"));
+                // the way over the compact file leads to the same lines
+                assertEquals(userLines(full), userLines(AhkSettingsExplain.restore(compact, library, "tool")));
+                for (String line : full.split("\\R")) {
+                    if (line.startsWith(";; ")) assertTrue(line, line.length() <= 120 && line.matches("\\p{ASCII}*"));
+                }
+            }
+        }
+        // the new files are complete
+        assertEquals(files.get(4), AhkSettingsExplain.restore(files.get(4), false, "tool"));
+        assertEquals(files.get(6), AhkSettingsExplain.restore(files.get(6), true, "Str"));
+    }
+
+    /** The form of the compact and of the explained file, comments of the user in [Deploy]. */
+    public void testExplanationsForm() {
+        String text = """
+                ;; header
+                ;;
+
+                [Deploy]
+                ;;; about Compile
+
+                ;Compile=no
+                ;;; about RequiresAdmin
+                ;RequiresAdmin=yes
+                ;; explanation
+
+                Banner=x
+                ;;; last
+
+
+                [Install]
+                ;; explanation
+                a.ahk=.
+
+                b.ahk=.
+                """;
+        assertEquals("""
+                [Deploy]
+                ;;; about Compile
+                ;Compile=no
+                ;;; about RequiresAdmin
+                ;RequiresAdmin=yes
+                Banner=x
+                ;;; last
+
+                [Install]
+                a.ahk=.
+                b.ahk=.
+                """, AhkSettingsExplain.compact(text));
+        String full = AhkSettingsExplain.restore(text, false, "tool");
+        assertTrue(full, full.startsWith(";; settings.ahk-v2-plugin.ini - settings"));
+        // one empty line after the header, none in it; [Deploy] without an explanation of its own
+        assertTrue(full, full.indexOf("\n\n") == full.indexOf("\n\n[Deploy]\n\n;; Absolute folder"));
+        assertTrue(full, full.contains("\n\n;; yes: before copying, compile"));
+        assertTrue(full, full.contains("Default: yes.\n;;; about Compile\n;Compile=no\n\n"));
+        assertTrue(full, full.contains("\n;;; about RequiresAdmin\n;RequiresAdmin=yes\n\n;; "));
+        assertTrue(full, full.contains("\n;;; last\n\n[Install]\n;; Lines source=target"));
+        // empty lines in other sections stay
+        assertTrue(full, full.contains("\na.ahk=.\n\nb.ahk=.\n;pictures\\*.png=pictures\n\n[InstallIfMissing]\n;; "));
+        assertFalse(full, full.contains("\n\n\n"));
+    }
+
+    /** What "Restore Explanations" adds: commented out, only what is missing, nothing taken from the project. */
+    public void testRestoreMissingOptions() {
+        String full = AhkSettingsExplain.restore("[Deploy]\nRequiresAdmin=no\n;Banner=@standard\n;Compile=yes\n"
+                + "[SetVersion]\n;test/=no\n", false, "tool");
+        List<String> lines = userLines(full);
+        assertFalse(full, lines.contains(";RequiresAdmin=yes"));
+        // an option with several examples gets all of them, another one counts by its name
+        assertTrue(full, lines.contains(";Banner=find:banner.txt")
+                && lines.stream().filter(l -> l.startsWith(";Banner=")).count() == 3);
+        assertEquals(1, lines.stream().filter(l -> l.startsWith(";Compile=")).count());
+        assertEquals(2, lines.stream().filter(l -> l.startsWith(";Destination=")).count());
+        assertTrue(full, lines.contains(";Message=Deploy tool to %DESTINATION%"));
+        assertTrue(full, lines.contains(";EmbedOrigin=no"));
+        // sections in the order of the template, all examples commented out
+        assertEquals(List.of("[Deploy]", "[Install]", "[InstallIfMissing]", "[AddBanner]", "[Cleanup]", "[SetVersion]"),
+                lines.stream().filter(l -> l.startsWith("[")).toList());
+        assertTrue(full, full.endsWith("\n;test/=no\n;scratch\\=no\n;version.txt=line:#\n"));
+        assertTrue(full, lines.contains(";*.tmp=%A_Temp%\\tool\\"));
+        assertFalse(full, full.contains("$") || full.contains(";tool.ahk") || full.contains("-old.exe")
+                || full.contains("*.cmd=yes"));
+        // an active option: no examples
+        full = AhkSettingsExplain.restore("[deploy]\nBANNER=x\ndestination=C:\\x\n", false, "tool");
+        assertFalse(full, full.contains(";Banner=") || full.contains(";Destination="));
+        full = AhkSettingsExplain.restore("\n", true, "Gui");
+        assertTrue(full, full.contains("\n;Banner=@library\n") && !full.contains("Gui.ini")
+                && !full.contains("Gui-old.exe") && !full.contains("*.cmd=yes"));
+    }
+
+    /** The setting for new files: without explanations the file is the compact form of the explained one. */
+    public void testNewSettingsWithoutExplanations() throws Exception {
+        var settings = de.kumpewo.autohotkey.settings.AhkSettings.getInstance();
+        assertTrue(settings.isExplainNewSettings());
+        String tool = AhkSettingsFile.text("tool", true);
+        String library = AhkNewLibraryProject.existing("Str", List.of("Str.ahk"), false);
+        assertTrue(tool.startsWith(";; ") && library.startsWith(";; "));
+        settings.setExplainNewSettings(false);
+        try {
+            assertEquals(AhkSettingsExplain.compact(tool), AhkSettingsFile.text("tool", true));
+            assertEquals(AhkSettingsExplain.compact(library),
+                    AhkNewLibraryProject.existing("Str", List.of("Str.ahk"), false));
+        } finally {
+            settings.setExplainNewSettings(true);
+        }
+    }
+
+    /** Every option and section has an explanation with an anchor of the manual. */
+    public void testSettingsHelpIsComplete() throws Exception {
+        String manual;
+        try (var in = AhkSettingsHelp.class.getResourceAsStream("/help/extra/installer.htm")) {
+            manual = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        for (String id : AhkSettingsHelp.ids()) {
+            assertTrue(id, manual.contains("id=\"" + AhkSettingsHelp.topic(id).anchor() + "\""));
+            assertFalse(id, AhkSettingsHelp.comment(id).isEmpty());
+            for (String line : AhkSettingsHelp.comment(id)) assertFalse(line, line.matches(".*&[a-z]+;.*|.*</?code>.*"));
+        }
+        for (String resource : List.of(AhkSettingsFile.TEMPLATE, AhkNewLibraryProject.TEMPLATE)) {
+            String text = AhkSettingsExplain.template(resource).replaceAll("\\$[a-z]+-banner\\$", "");
+            for (int at = 0; at < text.length(); at = text.indexOf('\n', at) + 1) {
+                assertNotNull(AhkSettingsExplain.topicAt(text, at, false));
+                int start = at;
+                if (text.startsWith(";", at) && at < text.indexOf("[Install]")) {
+                    assertTrue(AhkSettingsExplain.topicAt(text, start, false).startsWith("Deploy."));
+                }
+            }
+        }
+    }
+
+    /** Quick documentation: the topic for a position, through the platform, with the link to the manual. */
+    public void testSettingsDocumentation() throws Exception {
+        String text = "; x\n[deploy]\n; y\nBanner=x\n;Compile=no\n[INSTALL]\na=b\n[Other]\nc=d";
+        assertEquals("file", AhkSettingsExplain.topicAt(text, 0, false));
+        assertEquals("file-library", AhkSettingsExplain.topicAt(text, 2, true));
+        assertEquals("Deploy", AhkSettingsExplain.topicAt(text, text.indexOf("[deploy]"), false));
+        assertEquals("Deploy", AhkSettingsExplain.topicAt(text, text.indexOf("; y") + 1, false));
+        assertEquals("Deploy.Banner", AhkSettingsExplain.topicAt(text, text.indexOf("=x") + 2, false));
+        assertEquals("Deploy.Compile", AhkSettingsExplain.topicAt(text, text.indexOf(";Comp"), false));
+        assertEquals("Install", AhkSettingsExplain.topicAt(text, text.indexOf("a=b"), false));
+        assertNull(AhkSettingsExplain.topicAt(text, text.length(), false));
+        assertEquals("Deploy",
+                AhkSettingsExplain.topicAt(text.replace("\n", "\r\n"), text.indexOf("[deploy]") + 2, false));
+        var file = myFixture.addFileToProject("x/" + AhkDeployConfig.FILE_NAME, text);
+        myFixture.openFileInEditor(file.getVirtualFile());
+        var editor = myFixture.getEditor();
+        // at the caret (Ctrl+Q, also at the end of a line and of the file), not elsewhere (mouse)
+        for (int offset = 0; offset < text.indexOf("[Other]"); offset++) {
+            editor.getCaretModel().moveToOffset(offset);
+            int caret = offset;
+            var targets = com.intellij.openapi.application.ApplicationManager.getApplication().executeOnPooledThread(
+                    () -> com.intellij.openapi.application.ReadAction.compute(() -> List.of(
+                            com.intellij.lang.documentation.ide.IdeDocumentationTargetProvider.getInstance(getProject())
+                                    .documentationTargets(editor, file, caret),
+                            com.intellij.lang.documentation.ide.IdeDocumentationTargetProvider.getInstance(getProject())
+                                    .documentationTargets(editor, file, caret + 1)))).get();
+            assertEquals(List.of(new AhkSettingsDocumentation.Target(AhkSettingsExplain.topicAt(text, offset, false))),
+                    targets.get(0));
+            assertTrue(targets.get(1).toString(), targets.get(1).stream()
+                    .noneMatch(t -> t instanceof AhkSettingsDocumentation.Target));
+        }
+        String html = AhkSettingsDocumentation.html("Deploy.Banner");
+        assertTrue(html, html.contains("<h2>Banner</h2>")
+                && html.contains("\"autohotkey-manual:/extra/installer.htm#Banner\""));
+        html = AhkSettingsDocumentation.html("Deploy");
+        assertTrue(html, html.contains("<h3>Destination</h3>") && html.contains("<h3>EmbedOrigin</h3>"));
+        var other = myFixture.addFileToProject("x/other.ini", text);
+        assertEquals(List.of(), new AhkSettingsDocumentation().documentationTargets(other, 0));
+    }
+
+    /** The banner offers what changes something; each link is one undo step and the caret stays in its line. */
+    public void testSettingsNotification() {
+        var file = myFixture.addFileToProject("y/" + AhkDeployConfig.FILE_NAME,
+                "[Deploy]\nCompile=no\n\n[Install]\na.ahk=.\n").getVirtualFile();
+        myFixture.openFileInEditor(file);
+        var editor = com.intellij.openapi.fileEditor.FileEditorManager.getInstance(getProject()).getSelectedEditor(file);
+        assertEquals(List.of("Restore Explanations"), links(file, editor));
+        var document = myFixture.getEditor().getDocument();
+        String before = document.getText();
+        myFixture.getEditor().getCaretModel().moveToOffset(before.indexOf("a.ahk") + 3);
+        AhkSettingsNotification.change(getProject(), file, editor, "settings.explain.restore",
+                t -> AhkSettingsExplain.restore(t, false, "tool"));
+        String full = document.getText();
+        assertEquals(full.indexOf("a.ahk=."), myFixture.getEditor().getCaretModel().getOffset());
+        var undo = com.intellij.openapi.command.undo.UndoManager.getInstance(getProject());
+        undo.undo(editor);
+        assertEquals(before, document.getText());
+        undo.redo(editor);
+        assertEquals(full, document.getText());
+        assertTrue(links(file, editor).contains("Remove Explanations and Compact"));
+        // a text without line separator
+        com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(getProject(),
+                () -> document.setText("[Deploy]"));
+        AhkSettingsNotification.change(getProject(), file, editor, "settings.explain.restore",
+                t -> AhkSettingsNotification.restored(getProject(), file, t));
+        assertTrue(document.getText().contains("\n;Compile=no\n"));
+        assertNull(new AhkSettingsNotification().collectNotificationData(getProject(),
+                myFixture.addFileToProject("y/other.ini", "x").getVirtualFile()));
+    }
+
+    /** The texts of the links in the banner of a settings file. */
+    private List<String> links(com.intellij.openapi.vfs.VirtualFile file,
+                               com.intellij.openapi.fileEditor.FileEditor editor) {
+        var data = new AhkSettingsNotification().collectNotificationData(getProject(), file);
+        assertNotNull(data);
+        var panel = data.apply(editor);
+        List<String> result = new ArrayList<>();
+        if (panel != null) {
+            com.intellij.util.ui.UIUtil.findComponentsOfType(panel, com.intellij.ui.HyperlinkLabel.class)
+                    .forEach(l -> result.add(l.getText()));
+        }
+        return result;
+    }
+
+    /** Long texts and lists of the dialogs: wrapped between words, shortened, limited. */
+    public void testDialogTexts() {
+        assertEquals("ab cd\nefghijklm\nn", AhkDialogs.wrap("ab cd efghijklm n", 6));
+        assertEquals("a\n\nb", AhkDialogs.wrap("a\n\nb", 6));
+        assertEquals(List.of("a", "b"), AhkDialogs.limit(List.of("a", "b"), 2));
+        assertEquals(List.of("a", "b", "\u2026 (+2)"), AhkDialogs.limit(List.of("a", "b", "c", "d"), 2));
+        assertEquals("a.ahk", AhkDialogs.shorten("a.ahk"));
+        String path = AhkDialogs.shorten("folder\\".repeat(40) + "name.ahk");
+        assertTrue(path, path.length() <= AhkDialogs.COLUMNS && path.endsWith("folder\\name.ahk"));
+    }
+
+    /** The dialog of Set Version with many files: not wider than the screen, the size key is for all projects. */
+    public void testSetVersionDialogSize() throws Exception {
+        List<Path> files = new ArrayList<>();
+        for (int i = 0; i < 60; i++) {
+            files.add(write(root.resolve("some/long/folder/name/script" + i + ".ahk"), "MsgBox 1\n"));
+        }
+        var prepared = AhkSetVersion.prepare(root, "Tool", texts(files.toArray(new Path[0])), false);
+        AhkSetVersionDialog dialog = new AhkSetVersionDialog(getProject(), "Set Version", prepared);
+        try {
+            var size = dialog.createCenterPanel().getPreferredSize();
+            assertTrue(size.toString(), size.width < 1300 && size.height < 900);
+            assertTrue(dialog.getDimensionKey(), dialog.getDimensionKey().startsWith("APPLICATION_WIDE_STORE_"));
+            assertEquals("0.0.1", dialog.choice().version());
+            assertEquals("Release Tool v0.0.1", dialog.choice().message());
+        } finally {
+            com.intellij.openapi.util.Disposer.dispose(dialog.getDisposable());
+        }
+    }
+
+    /** A message of several lines, also with {@code #} and quotes, is the same in the commit and in the tag. */
+    public void testMessageOfSeveralLines() throws Exception {
+        if (!gitAvailable()) return;
+        write(root.resolve("a.txt"), "1\n");
+        AhkDeployGit git = new AhkDeployGit(root);
+        for (String[] args : new String[][]{{"init"}, {"config", "user.name", "Test"},
+                {"config", "user.email", "test@example.invalid"}, {"config", "commit.gpgsign", "false"},
+                {"add", "."}}) {
+            AhkDeployGit.Result result = git.run(args);
+            assertTrue(result.text(), result.ok());
+        }
+        String message = "Release 1\n\n# a \"quoted\" line\nlast";
+        assertNull(git.commitAll(message));
+        assertNull(git.tag("v1", message));
+        assertEquals(message, git.run("log", "-1", "--format=%B").stdout().strip().replace("\r\n", "\n"));
+        assertEquals(message, git.run("tag", "-l", "v1", "--format=%(contents)").stdout().strip()
+                .replace("\r\n", "\n"));
     }
 
     /** "Create Settings" in a folder below a banner.txt: Banner=find:banner.txt is active. */

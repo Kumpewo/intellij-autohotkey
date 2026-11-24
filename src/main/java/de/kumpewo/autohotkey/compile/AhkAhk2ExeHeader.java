@@ -23,15 +23,15 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Head of {@code ;@Ahk2Exe-...} compiler directives that makes a script ready for "Compile with Ahk2Exe": the base
- * file ({@code ;@Ahk2Exe-Base}), product name, version ({@code ;@Ahk2Exe-SetVersion}, the line that "Set Version"
- * changes), description, language, copyright, and disabled lines for icon and console application. The values are
- * written without quotes, because Ahk2Exe would keep them in the executable; their column is aligned. Inserted below the first {@code #Requires} line (otherwise at the start of the file) as a
- * live template whose placeholders (name, version, description, copyright) are visited with Tab. A line
- * {@code ;@Ahk2Exe-SetVersion x} that the script has already (for example added by "Set Version") is taken into the
- * head: it is removed and {@code x} becomes the default of the version (other existing directives stay as they are).
- * Offered by the intention {@link AhkAddAhk2ExeHeaderIntention} and by the notification of {@link AhkCompiler} when
- * the base directive is missing.
+ * Head of {@code ;@Ahk2Exe-...} compiler directives that makes a script ready for "Compile with Ahk2Exe": the base file
+ * ({@code ;@Ahk2Exe-Base}), product name, version ({@code ;@Ahk2Exe-SetVersion}, the line that "Set Version" changes),
+ * description, language, copyright, and disabled lines for icon and console application. The values are written without
+ * quotes, because Ahk2Exe would keep them in the executable; their column is aligned. Inserted below the first {@code
+ * #Requires} line (otherwise at the start of the file) as a live template whose placeholders (name, version,
+ * description, copyright) are visited with Tab. A line {@code ;@SetVersion x} (or {@code ;@Ahk2Exe-SetVersion x}) that
+ * the script has already is taken into the head: it is removed and {@code x} becomes the default of the version (other
+ * existing directives stay as they are). Offered by the intention {@link AhkAddAhk2ExeHeaderIntention} and by the
+ * notification of {@link AhkCompiler} when the base directive is missing.
  */
 public final class AhkAhk2ExeHeader {
 
@@ -117,8 +117,8 @@ public final class AhkAhk2ExeHeader {
     static final String DEFAULT_VERSION = "1.0.0";
 
     /**
-     * The existing line {@code ;@Ahk2Exe-SetVersion} to take into the head: exactly one, with a written value;
-     * {@code null} otherwise.
+     * The existing version line ({@code ;@SetVersion} or the directive) to take into the head: exactly one,
+     * with a written value; {@code null} otherwise.
      */
     static @Nullable de.kumpewo.autohotkey.install.AhkVersionDirective.Line existingVersion(@NotNull CharSequence text) {
         var lines = de.kumpewo.autohotkey.install.AhkVersionDirective.find(text);

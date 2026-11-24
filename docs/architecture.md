@@ -569,9 +569,9 @@ custom folding providers only know `//`, `#` and `/*` as comment prefixes, so th
   like `AhkAhk2ExeHeader` (same lines from Project to Deployed, `LIBRARY` with Use). `AhkDeployPlan.targets` resolves without Git, for callers that only need targets
   (`AhkLibraryProjects.scan`, `AhkAddToLibraryProject`). `AhkBanner.apply` puts it in front of the bytes
   of the source, after a first line `<?xml`/`#!`/registry header/`@echo off` (`hasHeaderLine`; Set Version moves a version line right before it behind it, `AhkSetVersion.moveBehindHeader`; encoding from the byte order mark, otherwise ASCII with `_`; line
-  ending of the first line), and leaves out `Step.dropLine` (the `@SetVersion` line of a non-AutoHotkey file whose
-  banner uses `{version}`); `AhkDeployCopier.copyFile` writes the result, the elevated copy gets it as a prepared
-  file in the temp folder.
+  ending of the first line), and leaves out `Step.dropLine` (the version line of a file whose banner uses
+  `{version}`; a script keeps it with `;@Ahk2Exe-Base` or without a fixed version); `AhkDeployCopier.copyFile` writes
+  the result, the elevated copy gets it as a prepared file in the temp folder.
 - Origin (`EmbedOrigin`): `AhkDeployPlan.origin` gives the `Step` of an executable of `[Install]` with a script of the
   same name the text of `AhkExeOrigin.block`; `AhkDeployCopier.copyFile` appends it to the copy
   (`AhkExeOrigin.append`), the elevated copy gets a prepared file. `AhkExeOrigin.certificateTableSize` reads the PE
@@ -602,7 +602,7 @@ custom folding providers only know `//`, `#` and `/*` as comment prefixes, so th
   `WelcomeScreen.QuickStart`, only in Lib-src mode), `FromFile` (group `AutoHotkey.CodeActions`, a library file
   without project); `AhkNewLibraryProject.create` writes folder, source and the INI from
   `install/settings-library.ahk-v2-plugin.ini` (never into an existing folder; `Destination` always the user library
-  folder itself, the folders of the name in the target `$target$`, e.g. `Gui.ahk=v2\`, so that targets in other
+  folder itself, the folders of the name in the target (`$install$`), e.g. `Gui.ahk=v2\`, so that targets in other
   library folders need no change of `Destination`; `Banner=find:banner.txt` if `AhkBanner.find` finds it
   from the projects folder upwards, otherwise `@library`; `AhkSettingsFile.create` likewise for the tool template,
   `$find-banner$`), then the project is opened.
@@ -629,32 +629,47 @@ custom folding providers only know `//`, `#` and `/*` as comment prefixes, so th
   rename preview cannot be extended for file renames from the Project view, hence the dialogs.
 - `AhkCreateSettingsAction` ("Create Settings...", only while the root has no INI) and the missing-file question of
   Deploy call `AhkSettingsFile.create`: the resource `install/settings.ahk-v2-plugin.ini` (all options commented out
-  with `;` and explained in lines starting with `;;`, as in the template of library projects; `{tool}` = project name,
-  CR LF) is written into the project root in a write command and opened; an existing file is only opened, never
-  overwritten. `AhkSettingsFile.examples` fills the placeholders `$install$`, `$install-if-missing$`, `$banner$`,
-  `$version$`, `$cleanup$` from the files of a known type in the project root (built-in comment style or `.exe`;
-  configuration types to `[InstallIfMissing]`; at most `MAX_EXAMPLES` per section); in an AutoHotkey project first
-  `<tool>.ahk`/`<tool>.exe` and `*.ahk`, without files generic `<tool>.cmd`.
-- `AhkSetVersionAction` ("Set Version...") calls `AhkSetVersion.run`: in the background the files of the project
-  content under the root (`projectScripts`, `ProjectFileIndex`) are filtered (`candidates`: AutoHotkey files not
-  excluded, other files included by `[SetVersion]`) and read, and `prepare` collects their version lines (`Script`
-  with `Style`; `added()` = no line yet (any candidate without a line), it is added by `insertionOffset`/`versionLine`; several lines or a computed
-  value are errors; different versions a warning; binary files a warning; `current` = the highest by
-  `AhkVersionDirective.compare`), the Git state (`status`: untracked files prevent the commit, changed
-  versioned files are listed) and the tags `v*`; `AhkSetVersionDialog` (patch/minor/major/other, one check box
-  "Commit the project and create tag v…", message; validates the version and that the tag is new), then all values
-  are replaced in one `WriteCommandAction` (undoable) and saved, and `commitAndTag` runs in the background
-  (`check-ref-format` first, then commit of the project, annotated tag); result as notification. No INI needed; if
-  there is one, `prepare` uses its `versionRules` and stops on `versionErrors`. Without any file to change,
-  `Prepared.missing` (`Missing`: no INI, no including line, including lines match nothing) gives the hint
-  `missingText`; `offerSettings` offers *Create Settings* (`AhkSettingsFile.create` with the section) or opens
-  the INI; both put the caret at `[SetVersion]` (`AhkSettingsFile.open`, `sectionLine`). `AhkVersionDirective.findIn` finds
-  `;@Ahk2Exe-SetVersion` in AutoHotkey files and `<start> @SetVersion x [<end>]` in others. The Ahk2Exe head
-  (`compile/AhkAhk2ExeHeader.insert`) takes over an existing `;@Ahk2Exe-SetVersion` line (removes it, its value is
-  the default of the version placeholder).
-- `AhkVersionDirective`: finds `;@Ahk2Exe-SetVersion` as Ahk2Exe does (trimmed line, any case, ` ;` comment cut
-  off, block comments and `IgnoreBegin`/`IgnoreEnd` skipped, `/*@Ahk2Exe-Keep` counts), `bump`, `isValidVersion`,
-  `compare`, `tagName` (`v<version>`).
+  with `;`, no explanations; `{tool}` = project name) is completed (`AhkSettingsFile.complete`: explanations unless
+  `AhkSettings.isExplainNewSettings` is off, CR LF), written into the project root in a write command and opened; an
+  existing file is only opened, never overwritten. `AhkSettingsFile.examples` fills the placeholders `$install$`,
+  `$install-if-missing$`, `$banner$`, `$version$`, `$cleanup$` from the files of a known type in the project root
+  (built-in comment style or `.exe`; configuration types to `[InstallIfMissing]`; at most `MAX_EXAMPLES` per section);
+  in an AutoHotkey project first `<tool>.ahk`/`<tool>.exe` and `*.ahk`, without files generic `<tool>.cmd`. If
+  `AhkLibraryProjects.isBelow` (below the library projects folder, not inside another library project), the text is
+  `AhkNewLibraryProject.existing` instead: the template of library projects with every AutoHotkey file of the root and
+  the target `{set target}` in `$install$`.
+- Explanations of the INI: `AhkSettingsHelp` reads `install/settings-help.html` (one topic per option, section and file
+  header), as HTML for the popup and as wrapped `;; ` lines for the file. `AhkSettingsExplain.compact` and `restore` work
+  on the text alone: lines of the user never change and never move. `restore` adds the missing fixed lines of the
+  template commented out; `generic` is the only place that decides which lines these are (not the `$...$` placeholders
+  and, outside of `[Deploy]`, not keys with the project name). In `[Deploy]` comments of the user form a group with the
+  option below. `AhkSettingsNotification` is the bar (a link that changes nothing is left out; checked again after
+  edits), `AhkSettingsDocumentation` the quick documentation: a `DocumentationTargetProvider` by file name, so it does
+  not depend on a plugin for INI files; it only answers at a caret, so that the mouse shows no popup. Its nested `Links` opens the link to the manual in `extra.chm` and returns the
+  same target, because the platform would hand an unresolved link to the browser.
+- `AhkSetVersionAction` ("Set Version...") calls `AhkSetVersion.run`: in the background the files of the project content
+  under the root (`projectScripts`, `ProjectFileIndex`) are filtered (`candidates`: AutoHotkey files not excluded, other
+  files included by `[SetVersion]`) and read, and `prepare` collects their version lines (`Script` with `Style`;
+  `added()` = no line yet (any candidate without a line), it is added by `insertionOffset`/`versionLine`; several lines
+  or a computed value are errors; binary files a warning; different versions are listed; `current` = the highest by
+  `AhkVersionDirective.compare`), the Git state (`status`: untracked files prevent the commit, changed versioned files
+  are listed) and the tags `v*`; `AhkSetVersionDialog` (patch/minor/major/other, one check box "Commit the project and
+  create tag v…", message of several lines, which Git keeps as it is with `--cleanup=whitespace`; validates the version
+  and that the tag is new; `AhkDialogs`, also used by the dialogs of Deploy: short lists, wrapped texts, scrolling
+  content, size remembered for all projects), then all values are replaced in one `WriteCommandAction` (undoable) and
+  saved, and `commitAndTag` runs in the background (`check-ref-format` first, then commit of the project, annotated
+  tag); result as notification. No INI needed; if there is one, `prepare` uses its `versionRules` and stops on
+  `versionErrors`. Without any file to change, `Prepared.missing` (`Missing`: no INI, no including line, including lines
+  match nothing) gives the hint `missingText`; `offerSettings` offers *Create Settings* (`AhkSettingsFile.create` with
+  the section) or opens the INI; both put the caret at `[SetVersion]` (`AhkSettingsFile.open`, `sectionLine`).
+  `AhkVersionDirective.findIn` finds `;@Ahk2Exe-SetVersion` and `;@SetVersion` in AutoHotkey files and `<start>
+  @SetVersion x [<end>]` in others. The Ahk2Exe head (`compile/AhkAhk2ExeHeader.insert`) takes over an existing version
+  line of either kind (removes it, its value is the default of the version placeholder).
+- `AhkVersionDirective`: `keyword` = `;@Ahk2Exe-SetVersion` with `;@Ahk2Exe-Base`, otherwise `;@SetVersion` (Ahk2Exe
+  also obeys directives of included files, the last version wins); Set Version writes the line with it, `tagged`
+  rewrites the copies in `AhkDeployCopier.copyFile` (byte by byte, not for `[InstallIfMissing]`). Finds both as Ahk2Exe
+  does (trimmed line, any case, ` ;` comment cut off, block comments and `IgnoreBegin`/`IgnoreEnd` skipped,
+  `/*@Ahk2Exe-Keep` counts), `bump`, `isValidVersion`, `compare`, `tagName` (`v<version>`).
 - `AhkDeployGit`: `git` on the command line (no Git4Idea) in the project root: `status --porcelain
   --untracked-files=all -- .`, `check-ref-format`, `rev-parse --verify`, `commit -- .` (all versioned files under the
   root, staged changes outside stay staged), annotated tag on HEAD.

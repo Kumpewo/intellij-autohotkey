@@ -26,9 +26,10 @@ import java.util.List;
  * Confirmation of a deployment (always shown, OK/Cancel): the {@code Message} of the
  * {@code settings.ahk-v2-plugin.ini}, the overview ({@code GenerateOverview}: compile step and the copy sections without
  * comments, in a monospaced font), or without both one sentence "Deploy … to …?"; a prominent note with a warning
- * icon if {@code RequiresAdmin} is on; warnings (red); hints (gray, only noticed); the hint about uncommitted changes with a link "More..." to the
- * manual. For a file with the names of version 2.1 the button "Update Settings" closes the dialog and asks
- * {@link AhkDeployer} to rename them ({@link #updateRequested}).
+ * icon if {@code RequiresAdmin} is on; warnings (red); hints (gray, only noticed); the hint about uncommitted changes
+ * with a link "More..." to the manual. Content that does not fit scrolls; the size is remembered. For a file with the
+ * names of version 2.1 the button "Update Settings" closes the dialog and asks {@link AhkDeployer} to rename them
+ * ({@link #updateRequested}).
  */
 final class AhkDeployDialog extends DialogWrapper {
 
@@ -115,8 +116,13 @@ final class AhkDeployDialog extends DialogWrapper {
         }
         JPanel panel = new JPanel(new BorderLayout());
         panel.add(form.getPanel(), BorderLayout.NORTH);
-        panel.setBorder(JBUI.Borders.empty(4));
-        return panel;
+        return AhkDialogs.scrollable(panel);
+    }
+
+    /** The size of the dialog is remembered. */
+    @Override
+    protected @NotNull String getDimensionServiceKey() {
+        return AhkDialogs.sizeKey("Deploy");
     }
 
     /** Label with line breaks. */
@@ -129,7 +135,7 @@ final class AhkDeployDialog extends DialogWrapper {
      * stands apart from the next one.
      */
     private static JBLabel indented(String text) {
-        return new JBLabel("<html>" + StringUtil.escapeXmlEntities(text)
+        return new JBLabel("<html>" + StringUtil.escapeXmlEntities(AhkDialogs.wrap(text, AhkDialogs.COLUMNS))
                 .replace("\n", "<br>&nbsp;&nbsp;&nbsp;&nbsp;") + "</html>");
     }
 

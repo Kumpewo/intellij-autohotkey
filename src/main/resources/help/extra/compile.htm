@@ -50,7 +50,7 @@
   <li>The placeholders (product name, version, description, copyright) are selected one after another; type the value and press <kbd>Tab</kbd> for the next one, <kbd>Enter</kbd> or <kbd>Esc</kbd> to keep the rest. The name defaults to the file name.</li>
   <li>The base file is <code>AutoHotkey64.exe</code>, or <code>AutoHotkey32.exe</code> if <code>#Requires</code> asks for <code>32-bit</code>.</li>
   <li>Write the values <strong>without quotes</strong>: Ahk2Exe takes the rest of the line as it is, quotes would appear in the properties of the executable. Spaces are fine; a comma must be written as <code>`,</code>; a comment after the value needs a space before the <code>;</code>.</li>
-  <li><code>;@Ahk2Exe-SetVersion</code> sets file and product version. <a href="installer.htm#Version">Set Version...</a> changes this line in all scripts of the project for you, with commit and version tag. If the script already has such a line (for example one that Set Version added), the head takes it over: the line is removed and its version becomes the default.</li>
+  <li><code>;@Ahk2Exe-SetVersion</code> sets file and product version. <a href="installer.htm#Version">Set Version...</a> changes the version in all scripts of the project for you, with commit and version tag. If the script already has a version line (<code>;@SetVersion</code>), the head takes it over: the line is removed and its version becomes the default.</li>
   <li>Lines starting with <code>;;@</code> are disabled directives. Remove one <code>;</code> to set an icon or to build a console application.</li>
   <li><code>0x0409</code> is the language code for English (United States), e.g. <code>0x0407</code> for German.</li>
 </ul>

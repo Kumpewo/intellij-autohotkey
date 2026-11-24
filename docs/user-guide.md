@@ -710,13 +710,13 @@ start *AutoHotkey Dash* from the Windows Start menu and click *Compile*, which i
   ```
 
   A relative base path is relative to the folder of Ahk2Exe. Without this line the plugin does not compile:
-  Ahk2Exe would otherwise use the base file chosen last in its own window, which may be one of AutoHotkey v1.
-  A notification then offers *Add Ahk2Exe directives*; the same is available with *Alt+Enter* (*Add Ahk2Exe
-  compiler directives*) in every script without the line. It inserts a head below `#Requires` with the base file
-  (`AutoHotkey64.exe`, or `AutoHotkey32.exe` for `#Requires ... 32-bit`), product name, version
-  (`;@Ahk2Exe-SetVersion`, the line that *Set Version...* changes), description, language and copyright
-  (placeholders, visited with *Tab*) and disabled lines (`;;@`) for icon and console application. The values are
-  written without quotes: Ahk2Exe would keep quotes in the properties of the executable.
+  Ahk2Exe would otherwise use the base file chosen last in its own window, which may be one of AutoHotkey v1. A
+  notification then offers *Add Ahk2Exe directives*; the same is available with *Alt+Enter* (*Add Ahk2Exe compiler
+  directives*) in every script without the line. It inserts a head below `#Requires` with the base file
+  (`AutoHotkey64.exe`, or `AutoHotkey32.exe` for `#Requires ... 32-bit`), product name, version (`;@Ahk2Exe-SetVersion`,
+  taken over from a line `;@SetVersion`, which is removed), description, language and copyright (placeholders, visited
+  with *Tab*) and disabled lines (`;;@`) for icon and console application. The values are written without quotes:
+  Ahk2Exe would keep quotes in the properties of the executable.
 - Everything else (name of the executable, icon, version information ...) comes from the `;@Ahk2Exe-...`
   directives of the script; by default the executable is created next to the script.
 - The plugin runs `Ahk2Exe.exe /in script /compress n /silent verbose` in the background. The console shows the
@@ -785,12 +785,26 @@ and shows the confirmation again. If both files exist, the new one counts and th
 Plugin version 2.5.0 will no longer read the old file. Old names in the new file are errors that name the new name.
 
 *Create Settings...* (same menus, only while the project root has no such file) writes a documented default
-`settings.ahk-v2-plugin.ini` into the project root and opens it: every option is explained in comments and commented
-out (switches with the value that changes the default, usually `yes`), so the file does nothing until you remove a
-`;`; only `[SetVersion]` leaves the folders `scratch\` and `test\` out from the start. Explanations start with `;;`,
-commented-out options with a single `;`. The commented-out examples come from the files in the project root (e.g.
-`;notes.md=.` and `;*.md=yes`; without such files `;MyTool.cmd=.`). Switches and the values of `[AddBanner]` and
-`[SetVersion]` are `yes` or `no`.
+`settings.ahk-v2-plugin.ini` into the project root and opens it: every option is explained in comments and commented out
+(switches with the value that changes the default, usually `yes`), so the file does nothing until you remove a `;`; only
+`[SetVersion]` leaves the folders `scratch\` and `test\` out from the start. The commented-out examples come from the
+files in the project root (e.g. `;notes.md=.` and `;*.md=yes`; without such files `;MyTool.cmd=.`). Below the library
+projects folder the file is that of a [library project](#library-projects) instead: every AutoHotkey file in the project
+root is listed in `[Install]` with the target `{set target}`, which you replace before the first deployment. Switches
+and the values of `[AddBanner]` and `[SetVersion]` are `yes` or `no`.
+
+Explanations start with `;;` in the first column and a space; commented-out options start with a single `;`. The bar
+above the file switches between a short and an explained file; each link is one undo step:
+
+- *Remove Explanations and Compact* removes all lines starting with `;;` and a space (also your own) and the empty lines
+  inside the sections. Commented-out options and other comments stay.
+- *Restore Explanations* inserts the current explanations. It also adds sections, options and general examples you have
+  deleted, always commented out, so the meaning of the file never changes. An active option gets no examples.
+
+For comments of your own, use a single `;` with a space, or `;;;`; in `[Deploy]` they stay above the option that follows
+them. *Ctrl+Q* shows the explanation of the option or section at the caret, also in the short file. The setting *Write
+explanations into new settings.ahk-v2-plugin.ini files* (*Languages & Frameworks > AutoHotkey*) decides which form new
+files have.
 
 *Deploy to Local Target...* copies the tool to a fixed place, so that compiling in the project does not replace the
 version in use. It needs `settings.ahk-v2-plugin.ini`; without one it offers to create the default file.
@@ -873,11 +887,12 @@ version in use. It needs `settings.ahk-v2-plugin.ini`; without one it offers to 
   `INSTALLED ARTIFACT -- Do not modify here. Edit the source and deploy again.`, without the line Use. Placed after a
   first line `<?xml`, `#!`, a registry header or `@echo off`. A file with a byte order mark
   (UTF-8, UTF-16) gets the text in its encoding, any other file ASCII (other characters become `_`); line break as
-  in the first line. With `{version}` in the text, a file that is no AutoHotkey file loses its own `@SetVersion`
-  line in the copy. The source is never changed. The confirmation warns if `Banner` is set but no file gets it
-  while a file could (exclude it with `no` to stay silent), and shows a gray hint if no deployed file type can take a
-  banner; without `Banner` it warns about a line that includes a deployed file and about AutoHotkey files that
-  would get one (`*.ahk=no` in `[AddBanner]` says that the tool is deployed without a banner).
+  in the first line. With `{version}` in the text, the copy loses its own version line (`;@SetVersion`,
+  `# @SetVersion` ...); a script with `;@Ahk2Exe-Base` keeps it. The source is never changed. The confirmation warns if
+  `Banner` is set but no file gets it while a file could (exclude it with `no` to stay silent), and shows a gray hint if
+  no deployed file type can take a banner; without `Banner` it warns about a line that includes a deployed file and
+  about AutoHotkey files that would get one (`*.ahk=no` in `[AddBanner]` says that the tool is deployed without a
+  banner).
 - Libraries (files of `%A_MyDocuments%\AutoHotkey\Lib`, `#Include <v2\Gui>` = `Lib\v2\Gui.ahk`): without the
   setting *Library projects folder* they are edited directly; *File > New > AutoHotkey Library File* creates one
   (name with folders, e.g. `v2\Gui`), and a notification bar above them points to library projects (*Set Library Projects
@@ -885,7 +900,7 @@ version in use. It needs `settings.ahk-v2-plugin.ini`; without one it offers to 
   in `<folder>\Gui\Gui.ahk` and deploys into `Lib\v2\`, so one project can also deploy other versions such as
   `Lib\Gui.ahk`; any folder below with a `settings.ahk-v2-plugin.ini` is a project, so the projects may also be
   organized in subfolders), deployed into the Lib folder. *File > New > AutoHotkey Library Project...* (also on the welcome screen) creates such a project
-  (source with `;@Ahk2Exe-SetVersion 0.1.0`, settings with `Destination=%A_MyDocuments%\AutoHotkey\Lib\` and the
+  (source with `;@SetVersion 0.1.0`, settings with `Destination=%A_MyDocuments%\AutoHotkey\Lib\` and the
   folders of the name in the target, e.g. `Gui.ahk=v2\`,
   `Banner=@library` or, if the library projects folder or a folder above contains `banner.txt`,
   `Banner=find:banner.txt`, and `[SetVersion]` with `scratch\=no`,
@@ -908,6 +923,9 @@ version in use. It needs `settings.ahk-v2-plugin.ini`; without one it offers to 
   in the project stay as they are; signed executables are not changed (gray hint). **Privacy:** everyone who gets such a
   copy can read the folder and the computer name; `EmbedOrigin=no` leaves both out. Own banner texts and files are not
   affected.
+- Optional extra: [OpenInIDE](https://github.com/Kumpewo/open-in-ide), a separate project, adds an entry to the
+  context menu of the Windows Explorer that opens the project of such a copy in IntelliJ IDEA. It reads the built-in
+  banners and the text at the end of an executable, not own banner texts, and supports no other IDE.
 - The confirmation warns if an executable is older than the scripts next to it (with `Compile=no`)
   and if the project has uncommitted changes (Git).
 - Renaming or moving a file or folder of the project in the IDE (*Rename*, *Move*, drag and drop in the Project
@@ -928,23 +946,27 @@ version in use. It needs `settings.ahk-v2-plugin.ini`; without one it offers to 
     whenever a deployment does something unexpected, check `settings.ahk-v2-plugin.ini` carefully.
 
 *Set Version...* sets the version of the tool in every AutoHotkey file (`.ahk`, `.ah2`, `.ahk2`) of the project,
-deployed or not, in the line `;@Ahk2Exe-SetVersion 1.2.0` (file and product version of the executable); it needs
-no settings. The section `[SetVersion]` of `settings.ahk-v2-plugin.ini` (selectors and values as above) excludes
-files (`scratch\=no`; they still count for commit and tag, to keep files out of Git use `.gitignore`) or includes
-other files. A file without a version line gets one: `;@Ahk2Exe-SetVersion x` in AutoHotkey files below the
-`#Requires` line (without one, as the first line), `<comment> @SetVersion x` in others as the first line (after
-`<?xml`, `#!` or `@echo off`; in `.cmd`/`.bat` a line with `REM` is found too and rewritten with `::`; a version line at the start right
-before such a first line moves behind it). A mistake in the settings stops
-Set Version only if it concerns the file itself or `[SetVersion]`. If no file gets the version, a message says
-why and offers *Create Settings* (no `settings.ahk-v2-plugin.ini` yet) or *Edit Settings* (`[SetVersion]` includes no
-file); *Create Settings* opens the new file at `[SetVersion]`. The dialog shows
-the current version (the highest, with a warning if the scripts differ) and the scripts it changes, proposes the next
-patch, minor or major version (without any version yet `0.0.1`, `0.1.0`, `1.0.0`) or takes any other one (never with a leading `v`; the field shows the chosen version to start from), then changes the lines (undoable
-with *Undo*). With *Commit the project and create tag v1.2.1* it commits all changes of the project and sets the
-annotated tag `v<version>` on that commit, so the tag marks exactly the sources of the deployed tool. This is only
-possible if every file of the project is versioned or ignored (`.gitignore`); otherwise, and without Git, the check
+deployed or not; it needs no settings. A script with `;@Ahk2Exe-Base` has it in the directive `;@Ahk2Exe-SetVersion
+1.2.0` (file and product version of the executable), any other AutoHotkey file in the comment `;@SetVersion 1.2.0`:
+Ahk2Exe also obeys the directives of included files, so a directive in a library would replace the version of the
+program. Set Version rewrites a line of the wrong kind, and *Deploy* writes `;@SetVersion` into the copies of scripts
+without `;@Ahk2Exe-Base` (`[Install]`). The section `[SetVersion]` of `settings.ahk-v2-plugin.ini` (selectors and values
+as above) excludes files (`scratch\=no`; they still count for commit and tag, to keep files out of Git use `.gitignore`)
+or includes other files. A file without a version line gets one: in AutoHotkey files below the `#Requires` line (without
+one, as the first line), `<comment> @SetVersion x` in others as the first line (after `<?xml`, `#!` or `@echo off`; in
+`.cmd`/`.bat` a line with `REM` is found too and rewritten with `::`; a version line at the start right before such a
+first line moves behind it). A mistake in the settings stops Set Version only if it concerns the file itself or
+`[SetVersion]`. If no file gets the version, a message says why and offers *Create Settings* (no
+`settings.ahk-v2-plugin.ini` yet) or *Edit Settings* (`[SetVersion]` includes no file); *Create Settings* opens the new
+file at `[SetVersion]`. The dialog shows the current version (the highest, with a warning if the scripts differ) and the
+scripts it changes, proposes the next patch, minor or major version (without any version yet `0.0.1`, `0.1.0`, `1.0.0`)
+or takes any other one (never with a leading `v`; the field shows the chosen version to start from), then changes the
+lines (undoable with *Undo*). With *Commit the project and create tag v1.2.1* it commits all changes of the project and
+sets the annotated tag `v<version>` on that commit, so the tag marks exactly the sources of the deployed tool. This is
+only possible if every file of the project is versioned or ignored (`.gitignore`); otherwise, and without Git, the check
 box is disabled with a hint, and only the lines are changed. Uncommitted changes of versioned files are listed and
-committed with the version. An existing tag is refused. Each script needs at most one such line with a written
+committed with the version. The message may have several lines (Ctrl+Enter sets the version). The dialogs of Set Version
+and Deploy remember their size. An existing tag is refused. Each script needs at most one such line with a written
 version (not computed with `%...%`); Ahk2Exe reads it as a directive in any case, with a comment ` ; ...` after it.
 
 Details and reasons: *Help > AutoHotkey Plugin Manual*, page "Deploying tools and setting versions".
@@ -975,7 +997,7 @@ text file except `.cmd` and `.bat`, which stay in their code page.
 
 | Where | What |
 |-------|------|
-| *Languages & Frameworks > AutoHotkey* | path to AutoHotkey and to the AutoHotkey v2.1 interpreter (empty = automatic), command line of the external help, automatic validation, Ahk2Exe path and compression, language level of files without `#Requires`, language level in the Project view, library projects folder |
+| *Languages & Frameworks > AutoHotkey* | path to AutoHotkey and to the AutoHotkey v2.1 interpreter (empty = automatic), command line of the external help, automatic validation, Ahk2Exe path and compression, language level of files without `#Requires`, language level in the Project view, library projects folder, explanations in new settings files |
 | *Editor > Color Scheme > AutoHotkey* | colors |
 | *Editor > Code Style > AutoHotkey* | indent, spaces, tab *Case* |
 | *Editor > Live Templates > AutoHotkey* | templates |

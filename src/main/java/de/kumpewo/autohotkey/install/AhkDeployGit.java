@@ -97,16 +97,20 @@ public final class AhkDeployGit {
 
     /**
      * Commits all changes of versioned files under the folder with the message; staged changes outside of it stay
-     * staged, untracked files are not added. Returns {@code null} on success, otherwise the error text of Git.
+     * staged, untracked files are not added. Lines of the message starting with {@code #} are kept. Returns
+     * {@code null} on success, otherwise the error text of Git.
      */
     public @Nullable String commitAll(@NotNull String message) {
-        Result commit = run("commit", "-m", message, "--", ".");
+        Result commit = run("commit", "--cleanup=whitespace", "-m", message, "--", ".");
         return commit.ok() ? null : commit.text();
     }
 
-    /** Sets the annotated tag on HEAD; {@code null} on success, otherwise the error text of Git. */
+    /**
+     * Sets the annotated tag on HEAD; lines of the message starting with {@code #} are kept. {@code null} on success,
+     * otherwise the error text of Git.
+     */
     public @Nullable String tag(@NotNull String tag, @NotNull String message) {
-        Result result = run("tag", "-a", tag, "-m", message);
+        Result result = run("tag", "--cleanup=whitespace", "-a", tag, "-m", message);
         return result.ok() ? null : result.text();
     }
 }

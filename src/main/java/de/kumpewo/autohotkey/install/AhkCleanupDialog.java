@@ -45,6 +45,12 @@ final class AhkCleanupDialog extends DialogWrapper {
         init();
     }
 
+    /** The size of the dialog is remembered. */
+    @Override
+    protected @NotNull String getDimensionServiceKey() {
+        return AhkDialogs.sizeKey("Cleanup");
+    }
+
     /** Remove and deploy, deploy without removing, cancel. */
     @Override
     protected Action @NotNull [] createActions() {

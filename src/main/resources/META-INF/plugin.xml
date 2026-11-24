@@ -187,6 +187,12 @@ the editor.</p>
         <editorNotificationProvider implementation="de.kumpewo.autohotkey.install.AhkLibraryCopyNotification"/>
         <!-- text files opened as UTF-8 that are no valid UTF-8 (old ANSI files): banner with conversion -->
         <editorNotificationProvider implementation="de.kumpewo.autohotkey.encoding.AhkAnsiNotification"/>
+        <!-- settings.ahk-v2-plugin.ini: banner to remove and restore the explanations, quick documentation -->
+        <editorNotificationProvider implementation="de.kumpewo.autohotkey.install.AhkSettingsNotification"/>
+        <platform.backend.documentation.targetProvider
+                implementation="de.kumpewo.autohotkey.install.AhkSettingsDocumentation"/>
+        <platform.backend.documentation.linkHandler
+                implementation="de.kumpewo.autohotkey.install.AhkSettingsDocumentation$Links"/>
         <!-- renaming or moving a project file updates the paths in settings.ahk-v2-plugin.ini (with confirmation) -->
         <refactoring.elementListenerProvider implementation="de.kumpewo.autohotkey.install.AhkSettingsRenameListener"/>
         <!-- tags in doc comments without a meaning (typos such as @retruns), with a quick fix -->
@@ -382,7 +388,7 @@ the editor.</p>
         <action id="AutoHotkey.Install" class="de.kumpewo.autohotkey.install.AhkDeployAction" icon="/icons/plugin.svg"/>
         <!-- Documented default settings.ahk-v2-plugin.ini (install/AhkSettingsFile) -->
         <action id="AutoHotkey.CreateSettings" class="de.kumpewo.autohotkey.install.AhkCreateSettingsAction" icon="/icons/plugin.svg"/>
-        <!-- Version line ;@Ahk2Exe-SetVersion, commit and tag (install/AhkSetVersion) -->
+        <!-- Version line, commit and tag (install/AhkSetVersion) -->
         <action id="AutoHotkey.SetVersion" class="de.kumpewo.autohotkey.install.AhkSetVersionAction" icon="/icons/plugin.svg"/>
         <!-- From an installed copy to its library project (install/AhkLibraryProjects), only visible on such a copy -->
         <action id="AutoHotkey.OpenLibraryProject" class="de.kumpewo.autohotkey.install.AhkOpenLibraryProjectAction" icon="/icons/autohotkey-library.png"/>

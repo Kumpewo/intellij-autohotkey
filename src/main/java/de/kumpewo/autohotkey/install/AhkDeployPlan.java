@@ -1,6 +1,7 @@
 package de.kumpewo.autohotkey.install;
 
 import de.kumpewo.autohotkey.AhkBundle;
+import de.kumpewo.autohotkey.compile.AhkCompiler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -65,7 +66,7 @@ public final class AhkDeployPlan {
      * @param target       absolute target file
      * @param ifMissing only copy if the target does not exist ({@code [InstallIfMissing]})
      * @param banner       comment lines written at the start of the copy ({@link AhkBanner}), {@code null} = none
-     * @param dropLine     0-based line of the source left out of the copy (its {@code @SetVersion}), -1 = none
+     * @param dropLine     0-based line of the source left out of the copy (its version line), -1 = none
      * @param origin       text appended to the copy of an executable ({@link AhkExeOrigin}), {@code null} = none
      */
     public record Step(@NotNull Path source, @NotNull Path target, boolean ifMissing,
@@ -481,9 +482,11 @@ public final class AhkDeployPlan {
                 value, hash, timestamp, include(target, libraries), computer));
         // every line left out (all placeholders empty): no banner
         if (lines.isEmpty()) return Banner.NONE;
-        // the version is in the banner: the own line @SetVersion of other files is left out
-        boolean drop = version != null && !AhkFileRules.isAutoHotkey(name)
-                && AhkBanner.uses(bannerText, "{version}");
+        // the version is in the banner: the own version line is left out, but not the directive of a script to be
+        // compiled, nor a line of a script without a fixed version (it is not in the banner)
+        boolean drop = version != null && AhkBanner.uses(bannerText, "{version}")
+                && (!AhkFileRules.isAutoHotkey(name)
+                || value != null && !value.isEmpty() && !AhkCompiler.hasBaseDirective(file));
         return new Banner(lines, drop ? version.line() : -1);
     }
 

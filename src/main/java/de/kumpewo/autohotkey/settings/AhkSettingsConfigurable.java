@@ -6,6 +6,7 @@ import com.intellij.openapi.options.Configurable;
 import com.intellij.openapi.ui.ComboBox;
 import com.intellij.openapi.ui.TextFieldWithBrowseButton;
 import com.intellij.openapi.util.NlsContexts;
+import com.intellij.ui.TitledSeparator;
 import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBTextField;
 import com.intellij.util.ui.FormBuilder;
@@ -20,8 +21,8 @@ import java.nio.file.Path;
  * v2.1 interpreter, command line of the
  * external help (Shift+F1), automatic validation with AutoHotkey, path to the compiler Ahk2Exe and the compression
  * of the compiled executable, language level of files without {@code #Requires}, whether the Project view shows
- * the language level of AutoHotkey files and the folder of the library projects; below them a link to the user manual
- * of the plugin.
+ * the language level of AutoHotkey files, the folder of the library projects and whether new settings files of projects
+ * contain explanations; below them a link to the user manual of the plugin.
  */
 public final class AhkSettingsConfigurable implements Configurable {
 
@@ -34,6 +35,7 @@ public final class AhkSettingsConfigurable implements Configurable {
     private ComboBox<de.kumpewo.autohotkey.parser.AhkLanguageLevel> languageLevel;
     private JCheckBox showLevel;
     private TextFieldWithBrowseButton libraryFolder;
+    private JCheckBox explainSettings;
     private JPanel panel;
 
     /** Name of the page in the settings tree. */
@@ -109,6 +111,7 @@ public final class AhkSettingsConfigurable implements Configurable {
         JBLabel libraryHint = new JBLabel(AhkBundle.message("settings.library.folder.hint"));
         libraryHint.setComponentStyle(UIUtil.ComponentStyle.SMALL);
         libraryHint.setFontColor(UIUtil.FontColor.BRIGHTER);
+        explainSettings = new JCheckBox(AhkBundle.message("settings.explain.new"));
         panel = FormBuilder.createFormBuilder()
                 .addLabeledComponent(AhkBundle.message("settings.autohotkey.path"), path)
                 .addComponentToRightColumn(hint)
@@ -126,6 +129,9 @@ public final class AhkSettingsConfigurable implements Configurable {
                 .addComponentToRightColumn(showLevel)
                 .addLabeledComponent(AhkBundle.message("settings.library.folder"), libraryFolder)
                 .addComponentToRightColumn(libraryHint)
+                .addVerticalGap(10)
+                .addComponent(new TitledSeparator(AhkBundle.message("settings.explain")))
+                .addComponent(explainSettings)
                 .addVerticalGap(10)
                 .addComponent(new com.intellij.ui.components.ActionLink(AhkBundle.message("settings.manual"),
                         (java.awt.event.ActionListener) e -> de.kumpewo.autohotkey.documentation.AhkManual.open(null)))
@@ -146,6 +152,7 @@ public final class AhkSettingsConfigurable implements Configurable {
                 || compression.getSelectedItem() != settings.getCompression()
                 || languageLevel.getSelectedItem() != settings.getDefaultLanguageLevel()
                 || showLevel.isSelected() != settings.isShowLevelInProjectView()
+                || explainSettings.isSelected() != settings.isExplainNewSettings()
                 || !libraryFolder.getText().trim().equals(settings.getLibraryProjectsFolder());
     }
 
@@ -176,6 +183,7 @@ public final class AhkSettingsConfigurable implements Configurable {
             AhkSettings.getInstance().setShowLevelInProjectView(showLevel.isSelected());
             de.kumpewo.autohotkey.level.AhkLevelDecorator.refreshAll();
         }
+        AhkSettings.getInstance().setExplainNewSettings(explainSettings.isSelected());
         if (!libraryFolder.getText().trim().equals(AhkSettings.getInstance().getLibraryProjectsFolder())) {
             // other library projects: other installed copies (write access, notification in the editor)
             AhkSettings.getInstance().setLibraryProjectsFolder(libraryFolder.getText());
@@ -199,6 +207,7 @@ public final class AhkSettingsConfigurable implements Configurable {
         languageLevel.setSelectedItem(AhkSettings.getInstance().getDefaultLanguageLevel());
         showLevel.setSelected(AhkSettings.getInstance().isShowLevelInProjectView());
         libraryFolder.setText(AhkSettings.getInstance().getLibraryProjectsFolder());
+        explainSettings.setSelected(AhkSettings.getInstance().isExplainNewSettings());
     }
 
     /** Releases the UI components. */
@@ -213,6 +222,7 @@ public final class AhkSettingsConfigurable implements Configurable {
         languageLevel = null;
         showLevel = null;
         libraryFolder = null;
+        explainSettings = null;
         panel = null;
     }
 }

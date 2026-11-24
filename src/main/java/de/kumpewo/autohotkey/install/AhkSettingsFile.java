@@ -10,13 +10,11 @@ import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import de.kumpewo.autohotkey.AhkBundle;
+import de.kumpewo.autohotkey.settings.AhkSettings;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -24,11 +22,11 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 
 /**
- * The default {@code settings.ahk-v2-plugin.ini} ({@link AhkDeployConfig}): a documented file with all options commented
- * out (like the configuration files of many Linux programs; a switch shows the value that changes its default, the
- * comment above names the default), from the resource
- * {@value #TEMPLATE}; {@code {tool}} there is replaced by the project name, the example lines of the sections come
- * from the files in the project root (also in a project without AutoHotkey files). Created in the project root by the action
+ * The default {@code settings.ahk-v2-plugin.ini} ({@link AhkDeployConfig}): a file with all options commented out (like
+ * the configuration files of many Linux programs; a switch shows the value that changes its default), from the resource
+ * {@value #TEMPLATE}, with the explanations of {@link AhkSettingsExplain#restore} unless the settings page turns them
+ * off. {@code {tool}} in the resource is replaced by the project name, the example lines of the sections come from the
+ * files in the project root (also in a project without AutoHotkey files). Created in the project root by the action
  * "Create Settings..." ({@link AhkCreateSettingsAction}) and offered by "Deploy to Local Target..." when the file is
  * missing.
  */
@@ -58,20 +56,25 @@ public final class AhkSettingsFile {
      */
     static @NotNull String text(@NotNull String tool, boolean sharedBanner, @NotNull Collection<String> rootFiles,
                                 boolean autoHotkey) {
-        try (InputStream in = AhkSettingsFile.class.getResourceAsStream(TEMPLATE)) {
-            if (in == null) throw new IllegalStateException("missing resource " + TEMPLATE);
-            String text = new String(in.readAllBytes(), StandardCharsets.UTF_8).replace("\r\n", "\n");
-            Examples examples = examples(tool, rootFiles, autoHotkey);
-            text = text.replace("$install$\n", lines(examples.install(), "."))
-                    .replace("$install-if-missing$\n", lines(examples.ifMissing(), "%A_AppData%\\{tool}\\"))
-                    .replace("$banner$\n", lines(examples.banner(), "yes"))
-                    .replace("$version$\n", lines(examples.version(), "yes"))
-                    .replace("$cleanup$\n", lines(List.of(examples.cleanup()), "."));
-            return text.replace("{tool}", tool).replace("$find-banner$", sharedBanner ? "" : ";")
-                    .replace("\n", "\r\n");
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        Examples examples = examples(tool, rootFiles, autoHotkey);
+        String text = AhkSettingsExplain.template(TEMPLATE)
+                .replace("$install$\n", lines(examples.install(), "."))
+                .replace("$install-if-missing$\n", lines(examples.ifMissing(), "%A_AppData%\\{tool}\\"))
+                .replace("$banner$\n", lines(examples.banner(), "yes"))
+                .replace("$version$\n", lines(examples.version(), "yes"))
+                .replace("$cleanup$\n", lines(List.of(examples.cleanup()), "."))
+                .replace("{tool}", tool).replace("$find-banner$", sharedBanner ? "" : ";");
+        return complete(text, false, tool);
+    }
+
+    /**
+     * The text of a new file (CR LF): with the explanations, unless the settings page turns them off.
+     *
+     * @param text the filled template ({@code \n} as separator)
+     */
+    static @NotNull String complete(@NotNull String text, boolean library, @NotNull String name) {
+        if (AhkSettings.getInstance().isExplainNewSettings()) text = AhkSettingsExplain.restore(text, library, name);
+        return text.replace("\n", "\r\n");
     }
 
     /** Commented-out lines {@code ;key=value}, each ending with {@code \n}. */
@@ -179,7 +182,9 @@ public final class AhkSettingsFile {
     /**
      * Creates the default file in {@code dir} and opens it; an existing file (also the {@code settings.ahk-v2-plugin.ini}
      * of version 2.1) is only opened. {@code Banner} is
-     * active if {@code dir} or a folder above it contains {@code banner.txt} ({@link AhkBanner#find}).
+     * active if {@code dir} or a folder above it contains {@code banner.txt} ({@link AhkBanner#find}). Below the folder
+     * of the library projects ({@link AhkLibraryProjects#isBelow}) the file is the one of a library project
+     * ({@link AhkNewLibraryProject#existing}).
      */
     static void create(@NotNull Project project, @NotNull VirtualFile dir) {
         create(project, dir, null);
@@ -200,9 +205,11 @@ public final class AhkSettingsFile {
         for (VirtualFile child : dir.getChildren()) {
             if (!child.isDirectory()) rootFiles.add(child.getName());
         }
-        String text = text(project.getName(), sharedBanner, rootFiles, AhkProjectRoot.containsAhkFiles(project));
         VirtualFile[] created = new VirtualFile[1];
         try {
+            String text = path != null && AhkLibraryProjects.isBelow(path, AhkLibraryLayout.projectsFolder())
+                    ? AhkNewLibraryProject.existing(dir.getName(), rootFiles, sharedBanner)
+                    : text(project.getName(), sharedBanner, rootFiles, AhkProjectRoot.containsAhkFiles(project));
             WriteCommandAction.writeCommandAction(project).withName(title).run(() -> {
                 VirtualFile target = dir.createChildData(AhkSettingsFile.class, AhkDeployConfig.FILE_NAME);
                 VfsUtil.saveText(target, text);

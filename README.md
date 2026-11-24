@@ -56,11 +56,11 @@ More screenshots: [library completion](docs/images/include-completion.png),
 - **Compilation with Ahk2Exe** (*Code > Compile with Ahk2Exe*) for scripts that choose their base file with
   `;@Ahk2Exe-Base`; errors are clickable in the console. A run configuration can compile first and run the
   executable in a real console (terminal in the Run tool window or a separate console window).
-- **Deploying tools** (one tool = one project, *Code > Deploy to Local Target...*): copies the tool to a fixed
-  folder as described by the `settings.ahk-v2-plugin.ini` in the project root, optionally after compiling the
-  executables it copies (e.g. a GUI and a console variant). **Versions** (*Code > Set Version...*): sets
-  `;@Ahk2Exe-SetVersion` in all scripts of the project, commits the project and sets the tag `v<version>`.
-  Both also work in projects without AutoHotkey files, for tools in any language.
+- **Deploying tools** (one tool = one project, *Code > Deploy to Local Target...*): copies the tool to a fixed folder as
+  described by the `settings.ahk-v2-plugin.ini` in the project root, optionally after compiling the executables it
+  copies (e.g. a GUI and a console variant). **Versions** (*Code > Set Version...*): sets the version in all scripts of
+  the project, commits the project and sets the tag `v<version>`. Both also work in projects without AutoHotkey files,
+  for tools in any language.
 - **Library projects**: develop each of your libraries in a project of its own (with tests and, if you like, Git)
   and deploy it into the Lib folder; the copies there are read-only, carry a banner with project and version, and
   lead back to their project. Editing libraries directly in the Lib folder stays fully supported.

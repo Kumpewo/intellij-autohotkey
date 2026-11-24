@@ -47,6 +47,8 @@ public final class AhkSettings implements PersistentStateComponent<AhkSettings.D
         public boolean showLevelInProjectView = true;
         /** Folder whose subfolders are library projects ({@code AhkLibraryProjects}); empty = none. */
         public String libraryProjectsFolder = "";
+        /** Write explanations into new {@code settings.ahk-v2-plugin.ini} files. */
+        public boolean explainNewSettings = true;
     }
 
     /**
@@ -196,6 +198,16 @@ public final class AhkSettings implements PersistentStateComponent<AhkSettings.D
     /** Shows or hides the language level next to AutoHotkey files in the Project view. */
     public void setShowLevelInProjectView(boolean show) {
         data.showLevelInProjectView = show;
+    }
+
+    /** Do new {@code settings.ahk-v2-plugin.ini} files contain explanations ({@code AhkSettingsExplain})? */
+    public boolean isExplainNewSettings() {
+        return data.explainNewSettings;
+    }
+
+    /** Sets whether new {@code settings.ahk-v2-plugin.ini} files contain explanations. */
+    public void setExplainNewSettings(boolean explain) {
+        data.explainNewSettings = explain;
     }
 
     /** Folder of the library projects (empty = none). */

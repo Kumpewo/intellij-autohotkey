@@ -26,7 +26,9 @@ import java.util.List;
  *       of its folder and an overwritten file keeps its own; the modification time of the source is taken over.
  *       Missing target folders are created. A step with a banner ({@code Banner}) writes the banner lines and then
  *       the content of the source ({@link AhkBanner#apply}); a step with an origin writes the executable and then the
- *       origin ({@link AhkExeOrigin#append}).</li>
+ *       origin ({@link AhkExeOrigin#append}). An AutoHotkey file of {@code [Install]} without
+ *       {@code ;@Ahk2Exe-Base} is copied with the version as a plain comment ({@link AhkVersionDirective#tagged}), or
+ *       without the version line if its banner shows the version ({@link AhkDeployPlan.Step#dropLine}).</li>
  *   <li>A target of {@code [Install]} gets the read-only attribute after copying (silently left out where the file
  *       system refuses it); an existing read-only target is made writable first and overwritten without asking
  *       (usually an earlier deployment set the attribute). A target of {@code [InstallIfMissing]} never gets it, and
@@ -156,6 +158,7 @@ public final class AhkDeployCopier {
             }
         } else {
             byte[] content = Files.readAllBytes(source);
+            if (isScript(step)) content = AhkVersionDirective.tagged(content);
             if (step.banner() != null) content = AhkBanner.apply(content, step.banner(), step.dropLine());
             if (step.origin() != null) content = AhkExeOrigin.append(content, step.origin());
             Files.write(target, content);
@@ -163,9 +166,14 @@ public final class AhkDeployCopier {
         Files.setLastModifiedTime(target, Files.getLastModifiedTime(source));
     }
 
-    /** Is the content of the copy exactly that of the source? */
+    /** Is the step an AutoHotkey file of {@code [Install]} (its version line may change in the copy)? */
+    private static boolean isScript(@NotNull AhkDeployPlan.Step step) {
+        return !step.ifMissing() && AhkFileRules.isAutoHotkey(step.source().getFileName().toString());
+    }
+
+    /** Is the content of the copy surely exactly that of the source? */
     private static boolean isPlain(@NotNull AhkDeployPlan.Step step) {
-        return step.banner() == null && step.origin() == null;
+        return step.banner() == null && step.origin() == null && !isScript(step);
     }
 
     /**
