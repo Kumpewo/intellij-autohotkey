@@ -22,6 +22,8 @@ import java.util.function.Function;
  *       project ({@code .} if it is the same folder); without {@code Destination}, or on another drive, the absolute
  *       folder ({@code %A_MyDocuments%} for the documents folder). The file in the library folder is then the copy of
  *       the new source.</li>
+ *   <li>{@code gui-v2.ahk=v2\gui.ahk} for a file in a version folder ({@link AhkVersionedName}), also if the name
+ *       without the version is free.</li>
  *   <li>If the project already has a file of that name, the copy is {@code gui_added.ahk} (then
  *       {@code gui_added [1].ahk} ...) and the target is {@value AhkDeployConfig#TARGET_PLACEHOLDER}, an error until
  *       it is written by hand: the project had such a file before, so its target cannot be guessed.</li>
@@ -82,13 +84,17 @@ public final class AhkAddToLibraryProject {
         boolean legacy = AhkDeployConfig.isLegacy(settings);
         AhkSettingsEdit.Stored stored = AhkSettingsEdit.read(settings);
         String name = file.getFileName().toString();
-        Path copy = root.resolve(name);
+        Path folder = file.toAbsolutePath().normalize().getParent();
+        String version = folder == null || folder.getFileName() == null ? null : folder.getFileName().toString();
+        boolean versioned = AhkVersionedName.isVersion(version);
+        Path copy = root.resolve(versioned ? AhkVersionedName.source(name, version) : name);
         String target;
         if (Files.exists(copy)) {
             copy = freeName(root, name);
             target = AhkDeployConfig.TARGET_PLACEHOLDER;
         } else {
             target = target(AhkDeployConfig.parse(stored.text(), legacy), root, file, env);
+            if (versioned) target = target.equals(".") ? name : target + name;
         }
         String line = copy.getFileName() + "=" + target;
         Files.copy(file, copy);

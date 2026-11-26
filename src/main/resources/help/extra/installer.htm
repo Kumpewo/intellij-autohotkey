@@ -41,29 +41,85 @@ old-name.exe=.
 
 [SetVersion]
 scratch\=no</pre>
-<p><em>Create Settings...</em> (in the same menus, as long as the project root has no such file) writes a documented default <code>settings.ahk-v2-plugin.ini</code> into the project root and opens it: every option is explained in comments and commented out, so the defaults apply until you remove a <code>;</code>; only <code>[SetVersion]</code> leaves the folders <code>scratch\</code> and <code>test\</code> out from the start. A commented-out switch shows the value that changes its default (usually <code>yes</code>), so removing the <code>;</code> is all it takes. Examples use the name of the project and the files in the project root (<code>;notes.md=.</code>, <code>;*.md=yes</code>; without such files <code>;MyTool.cmd=.</code>). In a folder below the library projects folder the file is that of a <a href="#LibraryProjects">library project</a> instead: <code>Destination</code> is the user library folder, and every AutoHotkey file in the project root is listed in <code>[Install]</code> with the target <code>{set target}</code>, which you replace before the first deployment. <em>Deploy to Local Target...</em> offers the same when the file is missing.</p>
+<p><em>Create Settings...</em> (in the same menus, as long as the project root has no such file) writes a default
+<code>settings.ahk-v2-plugin.ini</code> into the project root and opens it. <code>Destination</code> is empty for you to
+fill in, <code>Banner=@standard</code> is set, and the other options are commented out, so their defaults apply until
+you remove a <code>;</code>. A commented-out switch shows the value that changes its default. In
+<code>[AddBanner]</code> and <code>[SetVersion]</code>, the commented-out lines <code>;*.ahk=no</code> ... show how to
+exclude AutoHotkey files, which are included by default. If the project root contains a script with the name of the
+project folder, <code>[Install]</code> lists it: <code>MyTool.exe=.</code> if the script has a <a
+href="compile.htm#Head">head of compiler directives</a>, otherwise <code>MyTool.ahk=.</code>. In a folder below the
+library projects folder the file is that of a <a href="#LibraryProjects">library project</a> instead:
+<code>Destination</code> is the user library folder, the banner <code>@library</code>, and every AutoHotkey file in the
+project root is listed in <code>[Install]</code>, with the target <code>v2\Gui.ahk</code> for a name like
+<code>Gui-v2.ahk</code>, otherwise with <code>{set target}</code>, which you replace before the first deployment.
+<em>Deploy to Local Target...</em> offers the same when the file is missing.</p>
 <p id="Explanations">Explanations start with <code>;;</code> in the first column and a space; commented-out options start
 with a single <code>;</code>. The bar above the file switches between a short and an explained file; each link is one undo
 step:</p>
 <ul>
   <li><em>Remove Explanations and Compact</em> removes all lines starting with <code>;;</code> and a space (also your own)
   and the empty lines inside the sections. Commented-out options and other comments stay.</li>
-  <li><em>Restore Explanations</em> inserts the current explanations. It also adds sections, options and general examples
-  you have deleted, always commented out, so the meaning of the file never changes. An active option gets no
-  examples.</li>
+  <li><em>Restore Explanations</em> inserts the current explanations. It also adds sections and lines of the default file
+  you have deleted, always commented out, so the meaning of the file never changes. An active option gets no such
+  line.</li>
 </ul>
 <p>For comments of your own, use a single <code>;</code> with a space, or <code>;;;</code>; in <code>[Deploy]</code> they
 stay above the option that follows them. <kbd>Ctrl</kbd>+<kbd>Q</kbd> shows the explanation of the option or section at
-the caret, also in the short file. A <a href="settings.htm#Explain">setting</a> decides which form new files have.</p>
+the caret, with examples to copy, also in the short file. A <a href="settings.htm#Explain">setting</a> decides which form
+new files have.</p>
+<p id="UserSettings"><strong>User settings.</strong> Your own defaults for all projects go into a file of your own, in
+the format of <code>settings.ahk-v2-plugin.ini</code>. Set its name (for example <code>user-settings.ini</code>) in the
+<a href="settings.htm#UserSettings">settings</a>. The plugin searches it in the project folder and then in each folder
+above; the nearest one counts, so a second file in the library projects folder serves the libraries. New settings files
+get its lines automatically, and <em>Apply User Settings</em> in the bar above an existing file inserts them there (one
+undo step, with a report that also names the lines of the project that were kept). Deploy itself only reads the settings
+of the project. An example:</p>
+<pre>[Deploy]
+Banner=find:banner.txt
+Message=Deploy {project-name} to %DESTINATION%
+
+[AddBanner]
+*.cmd=yes
+
+[SetVersion]
+scratch\=no
+test\=no</pre>
+<ul>
+  <li>Active lines of the project win over the user settings, and these over the defaults of the plugin. A line still
+  written exactly as in the default file (such as <code>Banner=@library</code>) counts as a default, and so does an
+  option without a value.</li>
+  <li><code>[Deploy]</code>: an option of yours takes the place of the default. Options you have commented out only
+  replace commented-out ones.</li>
+  <li><code>[AddBanner]</code> and <code>[SetVersion]</code>: a line replaces the commented-out line with the same
+  selector; the others come before the first active line of the project, so that the project has the last word.</li>
+  <li><code>[Install]</code>, <code>[InstallIfMissing]</code> and <code>[Cleanup]</code>: the lines are inserted
+  commented out, because they would hardly fit every project; active ones give a warning.</li>
+  <li><code>{project-name}</code> becomes the folder name of the project; in <code>Banner</code> and
+  <code>Message</code> it stays, since Deploy resolves it.</li>
+  <li>Comments are left out, and unknown, invalid or duplicate lines too, with a warning.</li>
+</ul>
+<p id="Completion">Completion while typing and with <kbd>Ctrl</kbd>+<kbd>Space</kbd>, also in commented-out lines:</p>
+<ul>
+  <li>left of <code>=</code> the files and folders of the project (not in <code>[Cleanup]</code>),</li>
+  <li>in <code>Destination</code> drives, folders and variables; in targets and the folders of <code>[Cleanup]</code> the
+  variables after <code>%</code>, and folders after a variable or an absolute path,</li>
+  <li>in a <a href="#LibraryProjects">library project</a> the target of a source with a version: after
+  <code>Gui-v2.ahk=</code> it offers <code>v2\Gui.ahk</code>, which also replaces <code>{set target}</code>,</li>
+  <li>the values: <code>yes</code> and <code>no</code>, <code>line:</code> and <code>block:</code> in
+  <code>[AddBanner]</code> and <code>[SetVersion]</code>, and for <code>Banner</code> the templates
+  <code>@standard</code> and <code>@library</code>, <code>file:</code> with a path and <code>find:</code> with the files
+  in the project folder and above.</li>
+</ul>
 <p>Comments are lines starting with <code>;</code> (spaces before it are allowed); a <code>;</code> later in a line is part of the value. Section and key names are case-insensitive. Keys and values may be enclosed in double quotes, which are removed; spaces inside a file name are kept (<code>my console\my console.exe=.</code>), only <code>=</code> cannot be part of it. Every key, and every source in a section, may appear only once (except in <code>[Cleanup]</code>). Unknown sections and keys are errors. A mistake of the file itself (unknown section, a line without <code>=</code>, a line twice) stops every action; a mistake in a section only stops the action that uses it (<code>[Deploy]</code>, <code>[Install]</code>, <code>[InstallIfMissing]</code>, <code>[AddBanner]</code> and <code>[Cleanup]</code>: Deploy; <code>[SetVersion]</code>: Set Version).</p>
 <p id="Variables"><strong>Variables</strong> in <code>Destination</code>, targets, <code>Message</code> and <code>Banner=file:</code> are written in percent signs: the folder variables of AutoHotkey, found like AutoHotkey finds them (also a "Documents" folder that Windows redirects): <code>%A_MyDocuments%</code>, <code>%A_AppData%</code>, <code>%A_AppDataCommon%</code>, <code>%A_Desktop%</code>, <code>%A_DesktopCommon%</code>, <code>%A_ProgramFiles%</code>, <code>%A_Programs%</code>, <code>%A_ProgramsCommon%</code>, <code>%A_StartMenu%</code>, <code>%A_StartMenuCommon%</code>, <code>%A_Startup%</code>, <code>%A_StartupCommon%</code>, <code>%A_Temp%</code>, <code>%A_UserName%</code>, <code>%A_ComputerName%</code>, <code>%A_WinDir%</code>; <code>%LIBRARY_PROJECTS%</code> (the setting <a href="settings.htm#Library"><em>Library projects folder</em></a>); in targets and <code>Message</code> also <code>%DESTINATION%</code>. <code>%%</code> is a percent sign. Environment variables such as <code>%USERPROFILE%</code> are not resolved; an unknown name is an error.</p>
-<p id="Legacy"><strong>Settings of plugin version 2.1</strong> were in <code>settings.ahk-plugin.ini</code>, with other names: <code>[Install]</code> for the options (now <code>[Deploy]</code>), <code>[Overwrite]</code> (now <code>[Install]</code>), <code>[KeepExisting]</code> (now <code>[InstallIfMissing]</code>), <code>[ApplyCopyNotice]</code> (now <code>[AddBanner]</code>), <code>CopyNotice</code> (now <code>Banner</code>) and <code>CompileBeforeInstall</code> (now <code>Compile</code>). This version still reads such a file if the project has no <code>settings.ahk-v2-plugin.ini</code>. The confirmation of <em>Deploy</em> then shows a gray hint and the button <em>Update Settings</em>: it turns the old file into <code>settings.ahk-v2-plugin.ini</code> with the new names, also in its comments (Git sees a rename), and shows the confirmation again. If both files exist, the new one counts and the confirmation warns about the old one. Plugin version 2.5.0 will no longer read the old file. Old names in the new file are errors that name the new name.</p>
+<p id="Legacy"><strong>Settings of plugin version 2.1</strong> were in <code>settings.ahk-plugin.ini</code>, with other names: <code>[Install]</code> for the options (now <code>[Deploy]</code>), <code>[Overwrite]</code> (now <code>[Install]</code>), <code>[KeepExisting]</code> (now <code>[InstallIfMissing]</code>), <code>[ApplyCopyNotice]</code> (now <code>[AddBanner]</code>), <code>CopyNotice</code> (now <code>Banner</code>) and <code>CompileBeforeInstall</code> (now <code>Compile</code>). This version still reads such a file if the project has no <code>settings.ahk-v2-plugin.ini</code>. The confirmation of <em>Deploy</em> then shows a gray hint and the button <em>Update Settings</em>: it turns the old file into <code>settings.ahk-v2-plugin.ini</code> with the new names, also in its comments (Git sees a rename), and shows the confirmation again. If the old file has errors, the error message offers <em>Update Settings</em>, too. If both files exist, the new one counts and the confirmation warns about the old one. Plugin version 2.5.0 will no longer read the old file. Old names in the new file are errors that name the new name.</p>
 
 <h3 id="Install">[Deploy]</h3>
 <table class="info">
   <tr><th>Key</th><th>Meaning</th></tr>
-  <tr><td><code>Destination</code></td><td>Absolute folder for relative targets, usable as <code>%DESTINATION%</code>. May be omitted; then all targets must be absolute. For a library it is the user library folder that <code>#Include &lt;Name&gt;</code> searches; the default file shows it as a second commented-out line (<code>%A_MyDocuments%\AutoHotkey\Lib\</code>).</td></tr>
-  <tr><td><code>Message</code></td><td>Text shown in the confirmation, for example "close the running tool first". <code>`n</code> is a line break; <a href="#Variables">variables</a> are resolved.</td></tr>
+  <tr><td><code>Destination</code></td><td>Absolute folder for relative targets, usable as <code>%DESTINATION%</code>. May be omitted; then all targets must be absolute. For a library it is the user library folder that <code>#Include &lt;Name&gt;</code> searches (<code>%A_MyDocuments%\AutoHotkey\Lib</code>).</td></tr>
+  <tr><td><code>Message</code></td><td>Text shown in the confirmation, for example "close the running tool first". <code>`n</code> is a line break; <a href="#Variables">variables</a> are resolved, and <code>{project-name}</code> is the folder name of the project.</td></tr>
   <tr><td><code>GenerateOverview</code></td><td>Show an overview in the confirmation (default <code>yes</code>): the destination, "compile mytool.ahk" for each script to compile, and the lines of <code>[Install]</code> and <code>[InstallIfMissing]</code> as written, without comments.</td></tr>
   <tr><td><code>Banner</code></td><td>Text written as comment lines at the start of each copy named in <a href="#Banner"><code>[AddBanner]</code></a>, for example "Installed copy, do not modify. Edit the source in project {project-name} and deploy."</td></tr>
   <tr><td><code>RequiresAdmin</code></td><td><code>yes</code>: all files are copied by one elevated process (one UAC prompt); the confirmation then always shows a prominent notice. The plugin does not find out by itself whether administrator rights are needed; without them copying into a protected folder fails with an error.</td></tr>
@@ -124,7 +180,15 @@ the caret, also in the short file. A <a href="settings.htm#Explain">setting</a> 
   <tr><td nowrap="nowrap"><code>line:&lt;start&gt; [&lt;end&gt;]</code></td><td>Included; every comment line is <code>&lt;start&gt; text &lt;end&gt;</code>: <code>line:REM</code>, <code>line:#</code>, <code>line:&lt;!-- --&gt;</code>.</td></tr>
   <tr><td nowrap="nowrap"><code>block:&lt;start&gt; &lt;end&gt;</code></td><td>Included; one block comment: <code>block:/* */</code>.</td></tr>
 </table>
-<p>Binary files (<code>.exe</code>, <code>.dll</code>, <code>.png</code>, <code>.jpg</code>, <code>.jpeg</code>, <code>.gif</code>, <code>.bmp</code>, <code>.ico</code>, <code>.zip</code>, <code>.pdf</code>, <code>.chm</code>) are never changed; a line that includes them only gives a warning.</p>
+<p>Binary files (<code>.exe</code>, <code>.dll</code>, <code>.com</code>, <code>.sys</code>, <code>.ocx</code>,
+<code>.msi</code>, <code>.lib</code>, <code>.obj</code>, <code>.pdb</code>, <code>.res</code>, <code>.lnk</code>,
+<code>.png</code>, <code>.jpg</code>, <code>.jpeg</code>, <code>.gif</code>, <code>.bmp</code>, <code>.ico</code>,
+<code>.cur</code>, <code>.ani</code>, <code>.webp</code>, <code>.tif</code>, <code>.tiff</code>, <code>.ttf</code>,
+<code>.otf</code>, <code>.woff</code>, <code>.woff2</code>, <code>.wav</code>, <code>.mp3</code>, <code>.mp4</code>,
+<code>.avi</code>, <code>.zip</code>, <code>.7z</code>, <code>.rar</code>, <code>.gz</code>, <code>.tar</code>,
+<code>.jar</code>, <code>.cab</code>, <code>.pdf</code>, <code>.chm</code>, <code>.doc</code>, <code>.docx</code>,
+<code>.xls</code>, <code>.xlsx</code>, <code>.ppt</code>, <code>.pptx</code>, <code>.db</code>, <code>.sqlite</code>)
+are never changed. Deploy ignores them without a message; Set Version warns about a line that includes one.</p>
 <h3 id="Comments">Known comment styles</h3>
 <p>With <code>yes</code>, the plugin writes the banner and the version line in the comment of the file type. A first line <code>&lt;?xml ...</code>, <code>#!...</code>, the header of a registry file or <code>@echo off</code> stays first. Other types (for example <code>.txt</code>, which has no comment) need <code>line:</code> or <code>block:</code>. If you prefer another comment for a known type, write it as the value as well: <code>*.cmd=line:REM</code> instead of <code>*.cmd=yes</code>.</p>
 <table class="info">
@@ -157,7 +221,7 @@ setup.cmd=yes
 readme.txt=line:#</pre>
 <ul>
   <li><strong>Which files:</strong> every AutoHotkey file that <code>[Install]</code> copies, unless a line of <a href="#Rules"><code>[AddBanner]</code></a> excludes it; other files only if a line includes them. Files of <code>[InstallIfMissing]</code> never get a banner, because the copy belongs to the user from then on (a banner saying "do not modify" would be wrong, and its version would never be updated); a line that includes one gives a gray hint. Without <code>Banner</code> nothing gets a banner.</li>
-  <li><strong>Warnings:</strong> the confirmation tells you when the banner and the files do not fit together. With <code>Banner</code> but no file that gets it, it warns if a file could take a banner (for example <code>run.cmd</code> without a line <code>*.cmd=yes</code>); exclude such files with <code>no</code> to deploy them without a banner. If none of the deployed file types can take a banner (only <code>.exe</code>, <code>.txt</code> ...), a gray hint says so. Without <code>Banner</code>, it warns about a line that includes a deployed file, and about AutoHotkey files that would get a banner: set <code>Banner</code>, or write <code>*.ahk=no</code> in <code>[AddBanner]</code> if the tool is meant to be deployed without one.</li>
+  <li><strong>Warnings:</strong> the confirmation tells you when the banner and the files do not fit together. With <code>Banner</code> but no file that gets it, a gray hint says so if a file could take a banner (for example <code>run.cmd</code> without a line <code>*.cmd=yes</code>); exclude such files with <code>no</code> to deploy them without a banner. Another gray hint appears if none of the deployed file types can take a banner (only <code>.txt</code> ...). Binary files (<code>.exe</code>, <code>.dll</code> ...) do not count. Without <code>Banner</code>, it warns about a line that includes a deployed file, and about AutoHotkey files that would get a banner: set <code>Banner</code>, or write <code>*.ahk=no</code> in <code>[AddBanner]</code> if the tool is meant to be deployed without one.</li>
   <li><strong>Text:</strong> the value itself (<code>`n</code> starts a new line), a built-in template
     (<code>@standard</code> or <code>@library</code>, see below), <code>file:&lt;path&gt;</code>: the lines of a text
     file (UTF-8), relative to the project root, with <a href="#Variables">variables</a>, or
@@ -299,14 +363,14 @@ version.txt=line:#</pre>
 <p>A library is a file in the user library folder <code>%A_MyDocuments%\AutoHotkey\Lib</code> that scripts include with <code>#Include &lt;Name&gt;</code> (<code>#Include &lt;v2\Gui&gt;</code> loads <code>Lib\v2\Gui.ahk</code>). The plugin supports two ways to work with libraries:</p>
 <ul>
   <li><strong>Directly</strong> (the setting <a href="settings.htm#Library"><em>Library projects folder</em></a> is empty): the files are edited in the library folder. <em>File &gt; New &gt; AutoHotkey Library File</em> creates one there; the name may contain folders (<code>v2\Gui</code>). A notification bar above such a file points to library projects, with the links <em>Set Library Projects Folder...</em> and <em>Don't Show Again</em>.</li>
-  <li><strong>As library projects</strong> (the setting names a folder): <strong>one library = one project</strong> in that folder, with its own version, deployed into the library folder (<code>Destination=%A_MyDocuments%\AutoHotkey\Lib\</code>). The files in the library folder are copies; you change the project and deploy it.</li>
+  <li><strong>As library projects</strong> (the setting names a folder): <strong>one library = one project</strong> in that folder, with its own version, deployed into the library folder (<code>Destination=%A_MyDocuments%\AutoHotkey\Lib</code>). The files in the library folder are copies; you change the project and deploy it.</li>
 </ul>
 <h3 id="LibraryProjects">Library projects</h3>
-<p>The names match: the project of <code>Lib\v2\Gui.ahk</code> is <code>&lt;Library projects folder&gt;\Gui</code>, with the source <code>Gui.ahk</code>. New projects lie directly in the library projects folder; the folders of the name (<code>v2\</code>) only become the target in the <code>settings.ahk-v2-plugin.ini</code> (<code>Gui.ahk=v2\</code>), while <code>Destination</code> is always the library folder itself. So one project can deploy several versions of a library, for example <code>Lib\Gui.ahk</code> and <code>Lib\v2\Gui.ahk</code>. You may still organize the projects in subfolders of the library projects folder; a folder with a <code>settings.ahk-v2-plugin.ini</code> is a project.</p>
+<p>The names match: the project of <code>Lib\v2\Gui.ahk</code> is <code>&lt;Library projects folder&gt;\Gui</code>, with the source <code>Gui-v2.ahk</code>: for a version folder (<code>v1</code>, <code>v2</code>, <code>v2.1</code>) the version is part of the source name, for other libraries the names are the same. New projects lie directly in the library projects folder; the folders of the name (<code>v2\</code>) only become the target in the <code>settings.ahk-v2-plugin.ini</code> (<code>Gui-v2.ahk=v2\Gui.ahk</code>), while <code>Destination</code> is always the library folder itself. So one project can deploy several versions of a library, for example <code>Lib\v1\Gui.ahk</code> and <code>Lib\v2\Gui.ahk</code>. You may still organize the projects in subfolders of the library projects folder; a folder with a <code>settings.ahk-v2-plugin.ini</code> is a project.</p>
 <ul>
-  <li><em>File &gt; New &gt; AutoHotkey Library Project...</em> (also on the welcome screen) asks for the name (<code>Json</code>, <code>v2\Gui</code>) and creates the folder with the source (<code>#Requires AutoHotkey v2.0</code> and <code>;@SetVersion 0.1.0</code>) and a <code>settings.ahk-v2-plugin.ini</code> that deploys it into the library folder with <code>Banner=@library</code> (or <code>Banner=find:banner.txt</code> if the library projects folder or a folder above it contains a <code>banner.txt</code>) and a <code>[SetVersion]</code> that leaves out the AutoHotkey files in <code>scratch\</code> and <code>test\</code>. The project opens in a window of its own. An existing folder is never touched.</li>
+  <li><em>File &gt; New &gt; AutoHotkey Library Project...</em> (also on the welcome screen) asks for the name (<code>Json</code>, <code>v2\Gui</code>) and creates the folder with the source (<code>#Requires AutoHotkey v2.0</code>, or the version of the folder, and <code>;@SetVersion 0.1.0</code>) and a <code>settings.ahk-v2-plugin.ini</code> that deploys it into the library folder with <code>Banner=@library</code>; your <a href="#UserSettings">user settings</a> are inserted. The project opens in a window of its own. An existing folder is never touched.</li>
   <li><em>Create Library Project 'Gui'</em> in the context menu of a file of the library folder (here <code>Lib\v2\Gui.ahk</code>) that has no project yet, or the link of the same name in the notification bar "Library file without a library project." above that file, creates its project in the same way, with a copy of the file as source. The file in the library folder stays as it is and counts as a copy from then on; deploy the project to replace it.</li>
-  <li><em>Add to Library Project...</em> (same places, and a second link in the notification bar) adds such a file to an existing library project instead: choose the project from the list (type to filter; projects in the same subfolder as the file come first). The file is copied into the project root, gets a line in <code>[Install]</code> that deploys it back to its place (<code>Gui.ahk=v2\</code>, relative to <code>Destination</code>), and the project opens. If the project already has a file of that name, the copy is called <code>Gui_added.ahk</code> and its line <code>Gui_added.ahk={set target}</code>: Deploy refuses it until you replace <code>{set target}</code> with the target. Rename the file later with <em>Rename</em>, and the line follows (see <a href="#Rename">Renaming files of the project</a>).</li>
+  <li><em>Add to Library Project...</em> (same places, and a second link in the notification bar) adds such a file to an existing library project instead: choose the project from the list (type to filter; projects in the same subfolder as the file come first). The file is copied into the project root, gets a line in <code>[Install]</code> that deploys it back to its place (<code>Gui-v2.ahk=v2\Gui.ahk</code>, outside of a version folder <code>Gui.ahk=.</code>; relative to <code>Destination</code>), and the project opens. If the project already has a file of that name, the copy is called <code>Gui_added.ahk</code> and its line <code>Gui_added.ahk={set target}</code>: Deploy refuses it until you replace <code>{set target}</code> with the target. Rename the file later with <em>Rename</em>, and the line follows (see <a href="#Rename">Renaming files of the project</a>). A library that includes another one by its file name (<code>#Include Helper.ahk</code>) does not find it in the project if that file is called <code>Helper-v2.ahk</code> there; write <code>#Include &lt;v2\Helper&gt;</code>.</li>
   <li><em>File &gt; New &gt; AutoHotkey Library File</em> still works, but warns and offers to create a library project instead.</li>
   <li>A copy in the library folder is <strong>read-only</strong> in the editor, and a notification bar says "Installed copy of library project 'Json' &ndash; edit the source and deploy" with the link <em>Open Library Project</em>.</li>
   <li><em>Open Library Project 'Json'</em> in the context menu of the editor and of the Project view (also below <em>External Libraries &gt; AutoHotkey Lib</em>) opens the project in a window of its own, or brings its window to the front, and there the source at the line of the caret.</li>

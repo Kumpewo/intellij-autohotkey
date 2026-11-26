@@ -52,8 +52,12 @@ Shared knowledge is concentrated in a few places so that highlighting, completio
   only if its block starts with a typed property (otherwise a property named `union`). `AhkDefinitions.fields`
   returns typed properties as fields (also inside union blocks). `AhkTypedPropertyAnnotator` reports v2.0 and the
   content and place of union blocks.
-- **Included files** are resolved by `AhkInclude.includedFiles`; navigation, completion, parameter info and type
-  declarations all look at the file itself and its *directly* included files.
+- **Included files** come from `AhkInclude.visibleFiles`: navigation, completion, parameter info, quick documentation,
+  local variables, `@deprecated` and types all look at the file itself and these files. They are all files it includes,
+  also indirectly (`allIncludedFiles`: breadth-first, cycle-safe, cached on the start file, which gives `A_ScriptDir` and
+  the local Lib folder for the whole chain; what is not found that way is resolved as if the included file were the
+  main script), for v2.1 files only the direct ones (`includedFiles`). Pragmas only come from a directly included
+  `pragmas.ahk`.
 - **Declared types** come from `AhkTypeDeclarations` (also for parameter info and help variants).
 - **Visible texts** are in `messages/AhkBundle.properties` and are read with `AhkBundle.message(...)`.
 
@@ -83,7 +87,8 @@ a comma, between head and body). The only whitespace token is `WHITE_SPACE`.
 Line continuations are handled in the lexer with states (`IN_CONTINUATION`, `IN_SKIP_LINES` ...): after an
 operator at the end of a line, and before a line that starts with an operator, the line break becomes
 whitespace and the parser never sees it. Using states instead of fields lets the editor restart the lexer at
-any position.
+any position. Operators that can also start a hotkey (`CONT_OPERATOR`: `+`, `|`, `=` ...) continue the previous line
+unless the line is a hotkey: `CONT_HOTKEY` is the longer match and wins.
 
 Continuation sections outside a string (`IN_CS_OPEN`, `IN_CS`, `IN_CS_LINESTART` ...): the line break before a
 line that starts with `(` (no other parenthesis on it) is whitespace; `(` and `)` stay `L_PAREN`/`R_PAREN`, so the
@@ -214,7 +219,7 @@ AutoHotkey files (AutoHotkey allows non-ASCII characters in names, e.g. a `§` p
 
 - `AhkDefinitionReferenceContributor` attaches an `AhkDefinitionReference` to free-standing names, command
   names, names after the dot and the names after `extends`. The reference is poly-variant: it collects matching
-  functions, classes and properties in the file and its directly included files. Without a definition but with a
+  functions, classes and properties in the file and the files it includes. Without a definition but with a
   help page, the target is an `AhkHelpTarget`, which opens the quick documentation.
 - Local variables and parameters: `psi/AhkLocals` collects per scope (function, accessor, property,
   fat-arrow function; cached per PSI modification) the parameters, `local`/`static`/`global` declarations,
@@ -242,7 +247,7 @@ AutoHotkey files (AutoHotkey allows non-ASCII characters in names, e.g. a `§` p
   (`targetElementEvaluator`) makes the name of a field in its defining statement (`x := 0`, `x : Int32`) the
   `AhkFieldTarget`, so Find Usages and Rename also work at the definition; `AhkReferencesSearcher` (`referencesSearch`)
   collects the references: in the file of the definition and the AutoHotkey files of the scope that include it
-  directly (`AhkInclude.includedFiles`), every reference whose targets contain the definition. No words scanner and
+  (`AhkInclude.visibleFiles`), every reference whose targets contain the definition. No words scanner and
   no word index (it is case-sensitive).
 - Go to Symbol / Go to Class: `AhkSymbols.collect` lists the definitions of a file (functions, methods, classes,
   properties, fields, labels, hotkeys, hotstrings) with name, qualified name and display text. `AhkSymbolIndex`
@@ -254,7 +259,7 @@ AutoHotkey files (AutoHotkey allows non-ASCII characters in names, e.g. a `§` p
   presentation used by the Ctrl+B choosers). The scope (project, libraries with "Include non-project items") comes
   from the platform.
 - Rename: `AhkRenameProcessor` (`renamePsiElementProcessor`) forces the preview, finds code occurrences with
-  `AhkReferencesSearcher.search(..., transitive = true)` (also indirectly including files; references there are
+  `AhkReferencesSearcher.search(..., transitive = true)` (also indirectly including v2.1 files; references there are
   checked with `AhkDefinitionReference.definitionsIn` over the file's whole include closure), adds occurrences in
   comments and strings as `NonCodeUsageInfo` in `findCollisions` (the platform's own search needs the word index)
   and reports conflicts. `setName` of the definitions and `handleElementRename` of the references replace the text
@@ -272,7 +277,7 @@ AutoHotkey files (AutoHotkey allows non-ASCII characters in names, e.g. a `§` p
 ## Modules (`module/`, v2.1)
 
 - `AhkModules` is the one place that knows the namespaces of AutoHotkey v2.1 modules; everything else asks it, and
-  only for v2.1 files (`isActive`), so v2.0 files keep "the file and its direct includes". `regions` splits a file at
+  only for v2.1 files (`isActive`), so v2.0 files keep "the file and all files it includes". `regions` splits a file at
   its top-level `#Module` directives (first region `__Main`); `parts(Module)` collects the regions of a module in the
   group of its home file (the file itself plus the regions of its directly included files: the first region of an
   included file belongs to the module of the `#Include` line). `imports` parses `#Import` (`Import`, `Item`; an
@@ -410,6 +415,9 @@ with `hhc.exe extra.hhp`; the compiled `extra.chm` is checked in as well).
   `RIGHT_MARGIN`).
 - `AhkCommenter` defines the comment characters.
 
+`plugin.xml` sets `require-restart="true"`: after a dynamic update of the plugin, the IDE saved the code style scheme
+without the AutoHotkey options (`AhkCodeStyleSettings`) when it was closed.
+
 ## Spell checking (`spellchecker/`)
 
 Registered in `META-INF/ahk-spellchecker.xml`, an optional dependency on `com.intellij.modules.spellchecker`.
@@ -524,10 +532,11 @@ custom folding providers only know `//`, `#` and `/*` as comment prefixes, so th
   from it, each script once; it needs `;@Ahk2Exe-Base`, and `compiledExe` must be that executable. With
   `Compile=no` only the warning "executable older than the scripts next to it" (`newerSources`).
 - `AhkDeployConfig` reads `settings.ahk-v2-plugin.ini` (sections `[Deploy]`, `[Install]`, `[InstallIfMissing]`,
-  `[AddBanner]`, `[SetVersion]`, `[Cleanup]` (`CleanupEntry`, the only section where a key may repeat); the
-  target `{set target}` (`TARGET_PLACEHOLDER`) is an error; the last two as `AhkFileRules.Rule`s: `AhkPathPattern` = selector like a
-  line of `.gitignore`, value yes/no with an optional `Style`, the last matching rule wins; keys case-insensitive, `;` comments only at the line start, one pair of quotes removed from keys
-  and values, duplicates, unknown sections and unknown keys are errors). Mistakes have a scope: those of the file
+  `[Cleanup]` (`CleanupEntry`, the only section where a key may repeat), `[AddBanner]`, `[SetVersion]`; the target
+  `{set target}` (`TARGET_PLACEHOLDER`) is an error; the last two as `AhkFileRules.Rule`s: `AhkPathPattern` = selector
+  like a line of `.gitignore`, value yes/no with an optional `Style`, the last matching rule wins; keys
+  case-insensitive, `;` comments only at the line start, one pair of quotes removed from keys and values, duplicates,
+  unknown sections and unknown keys are errors). Mistakes have a scope: those of the file
   itself stop every action, the others only Deploy (`errors`) or Set Version (`versionErrors`); `warnings` for the
   confirmation. Until 2.5.0, the settings file of version 2.1 (`AhkDeployConfig.LEGACY_FILE_NAME`,
   `settings.ahk-plugin.ini`) is still read: the file name tells the format, `AhkDeployConfig.file` finds the new
@@ -537,8 +546,9 @@ custom folding providers only know `//`, `#` and `/*` as comment prefixes, so th
   `AhkDeployConfig` and `AhkSettingsEdit.rename`, `written` gives `withLine` the old section name, `newSection`
   and `isOldOption` let the new file name the new name (`install.ini.section.old`, `install.ini.key.old`,
   `install.ini.install.option`), `updated` renames headers, option keys and the names in comments.
-  "Update Settings" in `AhkDeployDialog` → `AhkDeployer.updateSettings` writes the new file and removes the old
-  one (a rename for Git), then the deployment starts again. Library projects (`AhkLibraryProjects.collect`) count
+  "Update Settings" in `AhkDeployDialog`, or in the error dialog of an old file with errors (`deploy.errors.legacy`)
+  → `AhkDeployer.updateSettings` writes the new file and removes the old one (a rename for Git), then the deployment
+  starts again. Library projects (`AhkLibraryProjects.collect`) count
   folders with either file.
   `AhkDeployPlan` resolves `Destination`, variables (`variables()`: `include/AhkFolderVariables` =
   the folder variables of AutoHotkey via `SHGetKnownFolderPath`, shared with `#Include`, plus `LIBRARY_PROJECTS`; no
@@ -557,10 +567,10 @@ custom folding providers only know `//`, `#` and `/*` as comment prefixes, so th
 - Banner: `AhkBanner.text` reads `Banner` (value, `@library`/`@standard`, `file:`, `find:` = plain file
   name searched upwards from the project root by `AhkBanner.find`, the nearest wins), `AhkDeployPlan.banner`
   decides per source (only `[Install]`, an including rule for `[InstallIfMissing]` is a warning; AutoHotkey files
-  implicitly, others by rule; binary files only a warning; style of the rule or `AhkFileRules.builtinStyle`) and
+  implicitly, others by rule; binary files never, silently; style of the rule or `AhkFileRules.builtinStyle`) and
   records what `AhkDeployPlan.summarizeBanner` needs after all steps: with `Banner` and no banner written a
-  warning for capable files not excluded by `no`, or a hint (`AhkDeployPlan.hints`, gray in `AhkDeployDialog`
-  via `Prepared.hints`) without capable files; without `Banner` a warning for the first file of an including rule
+  hint (`AhkDeployPlan.hints`, gray in `AhkDeployDialog` via `Prepared.hints`) for capable files not excluded by `no`, or
+  if there are only other files that are not binary; without `Banner` a warning for the first file of an including rule
   and one for raw AutoHotkey files; nothing after a mistake of the banner) and `AhkBanner.lines` renders the comment (line or block style, placeholders of
   `AhkBanner.Values`, a line whose placeholders are all empty is left out; `{version}` from
   `AhkVersionDirective.findIn`, `{commit}` from `AhkDeployPlan.gitCommit` (Git only if the text uses it; HEAD once
@@ -602,13 +612,13 @@ custom folding providers only know `//`, `#` and `/*` as comment prefixes, so th
   `WelcomeScreen.QuickStart`, only in Lib-src mode), `FromFile` (group `AutoHotkey.CodeActions`, a library file
   without project); `AhkNewLibraryProject.create` writes folder, source and the INI from
   `install/settings-library.ahk-v2-plugin.ini` (never into an existing folder; `Destination` always the user library
-  folder itself, the folders of the name in the target (`$install$`), e.g. `Gui.ahk=v2\`, so that targets in other
-  library folders need no change of `Destination`; `Banner=find:banner.txt` if `AhkBanner.find` finds it
-  from the projects folder upwards, otherwise `@library`; `AhkSettingsFile.create` likewise for the tool template,
-  `$find-banner$`), then the project is opened.
+  folder itself, the folders of the name in the target (`$install$`), for a version folder (`AhkVersionedName`: `v` and
+  numbers) `Gui-v2.ahk=v2\Gui.ahk` and the matching `#Requires` in a new source, so that targets in other
+  library folders need no change of `Destination`; the user settings are merged in, `AhkSettingsFile.created`), then the project is opened.
   `AddToProject` (same places and a second link in the notification bar) lists `AhkLibraryProjects.projects` in a
   `JBPopupFactory` chooser (`AhkAddToLibraryProject.sorted`: projects of the subfolder of the file first);
-  `AhkAddToLibraryProject.add` copies the bytes into the project root (`freeName`: `x_added.ahk`,
+  `AhkAddToLibraryProject.add` copies the bytes into the project root (from a version folder always with the version in
+  the name, `x-v2.ahk`; `freeName`: `x_added.ahk`,
   `x_added [1].ahk` … with the target `{set target}` if the name is taken) and appends the line to `[Install]`
   (`AhkSettingsEdit.withLine`; the target is the folder of the library file relative to the resolved `Destination`,
   otherwise absolute with `%A_MyDocuments%`). `AhkSettingsEdit.read`/`Stored.write` keep the encoding and byte
@@ -628,21 +638,27 @@ custom folding providers only know `//`, `#` and `/*` as comment prefixes, so th
   A differing `;@Ahk2Exe-ExeName` of the renamed script (`AhkDeployer.compiledExe`) adds a note at the start of the text (long texts scroll). The platform's
   rename preview cannot be extended for file renames from the Project view, hence the dialogs.
 - `AhkCreateSettingsAction` ("Create Settings...", only while the root has no INI) and the missing-file question of
-  Deploy call `AhkSettingsFile.create`: the resource `install/settings.ahk-v2-plugin.ini` (all options commented out
-  with `;`, no explanations; `{tool}` = project name) is completed (`AhkSettingsFile.complete`: explanations unless
-  `AhkSettings.isExplainNewSettings` is off, CR LF), written into the project root in a write command and opened; an
-  existing file is only opened, never overwritten. `AhkSettingsFile.examples` fills the placeholders `$install$`,
-  `$install-if-missing$`, `$banner$`, `$version$`, `$cleanup$` from the files of a known type in the project root
-  (built-in comment style or `.exe`; configuration types to `[InstallIfMissing]`; at most `MAX_EXAMPLES` per section);
-  in an AutoHotkey project first `<tool>.ahk`/`<tool>.exe` and `*.ahk`, without files generic `<tool>.cmd`. If
+  Deploy call `AhkSettingsFile.create`: the resource `install/settings.ahk-v2-plugin.ini` (one line per option, no
+  explanations; `$install$` = `mainLine`, the script `<folder>.ahk` or its .exe) gets the user settings (`created`) and
+  is completed (`complete`: explanations unless `AhkSettings.isExplainNewSettings` is off, CR LF), written into the
+  project root in a write command and opened; an existing file is only opened, never overwritten. If
   `AhkLibraryProjects.isBelow` (below the library projects folder, not inside another library project), the text is
   `AhkNewLibraryProject.existing` instead: the template of library projects with every AutoHotkey file of the root and
-  the target `{set target}` in `$install$`.
+  the target `{set target}` in `$install$` (`AhkVersionedName.target` if the name has a version).
+- `AhkUserSettings` merges the user file (`AhkSettings.getUserSettingsName`, found by `AhkBanner.find`) into a settings
+  file, for new files and for the link "Apply User Settings": a pure text function (`merge`) with the precedence
+  project, user, system. A system value is a line equal to that of the template. Each user line is checked by parsing it
+  alone with `AhkDeployConfig`; a second run changes nothing. `notify` reports the result (new files: only warnings; for
+  a new library project in its own window), including the project lines kept against a different user line.
+- `AhkSettingsCompletion` completes the INI: a `CompletionContributor` for any language that checks the file name, so
+  it does not depend on a plugin for INI files. `suggest` decides from the text, the caret and the file system
+  (variables from `AhkDeployPlan.variables`, names from `AhkFolderVariables.NAMES`; no network paths, they may hang). In
+  our lines it stops all other contributors (also while typing, otherwise the IDE offers the words of the file).
+  `Typing` opens the popup after `=`, `%`, `\` and `/`; `Filter` keeps typed characters from inserting a suggestion.
 - Explanations of the INI: `AhkSettingsHelp` reads `install/settings-help.html` (one topic per option, section and file
-  header), as HTML for the popup and as wrapped `;; ` lines for the file. `AhkSettingsExplain.compact` and `restore` work
-  on the text alone: lines of the user never change and never move. `restore` adds the missing fixed lines of the
-  template commented out; `generic` is the only place that decides which lines these are (not the `$...$` placeholders
-  and, outside of `[Deploy]`, not keys with the project name). In `[Deploy]` comments of the user form a group with the
+  header), as HTML for the popup and as wrapped `;; ` lines for the file; the examples (`<pre>`) only appear in the
+  popup. `AhkSettingsExplain.compact` and `restore` work on the text alone: lines of the user never change and never
+  move. `restore` adds the missing lines of the template commented out; `generic` is the only place that decides which lines these are (all but `$install$`). In `[Deploy]` comments of the user form a group with the
   option below. `AhkSettingsNotification` is the bar (a link that changes nothing is left out; checked again after
   edits), `AhkSettingsDocumentation` the quick documentation: a `DocumentationTargetProvider` by file name, so it does
   not depend on a plugin for INI files; it only answers at a caret, so that the mouse shows no popup. Its nested `Links` opens the link to the manual in `extra.chm` and returns the

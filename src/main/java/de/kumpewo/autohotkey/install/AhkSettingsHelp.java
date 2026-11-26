@@ -15,7 +15,7 @@ import java.util.regex.Pattern;
  * the header of the file ({@link #FILE}, {@link #FILE_LIBRARY}, both followed by {@link #FORMAT}), for each section and
  * for each option of {@code [Deploy]} ({@code Deploy.<name>}). {@link #html} is the text of the quick documentation
  * ({@link AhkSettingsDocumentation}), {@link #comment} the same text as comment lines of the file
- * ({@link AhkSettingsExplain}).
+ * ({@link AhkSettingsExplain}), without the examples ({@code <pre>}), which keep the file short.
  */
 final class AhkSettingsHelp {
 
@@ -43,7 +43,7 @@ final class AhkSettingsHelp {
     private static final Pattern TOPIC = Pattern.compile("<topic id=\"([^\"]+)\" anchor=\"([^\"]+)\">(.*?)</topic>",
             Pattern.DOTALL);
 
-    /** A paragraph or list item. */
+    /** A paragraph or list item; an example ({@code <pre>}) is neither. */
     private static final Pattern BLOCK = Pattern.compile("<(p|li)>(.*?)</\\1>", Pattern.DOTALL);
 
     /**
@@ -91,7 +91,7 @@ final class AhkSettingsHelp {
 
     /**
      * The text of the topic as comment lines ({@code ;; text}), wrapped at 120 columns; the paragraphs of a file header
-     * are separated by lines {@code ;;}. Empty if there is no such topic.
+     * are separated by lines {@code ;;}. Examples are left out. Empty if there is no such topic.
      */
     static @NotNull List<String> comment(@NotNull String id) {
         List<String> result = new ArrayList<>();

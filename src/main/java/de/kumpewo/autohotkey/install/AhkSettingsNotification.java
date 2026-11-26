@@ -33,7 +33,8 @@ import java.util.function.Function;
 /**
  * Banner above {@code settings.ahk-v2-plugin.ini} with the links "Restore Explanations"
  * ({@link AhkSettingsExplain#restore}) and "Remove Explanations and Compact" ({@link AhkSettingsExplain#compact}); a
- * link that would change nothing is left out. Each changes the document in one undo step. The banner follows the edited
+ * link that would change nothing is left out. "Apply User Settings" ({@link AhkUserSettings}) is there whenever a user
+ * file is found, and reports what it did. Each changes the document in one undo step. The banner follows the edited
  * text.
  */
 public final class AhkSettingsNotification implements EditorNotificationProvider, DumbAware {
@@ -65,19 +66,24 @@ public final class AhkSettingsNotification implements EditorNotificationProvider
         if (document == null) return null;
         String text = document.getText();
         boolean canCompact = !compact(text).equals(text);
-        boolean canRestore = !restored(project, file, text).equals(text);
+        boolean canRestore = !restored(file, text).equals(text);
+        boolean user = AhkUserSettings.find(folder(file)) != null;
         return editor -> {
             observe(project, file, document, editor);
-            if (!canCompact && !canRestore) return null;
+            if (!canCompact && !canRestore && !user) return null;
             EditorNotificationPanel panel = new EditorNotificationPanel(editor, EditorNotificationPanel.Status.Info);
             panel.setText(AhkBundle.message("settings.explain.notification"));
             if (canRestore) {
                 panel.createActionLabel(AhkBundle.message("settings.explain.restore"), () -> change(project, file,
-                        editor, "settings.explain.restore", old -> restored(project, file, old)));
+                        editor, "settings.explain.restore", old -> restored(file, old)));
             }
             if (canCompact) {
                 panel.createActionLabel(AhkBundle.message("settings.explain.compact"), () -> change(project, file,
                         editor, "settings.explain.compact", AhkSettingsNotification::compact));
+            }
+            if (user) {
+                panel.createActionLabel(AhkBundle.message("user.settings.add"),
+                        () -> addUserSettings(project, file, editor));
             }
             return panel;
         };
@@ -88,13 +94,28 @@ public final class AhkSettingsNotification implements EditorNotificationProvider
         return StringUtil.convertLineSeparators(AhkSettingsExplain.compact(text));
     }
 
-    /** {@link AhkSettingsExplain#restore} with the name of "Create Settings..." and the line separator of documents. */
-    static @NotNull String restored(@NotNull Project project, @NotNull VirtualFile file, @NotNull String text) {
-        boolean library = isLibrary(file);
-        VirtualFile folder = file.getParent();
-        boolean root = !library && folder != null && folder.equals(AhkProjectRoot.root(project));
-        String name = root || folder == null ? project.getName() : folder.getName();
-        return StringUtil.convertLineSeparators(AhkSettingsExplain.restore(text, library, name));
+    /** {@link AhkSettingsExplain#restore} with the line separator of documents. */
+    static @NotNull String restored(@NotNull VirtualFile file, @NotNull String text) {
+        return StringUtil.convertLineSeparators(AhkSettingsExplain.restore(text, isLibrary(file)));
+    }
+
+    /** The folder of the settings file, {@code null} outside of the local file system. */
+    private static @Nullable Path folder(@NotNull VirtualFile file) {
+        Path path = file.getFileSystem().getNioPath(file);
+        return path == null ? null : path.getParent();
+    }
+
+    /** Inserts the user settings into the document and reports the result. */
+    static void addUserSettings(@NotNull Project project, @NotNull VirtualFile file, @Nullable FileEditor editor) {
+        Document document = FileDocumentManager.getInstance().getDocument(file);
+        if (document == null) return;
+        AhkUserSettings.Result result = AhkUserSettings.apply(document.getText(), folder(file), isLibrary(file));
+        if (result == null) {
+            EditorNotifications.getInstance(project).updateNotifications(file);
+            return;
+        }
+        if (!change(project, file, editor, "user.settings.add", old -> result.text())) return;
+        AhkUserSettings.notify(project, result, true);
     }
 
     /** Checks the banner again after changes of the document, as long as the editor is open. */
@@ -119,15 +140,16 @@ public final class AhkSettingsNotification implements EditorNotificationProvider
      * Changes the document in one command; the caret stays in its line if that line remains.
      *
      * @param title bundle key of the command name
+     * @return false if the file cannot be changed
      */
-    static void change(@NotNull Project project, @NotNull VirtualFile file, @Nullable FileEditor fileEditor,
+    static boolean change(@NotNull Project project, @NotNull VirtualFile file, @Nullable FileEditor fileEditor,
                        @NotNull String title, @NotNull Function<String, String> edit) {
         Document document = FileDocumentManager.getInstance().getDocument(file);
-        if (document == null) return;
-        if (ReadonlyStatusHandler.getInstance(project).ensureFilesWritable(List.of(file)).hasReadonlyFiles()) return;
+        if (document == null) return false;
+        if (ReadonlyStatusHandler.getInstance(project).ensureFilesWritable(List.of(file)).hasReadonlyFiles()) return false;
         String old = document.getText();
         String text = edit.apply(old);
-        if (text.equals(old)) return;
+        if (text.equals(old)) return true;
         Editor editor = fileEditor instanceof TextEditor textEditor ? textEditor.getEditor() : null;
         int caret = editor == null ? 0 : newOffset(document, editor.getCaretModel().getOffset(), text);
         WriteCommandAction.writeCommandAction(project).withName(AhkBundle.message(title)).run(() -> {
@@ -135,6 +157,7 @@ public final class AhkSettingsNotification implements EditorNotificationProvider
             if (editor != null) editor.getCaretModel().moveToOffset(caret);
         });
         if (editor != null) editor.getScrollingModel().scrollToCaret(ScrollType.MAKE_VISIBLE);
+        return true;
     }
 
     /**

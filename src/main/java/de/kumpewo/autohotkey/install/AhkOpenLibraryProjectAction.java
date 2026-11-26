@@ -60,21 +60,22 @@ public class AhkOpenLibraryProjectAction extends AnAction implements DumbAware {
 
     /**
      * Opens the library project in a window of its own (an open one comes to the front) and there the source at the
-     * line (0-based). Call on the EDT.
+     * line (0-based). Returns the project, {@code null} if it was not opened. Call on the EDT.
      */
-    public static void open(@Nullable Project current, @NotNull AhkLibraryProjects.Source source, int line) {
+    public static @Nullable Project open(@Nullable Project current, @NotNull AhkLibraryProjects.Source source, int line) {
         Project project = ProjectUtil.findAndFocusExistingProjectForPath(source.project());
         if (project == null) project = ProjectUtil.openOrImport(source.project(), current, true);
-        if (project == null) return;
+        if (project == null) return null;
         VirtualFile file = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(source.file());
         if (file == null) {
             Messages.showErrorDialog(project, AhkBundle.message("library.source.missing", source.file()),
                     AhkBundle.message("library.open.title"));
-            return;
+            return project;
         }
         Project target = project;
         ApplicationManager.getApplication().invokeLater(() -> {
             if (!target.isDisposed()) new OpenFileDescriptor(target, file, line, 0).navigate(true);
         });
+        return project;
     }
 }

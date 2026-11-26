@@ -26,10 +26,10 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * Reference from a name to definitions in the same file and in the files it includes with a direct #Include
- * (not recursive, no search in the whole project).
+ * Reference from a name to definitions in the same file and in the files it includes, also indirectly
+ * ({@link AhkInclude#visibleFiles}; no search in the whole project).
  * Without type information only the name is matched (case-insensitive); several matches produce a chooser:
- * first the own file, then the included files in the order of the #Include lines.
+ * first the own file, then the directly included files in the order of the #Include lines, then deeper ones.
  * <ul>
  *   <li>{@link Kind#FREE}: free-standing name ({@code f()}, {@code MsgBox "x"}, {@code MyClass.x}) = functions
  *       outside of classes and top-level classes;</li>
@@ -115,7 +115,7 @@ public final class AhkDefinitionReference extends PsiPolyVariantReferenceBase<Ps
         return EMPTY_ARRAY;   // completion is done by AhkCompletionContributor
     }
 
-    /** Definitions in the file itself, then in the files included directly with #Include; in v2.1 by module. */
+    /** Definitions in the file itself, then in the files it includes; in v2.1 by module. */
     private List<PsiElement> definitions(@Nullable PsiFile file) {
         List<PsiElement> result = new ArrayList<>();
         if (file == null) return result;
@@ -124,7 +124,7 @@ public final class AhkDefinitionReference extends PsiPolyVariantReferenceBase<Ps
             if (modular != null) return modular;
         }
         result.addAll(definitionsIn(file, kind, name, outerClass));
-        for (PsiFile included : AhkInclude.includedFiles(file)) result.addAll(definitionsIn(included, kind, name, outerClass));
+        for (PsiFile included : AhkInclude.visibleFiles(file)) result.addAll(definitionsIn(included, kind, name, outerClass));
         return result;
     }
 

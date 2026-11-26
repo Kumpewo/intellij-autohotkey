@@ -128,12 +128,18 @@ HOTSTRING_HEAD      = ":" [^:\r\n]* ":" ( [^:\r\n] | ":" [^:\r\n] )* "::"
 // With the option X the rest of the line is code, otherwise replacement text.
 HOTSTRING_HEAD_X    = ":" [^:\r\n]* [xX] [^:\r\n]* ":" ( [^:\r\n] | ":" [^:\r\n] )* "::"
 
-// Line starts with an operator => continuation line. Deliberately only operators that can never be the
-// start of a hotkey ("," only without a following ":", otherwise it is the hotkey ,::)
-// (+a:: ^a:: !a:: *a:: ~a:: ... are hotkeys).
+// Line starts with an operator => continuation line. Here only operators that can never be the start of a hotkey
+// ("," only without a following ":", otherwise it is the hotkey ,::); the others are in CONT_OPERATOR.
 // ":" only with a following space (ternary); a hotstring never starts with ": ".
 // "." directly followed by a name or "%" is member access continuing a method chain (obj.M()<line break>.N()).
 CONT_START          = [ \t]* ( ( "and" | "or" | "is" | "in" | "contains" ) [^a-zA-Z0-9_] | "&&" | "||" | "??" | "?" [^:] | ":" [ \t] | "." [ \t] | "." [a-zA-Z_%\u0080-\uFFFF] | "," [^:] )
+
+// The other operators at the start of a line: a continuation line as well, unless the line is a hotkey (+a:: =::),
+// see CONT_HOTKEY. Not ++ and -- (AutoHotkey excludes them too), not the start or end of a block comment.
+CONT_OPERATOR       = [ \t]* ( "+" [^+] | "-" [^-] | "*" [^/] | "/" [^*] | [=<>|\^&] | "!=" | "!~=" | "~=" | ":=" | ".=" )
+// A hotkey that starts with such an operator (text as in HOTKEY_TEXT: strings and comments containing "::" are none).
+// The longest match wins, so this beats CONT_OPERATOR.
+CONT_HOTKEY         = [ \t]* ( [+\-*/=<>|\^&!~:.] ";"* {HOTKEY_TEXT}? "::" | [!\^+<>*~]+ [\"'] "::" )
 
 // Empty and comment lines: meaningless for AHK, also between a line and its continuation line.
 // This includes block comments at the start of a line (also indented and multi-line), after "*/" only whitespace.
@@ -217,6 +223,14 @@ SKIP_LINE           = [ \t]* ( ";" [^\r\n]* | "/*" ~"*/" [ \t]* )? {EOL}
     {CRLF} / {SKIP_LINE}* {CONT_START}  {
               yybegin(IN_SKIP_LINES);
               return com.intellij.psi.TokenType.WHITE_SPACE;
+          }
+    {CRLF} / {SKIP_LINE}* {CONT_OPERATOR}  {
+              yybegin(IN_SKIP_LINES);
+              return com.intellij.psi.TokenType.WHITE_SPACE;
+          }
+    {CRLF} / {SKIP_LINE}* {CONT_HOTKEY}  {
+              yybegin(YYINITIAL);
+              return AhkTypes.CRLF;
           }
     {CRLF} / {SKIP_LINE}* {CS_OPEN_LINE}  {
               yybegin(IN_SKIP_LINES);

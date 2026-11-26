@@ -1,5 +1,6 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
-<idea-plugin>
+<!-- require-restart: after a dynamic update the IDE saves the code style scheme without the AutoHotkey options. -->
+<idea-plugin require-restart="true">
     <!-- Unique identifier of the plugin. It should be FQN. It cannot be changed between the plugin versions. -->
     <id>de.kumpewo.intellij-autohotkey</id>
 
@@ -213,6 +214,15 @@ the editor.</p>
         <lang.psiStructureViewFactory
                 language="AutoHotkey"
                 implementationClass="de.kumpewo.autohotkey.structure.AhkStructureViewFactory"/>
+        <!-- settings.ahk-v2-plugin.ini, whatever its language -->
+        <completion.contributor
+                language="any" order="first"
+                implementationClass="de.kumpewo.autohotkey.install.AhkSettingsCompletion"/>
+        <typedHandler
+                implementation="de.kumpewo.autohotkey.install.AhkSettingsCompletion$Typing"/>
+        <lookup.charFilter
+                order="first"
+                implementation="de.kumpewo.autohotkey.install.AhkSettingsCompletion$Filter"/>
         <completion.contributor
                 language="AutoHotkey"
                 implementationClass="de.kumpewo.autohotkey.completion.AhkCompletionContributor"/>
@@ -233,7 +243,7 @@ the editor.</p>
         <!-- highlight the occurrences of the name under the caret (same name, case-insensitive) -->
         <highlightUsagesHandlerFactory
                 implementation="de.kumpewo.autohotkey.navigation.AhkHighlightUsagesHandlerFactory"/>
-        <!-- Find Usages (Alt+F7): file of the definition and the files that include it directly -->
+        <!-- Find Usages (Alt+F7): file of the definition and the files that include it -->
         <lang.findUsagesProvider
                 language="AutoHotkey"
                 implementationClass="de.kumpewo.autohotkey.navigation.AhkFindUsagesProvider"/>

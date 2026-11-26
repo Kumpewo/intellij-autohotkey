@@ -444,8 +444,9 @@ private implicit_concat_ ::= <<spacedWithoutLineBreak>> &operand_
 + b),
 // foo(a
 .b()). The line break belongs to the operator; if no operator follows, the rule fails without consuming
-// anything (the sequence is rolled back). Operators the lexer already joins at the start of a line (and or && || ??
-// ? : ". " ,; CONT_START) never see a CRLF here. Not for ++/-- (AutoHotkey excludes them too).
+// anything (the sequence is rolled back). Operators the lexer already joins at the start of a line (CONT_START,
+// CONT_OPERATOR) never see a CRLF here; this is for continuation sections and the dot. Not for ++/-- (AutoHotkey
+// excludes them too).
 private nl_op_ ::= <<inParensNow>> CRLF+ &(ASSIGN_OP | EQ | EQ_EQ | NOT_EQ | LT | GT | LE | GE | REGEX_MATCH
                    | REGEX_NOT_MATCH | KEYWORD_IS | KEYWORD_IN | KEYWORD_CONTAINS | BAR | CARET | AMP | SHIFT_OP | PLUS | MINUS
                    | STAR | SLASH | FLOOR_DIV | POW | DOT)

@@ -518,8 +518,7 @@ public class AhkDeployTest extends BasePlatformTestCase {
         assertEquals(List.of(), config.errors());
         AhkDeployPlan plan = AhkDeployPlan.create(config, tool, env(), List.of(), "T");
         assertEquals(List.of(), plan.errors());
-        assertEquals(1, plan.warnings().size());
-        assertTrue(plan.warnings().get(0), plan.warnings().get(0).contains("logo.png"));
+        assertEquals(List.of(), plan.warnings());
         assertEquals(List.of("[Install]", "*.ahk=.", "run.cmd=.", "style.css=.", "readme.txt=.", "logo.png=.",
                 "[AddBanner]", "*.cmd=yes", "TEST.ahk=no", "*.css=yes", "readme.txt=line:# <br>", "*.png=yes"),
                 AhkDeployer.overview(config, tool, List.of()));
@@ -610,8 +609,8 @@ public class AhkDeployTest extends BasePlatformTestCase {
 
     /**
      * The warnings and hints about the banner as a whole: [InstallIfMissing] never gets one; with Banner but no
-     * banner written a warning (files that could take one) or a gray hint (no such file), silent if all are excluded
-     * by no; without Banner a warning for an including line and one for the AutoHotkey files.
+     * banner written a gray hint (files that could take one, or no such file), silent if all are excluded by no or
+     * binary; without Banner a warning for an including line and one for the AutoHotkey files.
      */
     public void testBannerWarnings() throws Exception {
         Path tool = root.resolve("Tool");
@@ -632,11 +631,11 @@ public class AhkDeployTest extends BasePlatformTestCase {
             assertEquals(List.of(AhkBundle.message("deploy.banner.if.missing", "tool.ini")), plan.hints());
             assertEquals(List.of(), plan.warnings());
         }
-        // Banner, but only files that could take one and are not excluded: a warning
+        // Banner, but only files that could take one and are not excluded: a gray hint
         AhkDeployPlan plan = AhkDeployPlan.create(AhkDeployConfig.parse(dest + "Banner=x\n"
                 + "[Install]\nrun.cmd=.\ntool.ini=.\ntool.ahk=.\n[AddBanner]\n*.ahk=no\n"), tool, env(), List.of());
-        assertEquals(List.of(AhkBundle.message("deploy.banner.none", "run.cmd", 1, "*.cmd")), plan.warnings());
-        assertEquals(List.of(), plan.hints());
+        assertEquals(List.of(), plan.warnings());
+        assertEquals(List.of(AhkBundle.message("deploy.banner.none", "run.cmd", 1, "*.cmd")), plan.hints());
         // all excluded by no: silent
         plan = AhkDeployPlan.create(AhkDeployConfig.parse(dest + "Banner=x\n"
                 + "[Install]\nrun.cmd=.\ntool.ahk=.\n[AddBanner]\n*.ahk=no\n*.cmd=no\n"), tool, env(), List.of());
@@ -657,6 +656,20 @@ public class AhkDeployTest extends BasePlatformTestCase {
         assertEquals(List.of(), plan.errors());
         assertEquals(List.of(), plan.warnings());
         assertEquals(List.of(AhkBundle.message("deploy.banner.no.types")), plan.hints());
+        // only binary files: silent, also with a line that includes them and without Banner
+        for (String banner : List.of("Banner=x\n", "")) {
+            for (String rule : List.of("", "[AddBanner]\n*.exe=yes\n")) {
+                plan = AhkDeployPlan.create(AhkDeployConfig.parse(dest + banner + "[Install]\ntool.exe=.\n" + rule),
+                        tool, env(), List.of());
+                assertEquals(List.of(), plan.errors());
+                assertEquals(List.of(), plan.warnings());
+                assertEquals(List.of(), plan.hints());
+            }
+        }
+        // Message knows the folder name of the project
+        plan = AhkDeployPlan.create(AhkDeployConfig.parse(dest + "Message=Deploy {project-name}`nnow\n"), tool, env(),
+                List.of());
+        assertEquals("Deploy Tool\nnow", plan.message());
         // without Banner: an including line names its first file; AutoHotkey files deployed raw: one warning
         plan = AhkDeployPlan.create(AhkDeployConfig.parse(dest + "[Install]\nrun.cmd=.\n*.ahk=.\ntool.exe=.\n"
                 + "[AddBanner]\n*.cmd=yes\n"), tool, env(), List.of());
@@ -864,9 +877,9 @@ public class AhkDeployTest extends BasePlatformTestCase {
     public void testNewLibraryProject() throws Exception {
         Path projects = root.resolve("Library");
         Path documents = root.resolve("Docs");
-        Path source = AhkNewLibraryProject.create(projects, List.of("v2", "Gui"), null);
-        assertEquals(projects.resolve("Gui/Gui.ahk"), source);
-        assertEquals(AhkNewLibraryProject.NEW_SOURCE, Files.readString(source));
+        Path source = AhkNewLibraryProject.create(projects, List.of("v2", "Gui"), null).source();
+        assertEquals(projects.resolve("Gui/Gui-v2.ahk"), source);
+        assertEquals("#Requires AutoHotkey v2.0\r\n;@SetVersion 0.1.0\r\n\r\n", Files.readString(source));
         String ini = Files.readString(projects.resolve("Gui/settings.ahk-v2-plugin.ini"));
         assertFalse(ini, ini.contains("$"));
         // the placeholders of Banner in the comments stay as they are
@@ -876,14 +889,14 @@ public class AhkDeployTest extends BasePlatformTestCase {
         assertCommentStyle(ini);
         assertTrue(ini, ini.contains("for a library project\r\n"));
         // Destination is the library folder itself, the subfolder is in the target
-        assertTrue(ini, ini.contains("\r\nDestination=%A_MyDocuments%\\AutoHotkey\\Lib\\\r\n"));
-        assertTrue(ini, ini.contains("\r\nGui.ahk=v2\\\r\n"));
+        assertTrue(ini, ini.contains("\r\nDestination=%A_MyDocuments%\\AutoHotkey\\Lib\r\n"));
+        assertTrue(ini, ini.contains("\r\nGui-v2.ahk=v2\\Gui.ahk\r\n"));
         AhkDeployConfig config = AhkDeployConfig.parse(ini);
         assertEquals(List.of(), config.errors());
         assertEquals("@library", config.banner());
-        assertTrue(ini, ini.contains("\r\n;Banner=find:banner.txt\r\n"));
+        assertTrue(ini, ini.contains("\r\n;Message=Deploy library {project-name} to %DESTINATION%\r\n"));
         assertEquals(List.of(), config.versionErrors());
-        assertEquals(2, config.versionRules().size());
+        assertEquals(0, config.versionRules().size());
         Function<String, String> variables = env("A_MyDocuments", documents.toString());
         AhkDeployPlan plan = AhkDeployPlan.create(config, projects.resolve("Gui"), variables, List.of(), "T",
                 file -> "abc1234", AhkDeployPlan.libraries(variables));
@@ -900,7 +913,7 @@ public class AhkDeployTest extends BasePlatformTestCase {
                 "; INSTALLED LIBRARY  -  Do not modify here. Edit the source and deploy again.",
                 ";",
                 "; Project     Gui [" + projects.resolve("Gui") + "]",
-                "; Source      Gui.ahk",
+                "; Source      Gui-v2.ahk",
                 "; Version     0.1.0",
                 "; Commit      abc1234",
                 "; Deployed    T",
@@ -920,18 +933,23 @@ public class AhkDeployTest extends BasePlatformTestCase {
         assertEquals("mine", Files.readString(source));
         // from an existing library file: its bytes
         byte[] content = {(byte) 0xEF, (byte) 0xBB, (byte) 0xBF, 'x', '\n'};
-        Path json = AhkNewLibraryProject.create(projects, List.of("Json"), content);
+        Path json = AhkNewLibraryProject.create(projects, List.of("Json"), content).source();
         assertTrue(java.util.Arrays.equals(content, Files.readAllBytes(json)));
         assertTrue(Files.readString(projects.resolve("Json/settings.ahk-v2-plugin.ini"))
-                .contains("Destination=%A_MyDocuments%\\AutoHotkey\\Lib\\\r\n"));
+                .contains("Destination=%A_MyDocuments%\\AutoHotkey\\Lib\r\n"));
         assertTrue(Files.readString(projects.resolve("Json/settings.ahk-v2-plugin.ini")).contains("\r\nJson.ahk=.\r\n"));
-        // a shared banner.txt above the projects folder: the new project finds it
-        Files.writeString(projects.getParent().resolve(AhkNewLibraryProject.SHARED_BANNER), "Copy of {project-name}");
-        AhkNewLibraryProject.create(projects, List.of("Str"), null);
-        String shared = Files.readString(projects.resolve("Str/settings.ahk-v2-plugin.ini"));
-        AhkDeployConfig sharedConfig = AhkDeployConfig.parse(shared);
+        // a user file above the projects folder is inserted, a banner.txt alone is not
+        Files.writeString(projects.getParent().resolve("banner.txt"), "Copy of {project-name}");
+        Files.writeString(projects.getParent().resolve("user.ini"), "[Deploy]\r\nBanner=find:banner.txt\r\n");
+        AhkNewLibraryProject.Created plain = AhkNewLibraryProject.create(projects, List.of("Plain"), null);
+        assertNull(plain.user());
+        assertEquals("@library", AhkDeployConfig.load(projects.resolve("Plain/settings.ahk-v2-plugin.ini")).banner());
+        withUserSettings("user.ini", () -> {
+            AhkNewLibraryProject.Created shared = AhkNewLibraryProject.create(projects, List.of("Str"), null);
+            assertEquals(List.of("Banner=@library -> Banner=find:banner.txt"), shared.user().replaced());
+        });
+        AhkDeployConfig sharedConfig = AhkDeployConfig.load(projects.resolve("Str/settings.ahk-v2-plugin.ini"));
         assertEquals("find:banner.txt", sharedConfig.banner());
-        assertTrue(shared, shared.contains("\r\n;Banner=@library\r\n"));
         plan = AhkDeployPlan.targets(sharedConfig, projects.resolve("Str"), variables);
         assertEquals(List.of(), plan.errors());
         assertEquals(List.of("; Copy of Str"), plan.steps().get(0).banner());
@@ -1527,104 +1545,256 @@ public class AhkDeployTest extends BasePlatformTestCase {
         }
     }
 
+    /** Runs with the name of the user settings. */
+    private static void withUserSettings(String name, com.intellij.util.ThrowableRunnable<Exception> action)
+            throws Exception {
+        var settings = de.kumpewo.autohotkey.settings.AhkSettings.getInstance();
+        settings.setUserSettingsName(name);
+        try {
+            action.run();
+        } finally {
+            settings.setUserSettingsName("");
+        }
+    }
+
     /**
-     * The default settings.ahk-v2-plugin.ini: valid as it is (nothing set), {tool} replaced, CR LF; with every option line
-     * uncommented it is still valid and sets all keys (of a key shown twice, such as Destination, the first line).
+     * The default settings.ahk-v2-plugin.ini: valid as it is, CR LF, one line for each option; with every option line
+     * uncommented it is still valid.
      */
     public void testDefaultSettingsFile() {
-        String text = AhkSettingsFile.text("mytool", false);
-        assertFalse(text, text.contains("{tool}") || text.contains("$"));
-        assertTrue(text, text.contains("\r\n;Banner=find:banner.txt\r\n"));
-        // with a banner.txt in the project folder or above: the line is active
-        assertEquals("find:banner.txt",
-                AhkDeployConfig.parse(AhkSettingsFile.text("mytool", true)).banner());
+        String text = AhkSettingsFile.text(null);
+        assertFalse(text, text.contains("$"));
         assertFalse(text.replace("\r\n", "").contains("\n"));
         assertCommentStyle(text);
-        // hard wrap at 120 columns, and the switch EmbedOrigin is offered
         for (String line : text.split("\r\n")) assertTrue(line, line.length() <= 120);
-        assertTrue(text, text.contains("\r\n;EmbedOrigin=no\r\n"));
-        assertFalse(text, text.contains("[Compile]") || text.contains("[Version]") || text.contains("TagPrefix"));
         AhkDeployConfig config = AhkDeployConfig.parse(text);
         assertEquals(List.of(), config.errors());
         assertTrue(config.entries().isEmpty());
         assertNull(config.destination());
-        assertEquals(2, config.versionRules().size());
-        // remove the ";" of the option lines (";key=value", without a space after ";")
-        StringBuilder uncommented = new StringBuilder();
-        java.util.Set<String> keys = new java.util.HashSet<>();
-        for (String line : text.split("\r\n")) {
-            boolean option = line.matches(";[^ ;].*=.*") && keys.add(line.substring(1, line.indexOf('=')));
-            uncommented.append(option ? line.substring(1) : line).append("\r\n");
-        }
-        // the alternative Destination for a library
-        assertTrue(text, text.contains("\r\n;Destination=%A_MyDocuments%\\AutoHotkey\\Lib\r\n"));
-        config = AhkDeployConfig.parse(uncommented.toString());
+        assertEquals("@standard", config.banner());
+        assertEquals(0, config.versionRules().size() + config.bannerRules().size());
+        String uncommented = text.replaceAll("(?m)^;([^ ;].*=)", "$1").replace("Destination=\r", "Destination=C:\\x\r");
+        config = AhkDeployConfig.parse(uncommented);
         assertEquals(List.of(), config.errors());
         assertEquals(List.of(), config.versionErrors());
-        assertTrue(config.banner(), config.banner().startsWith("Installed copy of {source-relative}"));
-        assertEquals(4, config.bannerRules().size());
+        assertEquals(3, config.bannerRules().size());
         assertEquals(3, config.versionRules().size());
-        assertEquals(new AhkDeployConfig.CleanupEntry("mytool-old.exe", ".", config.cleanup().get(0).line()),
-                config.cleanup().get(0));
-        assertEquals(2, config.cleanup().size());
-        assertEquals("C:\\bin", config.destination());
-        assertTrue(config.message(), config.message().contains("mytool"));
+        assertTrue(config.message(), config.message().contains("{project-name}"));
         // the commented-out switches show the value that changes the default
-        assertFalse(config.generateOverview());
+        assertFalse(config.generateOverview() || config.compile() || config.embedOrigin());
         assertTrue(config.requiresAdmin());
-        assertFalse(config.compile());
-        assertEquals(4, config.entries().size());
-        assertEquals(new AhkDeployConfig.Entry("mytool.exe", ".", false, config.entries().get(1).line()),
-                config.entries().get(1));
-        assertEquals(new AhkDeployConfig.Entry("mytool.ini", "%A_AppData%\\mytool\\", true,
-                config.entries().get(3).line()), config.entries().get(3));
     }
 
-    /**
-     * The default file of a project without AutoHotkey files: the examples come from the files of a known type in the
-     * project root (configuration files to [InstallIfMissing], no AutoHotkey lines); uncommented, the file is valid.
-     */
-    public void testDefaultSettingsFileExamplesFromRootFiles() {
-        String text = AhkSettingsFile.text("tool", false, List.of("build.cmd", "README.md", "app.exe", "config.yaml",
-                AhkDeployConfig.FILE_NAME, ".gitignore", "notes.txt", "logo.png", "deploy.ps1"), false);
-        assertFalse(text, text.contains("$") || text.contains("{tool}") || text.contains(";tool.ahk=")
-                || text.contains(";*.ahk=yes") || text.contains("notes.txt=") || text.contains("logo.png="));
-        assertTrue(text, text.contains("\r\n;app.exe=.\r\n;build.cmd=.\r\n;deploy.ps1=.\r\n;README.md=.\r\n"
-                + ";pictures\\*.png=pictures\r\n"));
-        assertTrue(text, text.contains("\r\n;config.yaml=%A_AppData%\\tool\\\r\n"));
-        assertTrue(text, text.contains("\r\n;test\\=no\r\n;*.cmd=yes\r\n;*.md=yes\r\n;*.ps1=yes\r\n;*.yaml=yes\r\n"
-                + ";readme.txt=line:#\r\n"));
-        assertTrue(text, text.contains("\r\n;*.cmd=yes\r\n;*.md=yes\r\n;*.ps1=yes\r\n;*.yaml=yes\r\nscratch\\=no\r\n"));
-        assertTrue(text, text.contains("\r\n;app-old.exe=.\r\n"));
-        // remove the ";" of the option lines (of a key shown twice, the first line)
-        StringBuilder uncommented = new StringBuilder();
-        java.util.Set<String> keys = new java.util.HashSet<>();
-        for (String line : text.split("\r\n")) {
-            boolean option = line.matches(";[^ ;].*=.*") && keys.add(line.substring(1, line.indexOf('=')));
-            uncommented.append(option ? line.substring(1) : line).append("\r\n");
+    /** The main script of the project is the only file that is listed: compiled if it has a head for Ahk2Exe. */
+    public void testDefaultSettingsFileMainScript() throws Exception {
+        var dir = myFixture.addFileToProject("tool/clip.ahk", "MsgBox 1\n").getVirtualFile().getParent();
+        myFixture.addFileToProject("tool/notes.md", "x");
+        assertNull(AhkSettingsFile.mainLine(dir));
+        myFixture.addFileToProject("tool/Tool.ahk", "MsgBox 1\n");
+        assertEquals("Tool.ahk=.", AhkSettingsFile.mainLine(dir));
+        myFixture.addFileToProject("app/app.ahk", ";@Ahk2Exe-Base x.exe\nMsgBox 1\n");
+        assertEquals("app.exe=.", AhkSettingsFile.mainLine(dir.getParent().findChild("app")));
+        assertTrue(AhkSettingsFile.text("app.exe=.").contains("\r\napp.exe=.\r\n\r\n[InstallIfMissing]"));
+    }
+
+    /** The text of the template, filled but without explanations. */
+    private static String template(boolean library) {
+        return AhkSettingsExplain.template(library ? AhkNewLibraryProject.TEMPLATE : AhkSettingsFile.TEMPLATE)
+                .replace("$install$\n", "");
+    }
+
+    /** Merges twice (the second time changes nothing) and returns the first result. */
+    private static AhkUserSettings.Result merge(String text, String user, boolean library) {
+        AhkUserSettings.Result result = AhkUserSettings.merge(text, user, library, "Gui");
+        AhkUserSettings.Result again = AhkUserSettings.merge(result.text(), user, library, "Gui");
+        assertEquals(result.text(), again.text());
+        assertEquals(0, again.added().size() + again.replaced().size() + again.comments());
+        return result;
+    }
+
+    /** User settings in a new file: options at their place, selectors at their place or at the end. */
+    public void testUserSettingsInNewFile() {
+        AhkUserSettings.Result result = merge(template(false), """
+                [deploy]
+                Message=Deploy {project-name} to %DESTINATION%
+                GenerateOverview=no
+                Compile=no
+
+                [AddBanner]
+                *.ah2=no
+                *.cmd=yes
+                """, false);
+        assertEquals("""
+                [Deploy]
+                Destination=
+                Banner=@standard
+                Message=Deploy {project-name} to %DESTINATION%
+                GenerateOverview=no
+                ;RequiresAdmin=yes
+                Compile=no
+                ;EmbedOrigin=no
+
+                [Install]
+
+                [InstallIfMissing]
+
+                [Cleanup]
+
+                [AddBanner]
+                ;*.ahk=no
+                *.ah2=no
+                ;*.ahk2=no
+                *.cmd=yes
+
+                [SetVersion]
+                ;*.ahk=no
+                ;*.ah2=no
+                ;*.ahk2=no
+                """, result.text());
+        assertEquals(List.of(), result.warnings());
+        assertEquals(5, result.added().size());
+        // the user lines keep their order
+        result = merge(template(false), "[SetVersion]\n*.cmd=yes\n*.AHK=no\ntest/=no\n;{project-name}\\=no\n", false);
+        assertTrue(result.text(), result.text().endsWith(
+                "\n;*.ah2=no\n;*.ahk2=no\n*.cmd=yes\n*.AHK=no\ntest/=no\n;Gui\\=no\n"));
+        // commented-out options replace commented-out system values, several values stay together
+        result = merge(template(false), "[Deploy]\n;Message=a\n;Message=b\n;Banner=x\n", false);
+        assertTrue(result.text(), result.text().contains("Banner=@standard\n;Message=a\n;Message=b\n;Gen"));
+        assertFalse(result.text().contains(";Banner"));
+        assertEquals(2, result.comments());
+        // an empty file
+        assertEquals("[Deploy]\nCompile=no\n\n[SetVersion]\na=no\n",
+                merge("", "[SetVersion]\na=no\n[Deploy]\nCompile=no\n", false).text());
+    }
+
+    /** Lines of the project that win over a different user line are reported, equal ones and system values not. */
+    public void testUserSettingsReportKeptLines() {
+        AhkUserSettings.Result result = merge("""
+                [Deploy]
+                Destination=C:\\own
+                Banner=@library
+                Compile=no
+
+                [AddBanner]
+                *.cmd=no
+                *.bat=yes
+                """, """
+                [Deploy]
+                Destination=D:\\user
+                Banner=find:banner.txt
+                Compile=no
+                [AddBanner]
+                *.cmd=yes
+                *.bat=yes
+                """, true);
+        assertEquals(List.of("Destination=C:\\own (user settings: Destination=D:\\user)",
+                "*.cmd=no (user settings: *.cmd=yes)"), result.kept());
+        assertEquals(List.of("Banner=@library -> Banner=find:banner.txt"), result.replaced());
+        assertEquals(List.of(), result.warnings());
+        List<String> report = AhkUserSettings.report(result, true);
+        assertTrue(report.contains(AhkBundle.message("user.settings.kept.hint")));
+        assertEquals(AhkBundle.message("user.settings.undo"), report.get(report.size() - 1));
+        assertEquals(List.of(), AhkUserSettings.report(result, false));
+        // nothing changed: no undo, nothing kept: no hint
+        assertEquals(List.of(AhkBundle.message("user.settings.nothing")), AhkUserSettings.report(
+                new AhkUserSettings.Result("", List.of(), List.of(), List.of(), 0, List.of()), true));
+    }
+
+    /** User settings in an existing file: active lines of the project win, system values are replaced. */
+    public void testUserSettingsInExistingFile() {
+        String user = "[Deploy]\nBanner=find:banner.txt\nCompile=no\nDestination=C:\\lib\n[SetVersion]\n*.cmd=yes\n";
+        // active system values are replaced, also the old form of Destination
+        String old = "[Deploy]\n;; text\nDestination=%A_MyDocuments%\\AutoHotkey\\Lib\\\n\n;; text\nBanner=@library\n"
+                + "\n[Install]\na.ahk=.\n\n[SetVersion]\n;; text\n; mine\ntest\\=no\n;*.cmd=yes\n";
+        AhkUserSettings.Result result = merge(old, user, true);
+        assertEquals("[Deploy]\n;; text\nDestination=C:\\lib\n\n;; text\nBanner=find:banner.txt\n\nCompile=no\n"
+                + "\n[Install]\na.ahk=.\n\n[SetVersion]\n;; text\n*.cmd=yes\n; mine\ntest\\=no\n", result.text());
+        assertEquals(2, result.replaced().size());
+        assertEquals(List.of("Compile=no", "*.cmd=yes"), result.added());
+        assertEquals(List.of(AhkBundle.message("user.settings.destination", "C:\\lib")), result.warnings());
+        // other active lines stay, a commented-out line with the value is activated
+        result = merge("[Deploy]\nBanner=@standard\nDestination=D:\\x\n;Compile=yes\n;Compile=no\n[SetVersion]\n"
+                + "*.CMD=no\n", user, true);
+        assertEquals("[Deploy]\nBanner=@standard\nDestination=D:\\x\n;Compile=yes\nCompile=no\n[SetVersion]\n"
+                + "*.CMD=no\n", result.text());
+        assertEquals(List.of(), result.warnings());
+        // an option without a value counts as not set
+        result = merge("[Deploy]\nDestination=\n", "[Deploy]\nDestination=C:\\bin\n", false);
+        assertEquals("[Deploy]\nDestination=C:\\bin\n", result.text());
+        assertEquals(List.of("Destination=C:\\bin"), result.added());
+        // the folder of the libraries itself is no warning
+        result = merge(template(true), "[Deploy]\nDestination=%A_MyDocuments%\\AutoHotkey\\Lib\\\n", true);
+        assertEquals(List.of(), result.warnings());
+        // a new line of the user file comes after the ones inserted before
+        result = merge("[SetVersion]\n*.cmd=yes\ntest\\=no\n", "[SetVersion]\n*.cmd=yes\n*.py=yes\n", false);
+        assertEquals("[SetVersion]\n*.cmd=yes\n*.py=yes\ntest\\=no\n", result.text());
+    }
+
+    /** Lines of the user file that are ignored or only inserted commented out. */
+    public void testUserSettingsWarnings() {
+        String user = """
+                outside=1
+                ;; explanation
+                ; text=x
+                [Deploy]
+                Unknown=1
+                Compile=maybe
+                Compile=no
+                Compile=yes
+                no entry
+                ;Other=1
+                [Nonsense]
+                a=b
+                [Install]
+                {project-name}.ahk=.
+                ;b.ahk=.
+                [InstallIfMissing]
+                a.ini=%A_AppData%\\{project-name}\\
+                [Cleanup]
+                *.tmp=x
+                ;*.tmp=y
+                [SetVersion]
+                *.cmd=perhaps
+                ..\\x=no
+                """;
+        AhkUserSettings.Result result = merge("[Deploy]\n", user, false);
+        assertEquals("[Deploy]\nCompile=no\n\n[Install]\n;Gui.ahk=.\n;b.ahk=.\n\n[InstallIfMissing]\n"
+                + ";a.ini=%A_AppData%\\Gui\\\n\n[Cleanup]\n;*.tmp=x\n;*.tmp=y\n", result.text());
+        assertEquals(result.warnings().toString(), 11, result.warnings().size());
+        assertEquals(AhkBundle.message("user.settings.ignored", 1, "outside=1"), result.warnings().get(0));
+        assertEquals(AhkBundle.message("user.settings.commented", 14, "{project-name}.ahk=."),
+                result.warnings().get(6));
+    }
+
+    /** The user file is searched from the project upwards; the link of the bar inserts it in one undo step. */
+    public void testAddUserSettings() throws Exception {
+        assertTrue(AhkUserSettings.isValidName("") && AhkUserSettings.isValidName("user.ini"));
+        for (String name : List.of("a\\b", "a/b", "C:x", "%A_Temp%", "..", AhkDeployConfig.FILE_NAME,
+                AhkDeployConfig.LEGACY_FILE_NAME)) {
+            assertFalse(name, AhkUserSettings.isValidName(name));
         }
-        AhkDeployConfig config = AhkDeployConfig.parse(uncommented.toString());
-        assertEquals(List.of(), config.errors());
-        assertEquals(List.of(), config.versionErrors());
-        assertEquals(6, config.entries().size());
-    }
-
-    /** Without files of a known type: generic examples with the project name; an AutoHotkey file in the root counts. */
-    public void testDefaultSettingsFileGenericExamples() {
-        String text = AhkSettingsFile.text("tool", false, List.of("notes.txt"), false);
-        assertTrue(text, text.contains("\r\n;tool.cmd=.\r\n;pictures"));
-        assertTrue(text, text.contains("\r\n;tool.ini=%A_AppData%\\tool\\\r\n"));
-        assertTrue(text, text.contains("\r\n;*.cmd=yes\r\nscratch\\=no\r\n"));
-        assertTrue(text, text.contains("\r\n;tool-old.cmd=.\r\n"));
-        text = AhkSettingsFile.text("tool", false, List.of("Tool.ahk", "clip.ahk", "help.htm"), false);
-        assertTrue(text, text.contains("\r\n;tool.ahk=.\r\n;tool.exe=.\r\n;clip.ahk=.\r\n;help.htm=.\r\n;pictures"));
-        assertTrue(text, text.contains("\r\n;*.htm=yes\r\nscratch\\=no\r\n") && !text.contains(";*.ahk=yes"));
-        assertTrue(text, text.contains("\r\n;tool-old.exe=.\r\n"));
-        // at most MAX_EXAMPLES lines per section
-        List<String> many = new java.util.ArrayList<>();
-        for (int i = 0; i < 15; i++) many.add("f" + (char) ('a' + i) + ".cmd");
-        text = AhkSettingsFile.text("tool", false, many, false);
-        assertTrue(text, text.contains(";fj.cmd=.") && !text.contains(";fk.cmd=."));
+        write(root.resolve("user.ini"), "[Deploy]\r\nCompile=no\r\n");
+        Path near = write(root.resolve("tools/user.ini"), "[Deploy]\r\nEmbedOrigin=no\r\n");
+        Path ini = write(root.resolve("tools/clip/" + AhkDeployConfig.FILE_NAME), "[Deploy]\r\n;EmbedOrigin=no\r\n");
+        assertNull(AhkUserSettings.find(ini.getParent()));
+        var file = com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByNioFile(ini);
+        assertNotNull(file);
+        var document = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().getDocument(file);
+        var editor = com.intellij.openapi.fileEditor.FileEditorManager.getInstance(getProject()).openFile(file, true)[0];
+        assertFalse(links(file, editor).contains("Apply User Settings"));
+        withUserSettings("user.ini", () -> {
+            assertEquals(near, AhkUserSettings.find(ini.getParent()));
+            assertTrue(links(file, editor).contains("Apply User Settings"));
+            AhkSettingsNotification.addUserSettings(getProject(), file, editor);
+            assertEquals("[Deploy]\nEmbedOrigin=no\n", document.getText());
+            // still there when there is nothing to add
+            AhkSettingsNotification.addUserSettings(getProject(), file, editor);
+            assertEquals("[Deploy]\nEmbedOrigin=no\n", document.getText());
+            assertTrue(links(file, editor).contains("Apply User Settings"));
+            com.intellij.openapi.command.undo.UndoManager.getInstance(getProject()).undo(editor);
+            assertEquals("[Deploy]\n;EmbedOrigin=no\n", document.getText());
+        });
+        com.intellij.openapi.fileEditor.FileEditorManager.getInstance(getProject()).closeFile(file);
     }
 
     /** Built-in comment styles of more file types; .txt, .php and .json have none. */
@@ -1673,7 +1843,7 @@ public class AhkDeployTest extends BasePlatformTestCase {
         var ini = dir.findChild(AhkDeployConfig.FILE_NAME);
         assertNotNull(ini);
         String text = com.intellij.openapi.vfs.VfsUtilCore.loadText(ini);
-        assertTrue(text, text.contains(";Message=Deploy " + getProject().getName() + " to %DESTINATION%"));
+        assertTrue(text, text.contains(";Message=Deploy {project-name} to %DESTINATION%"));
         com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(getProject(), () -> {
             try {
                 com.intellij.openapi.vfs.VfsUtil.saveText(ini, "[Deploy]\nDestination=C:\\mine\n");
@@ -1715,12 +1885,213 @@ public class AhkDeployTest extends BasePlatformTestCase {
         assertFalse(text, text.contains("$"));
         AhkDeployConfig config = AhkDeployConfig.parse(text);
         assertEquals("@library", config.banner());
-        assertEquals("%A_MyDocuments%\\AutoHotkey\\Lib\\", config.destination());
+        assertEquals("%A_MyDocuments%\\AutoHotkey\\Lib", config.destination());
         assertFalse(AhkLibraryProjects.isBelow(gui.resolve("test"), projects));
-        // without AutoHotkey files only an example
-        assertTrue(AhkNewLibraryProject.existing("Str", List.of("a.txt"), true).contains("\r\n;Str.ahk=.\r\n"));
-        assertEquals("find:banner.txt",
-                AhkDeployConfig.parse(AhkNewLibraryProject.existing("Str", List.of(), true)).banner());
+        // without AutoHotkey files nothing is listed
+        assertTrue(AhkNewLibraryProject.existing(List.of("a.txt")).contains("[Install]\n\n[InstallIfMissing]"));
+    }
+
+    /** Sources with a version: names, targets, new projects and added files. */
+    public void testVersionedNames() throws Exception {
+        assertTrue(AhkVersionedName.isVersion("v2") && AhkVersionedName.isVersion("V2.1"));
+        for (String other : new String[]{"v", "2", "v2.", "v2-alpha", "vx", "lib"}) {
+            assertFalse(other, AhkVersionedName.isVersion(other));
+        }
+        assertEquals("Encode-v2.ahk", AhkVersionedName.source("Encode.ahk", "v2"));
+        assertEquals("v2\\Encode.ahk", AhkVersionedName.target("Encode-v2.ahk"));
+        assertEquals("v2.1\\Encode.ahk", AhkVersionedName.target("src/Encode-v2.1.ahk"));
+        assertEquals("v2\\a-v1.ah2", AhkVersionedName.target("a-v1-v2.ah2"));
+        for (String other : List.of("E.ahk", "E-v2.txt", "E-v*.ahk", "-v2.ahk", "E-v2-x.ahk")) {
+            assertNull(other, AhkVersionedName.target(other));
+        }
+        Path projects = root.resolve("Library");
+        assertEquals("#Requires AutoHotkey v1.1",
+                Files.readAllLines(AhkNewLibraryProject.create(projects, List.of("v1", "A"), null).source()).get(0));
+        Path source = AhkNewLibraryProject.create(projects, List.of("v2.1", "B"), null).source();
+        assertEquals("B-v2.1.ahk", source.getFileName().toString());
+        assertEquals("#Requires AutoHotkey v2.1-alpha", Files.readAllLines(source).get(0));
+        // a folder that is no version
+        assertEquals("C.ahk",
+                AhkNewLibraryProject.create(projects, List.of("my", "C"), null).source().getFileName().toString());
+        assertTrue(Files.readString(projects.resolve("C/" + AhkDeployConfig.FILE_NAME))
+                .contains("\r\nC.ahk=my\\\r\n"));
+        String existing = AhkNewLibraryProject.existing(List.of("E-v2.ahk", "E.ahk"));
+        assertTrue(existing, existing.contains("\nE-v2.ahk=v2\\E.ahk\nE.ahk={set target}\n"));
+        // added: relative to Destination, then taken
+        Path lib = root.resolve("Lib");
+        Path project = projects.resolve("D");
+        write(project.resolve(AhkDeployConfig.FILE_NAME), "[Deploy]\r\nDestination=" + lib + "\r\n");
+        Path file = write(lib.resolve("v2/D.ahk"), "d := 1\n");
+        assertEquals("D-v2.ahk=v2\\D.ahk", AhkAddToLibraryProject.add(project, file, env()).line());
+        assertEquals("D_added.ahk={set target}", AhkAddToLibraryProject.add(project, file, env()).line());
+    }
+
+    /** The texts suggested at {@code |}, after the prefix and a colon; {@code null} if the position is not handled. */
+    private String suggested(String text, boolean library) {
+        int caret = text.indexOf('|');
+        var result = AhkSettingsCompletion.suggest(text.replace("|", ""), caret, root.resolve("P"), library,
+                env("A_Temp", root.resolve("T").toString(), "A_UserName", "me"));
+        return result == null ? null
+                : result.prefix() + ":" + String.join(",", result.items().stream().map(i -> i.text()).toList());
+    }
+
+    /** Completion in the settings file: the suggestions for a position. */
+    public void testSettingsCompletion() throws Exception {
+        write(root.resolve("P/Encode-v2.ahk"), "");
+        write(root.resolve("P/src/a.ahk"), "");
+        write(root.resolve("P/.git/x"), "");
+        write(root.resolve("P/" + AhkDeployConfig.FILE_NAME), "");
+        write(root.resolve("banner.txt"), "");
+        write(root.resolve("T/one/100%/x"), "");
+        write(root.resolve("T/file.txt"), "");
+        // left side
+        for (String section : List.of("Install", "installifmissing", "AddBanner", "SetVersion")) {
+            assertEquals(":Encode-v2.ahk,src\\", suggested("[" + section + "]\n|", false));
+            assertEquals("E:Encode-v2.ahk,src\\", suggested("[" + section + "]\r\n;E|=.", false));
+            assertEquals("a:a.ahk", suggested("[" + section + "]\n\"src/a|", false));
+            assertEquals(":", suggested("[" + section + "]\n..\\|", false));
+        }
+        assertEquals(":", suggested("[Cleanup]\n|=x", false));
+        assertEquals(":", suggested("[Deploy]\n|", false));
+        for (String none : List.of("|", "[|", "[Install]\n; E|", "[Install]\n;; |", "[Other]\na=|")) {
+            assertNull(none, suggested(none, false));
+        }
+        // the target of a source with a version, only in library projects
+        assertEquals(":v2\\Encode.ahk", suggested("[Install]\nEncode-v2.ahk=|", true));
+        assertEquals(":v2\\Encode.ahk", suggested("[Install]\nEncode-v2.ahk=|{set target}", true));
+        assertEquals(":v2\\Encode.ahk", suggested("[Install]\nEncode-v2.ahk={set| target}", true));
+        assertEquals("v2:v2\\Encode.ahk", suggested("[InstallIfMissing]\n;Encode-v2.ahk=v2|", true));
+        assertEquals(":", suggested("[Install]\nEncode-v2.ahk=|", false));
+        assertEquals(":", suggested("[Install]\nEncode.ahk=|", true));
+        assertEquals(":", suggested("[Install]\nEncode-v2.ahk=x|", true));
+        // variables and folders
+        assertEquals(":A_Temp,A_UserName", suggested("[Install]\na=%|", false));
+        assertEquals("A_:A_Temp,A_UserName", suggested("[Cleanup]\na=x\\%A_|Temp%", false));
+        assertEquals(":\\one\\", suggested("[Cleanup]\na=%A_Temp%|", false));
+        assertEquals("o:one\\", suggested("[Install]\na=%a_temp%\\o|", false));
+        assertEquals(":100%%\\", suggested("[Deploy]\nDestination=%A_Temp%\\one\\|", false));
+        assertEquals(":", suggested("[Install]\na=sub\\|", false));
+        assertEquals(":", suggested("[Install]\na=\\\\server\\|", false));
+        assertEquals(":DESTINATION,A_Temp,A_UserName",
+                suggested("[Deploy]\nDestination=%A_Temp%\nMessage=to %|", false));
+        assertEquals(":", suggested("[Deploy]\nMessage=|", false));
+        String start = suggested("[Deploy]\n;Destination=|", false);
+        assertTrue(start, start.startsWith(":%A_Temp%,%A_UserName%"));
+        assertFalse(start, start.contains("DESTINATION"));
+        // values
+        assertEquals("y:yes,no", suggested("[Deploy]\n;Compile=y|", false));
+        assertEquals(":yes,no,line:,block:", suggested("[AddBanner]\n*.ahk=|", false));
+        assertEquals(":", suggested("[SetVersion]\n*.ahk=line:|", false));
+        assertEquals("@:@standard,@library,find:,file:", suggested("[Deploy]\nBanner=@|", false));
+        String find = suggested("[Deploy]\nBanner=find:b|", false);
+        assertTrue(find, find.startsWith("b:") && find.contains("banner.txt") && find.contains("Encode-v2.ahk"));
+        assertEquals("b:P\\,T\\,banner.txt", suggested("[Deploy]\nBanner=file:..\\b|", false)
+                .replace("banner.txt,P\\,T\\", "P\\,T\\,banner.txt"));
+    }
+
+    /** Completion in the editor, through the platform: what the insertion changes. */
+    public void testSettingsCompletionInserts() {
+        assertCompleted("[Deploy]\nCompile=n<caret>", "[Deploy]\nCompile=no<caret>", null);
+        assertCompleted("[Deploy]\n;Compile=n<caret>\n[Install]", "[Deploy]\n;Compile=no<caret>\n[Install]", null);
+        assertCompleted("[Deploy]\nMessage=%A_WinD<caret>", "[Deploy]\nMessage=%A_WinDir%<caret>", null);
+        assertCompleted("[Install]\na=%A_WinD<caret>xx%\\x", "[Install]\na=%A_WinDir%<caret>\\x", "A_WinDir");
+        assertCompleted("[AddBanner]\n*.ahk=<caret>", "[AddBanner]\n*.ahk=block:<caret>", "block:");
+        // nothing else (words of the file) is suggested
+        assertCompleted("[Cleanup]\nabcdef=.\nabc<caret>", "[Cleanup]\nabcdef=.\nabc<caret>", null);
+    }
+
+    /** Completes the text of a settings file; {@code choice}: the item to choose if there are several. */
+    private void assertCompleted(String before, String after, String choice) {
+        var file = myFixture.addFileToProject("c" + before.hashCode() + "/" + AhkDeployConfig.FILE_NAME,
+                before.replace("<caret>", ""));
+        myFixture.configureFromExistingVirtualFile(file.getVirtualFile());
+        myFixture.getEditor().getCaretModel().moveToOffset(before.indexOf("<caret>"));
+        var items = myFixture.completeBasic();
+        if (choice != null) {
+            assertNotNull(items);
+            for (var item : items) {
+                if (item.getLookupString().equals(choice)) {
+                    myFixture.getLookup().setCurrentItem(item);
+                    break;
+                }
+            }
+            myFixture.finishLookup('\n');
+        }
+        assertText(after);
+    }
+
+    /** Compares the editor with the text with {@code <caret>}. */
+    private void assertText(String after) {
+        String text = myFixture.getEditor().getDocument().getText();
+        int caret = myFixture.getCaretOffset();
+        assertEquals(after, text.substring(0, caret) + "<caret>" + text.substring(caret));
+    }
+
+    /** While typing: no words of the file, and no character takes over a suggestion. */
+    public void testSettingsCompletionWhileTyping() {
+        var file = myFixture.addFileToProject("typing/" + AhkDeployConfig.FILE_NAME, "");
+        myFixture.configureFromExistingVirtualFile(file.getVirtualFile());
+        for (char c : "=%\\/.: -".toCharArray()) {
+            com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(getProject(),
+                    () -> myFixture.getEditor().getDocument().setText("[Deploy]\nMessage=%A_Pro"));
+            myFixture.getEditor().getCaretModel().moveToOffset(myFixture.getEditor().getDocument().getTextLength());
+            var items = myFixture.complete(com.intellij.codeInsight.completion.CompletionType.BASIC, 0);
+            assertNotNull(items);
+            assertTrue(List.of(items).stream().allMatch(i -> i.getLookupString().startsWith("A_Pro")));
+            myFixture.type(c);
+            assertText("[Deploy]\nMessage=%A_Pro" + c + "<caret>");
+            if (myFixture.getLookup() != null) {
+                com.intellij.codeInsight.lookup.LookupManager.getInstance(getProject()).hideActiveLookup();
+            }
+        }
+        // words of the file are not offered
+        com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(getProject(),
+                () -> myFixture.getEditor().getDocument().setText("[Deploy]\nMessage=nobody\nCompile=n"));
+        myFixture.getEditor().getCaretModel().moveToOffset(myFixture.getEditor().getDocument().getTextLength());
+        var items = myFixture.complete(com.intellij.codeInsight.completion.CompletionType.BASIC, 0);
+        if (items != null) assertEquals(List.of("no"), List.of(items).stream().map(i -> i.getLookupString()).toList());
+    }
+
+    /** The target of a source with a version replaces the placeholder, with Enter and with Tab. */
+    public void testSettingsCompletionReplacesPlaceholder() throws Exception {
+        Path projects = root.resolve("Library");
+        var settings = de.kumpewo.autohotkey.settings.AhkSettings.getInstance();
+        String old = settings.getLibraryProjectsFolder();
+        com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess.allowRootAccess(getTestRootDisposable(), root.toString());
+        boolean auto = com.intellij.codeInsight.CodeInsightSettings.getInstance().AUTOCOMPLETE_ON_CODE_COMPLETION;
+        try {
+            settings.setLibraryProjectsFolder(projects.toString());
+            Path ini = write(projects.resolve("E/" + AhkDeployConfig.FILE_NAME),
+                    "[Install]\nE-v2.ahk={set target}\nx=.\n");
+            var file = com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByNioFile(ini);
+            assertNotNull(file);
+            myFixture.openFileInEditor(file);
+            var document = myFixture.getEditor().getDocument();
+            String text = document.getText();
+            com.intellij.codeInsight.CodeInsightSettings.getInstance().AUTOCOMPLETE_ON_CODE_COMPLETION = false;
+            for (char key : new char[]{'\n', '\t'}) {
+                for (int caret = text.indexOf("{"); caret <= text.indexOf("}") + 1; caret++) {
+                    com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(getProject(),
+                            () -> document.setText(text));
+                    myFixture.getEditor().getCaretModel().moveToOffset(caret);
+                    myFixture.completeBasic();
+                    myFixture.finishLookup(key);
+                    assertEquals("[Install]\nE-v2.ahk=v2\\E.ahk\nx=.\n", document.getText());
+                }
+            }
+            com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().saveAllDocuments();
+        } finally {
+            com.intellij.codeInsight.CodeInsightSettings.getInstance().AUTOCOMPLETE_ON_CODE_COMPLETION = auto;
+            settings.setLibraryProjectsFolder(old);
+        }
+    }
+
+    /** The list of the names knows all variables. */
+    public void testFolderVariableNames() {
+        var names = new java.util.TreeSet<>(de.kumpewo.autohotkey.include.AhkFolderVariables.NAMES.stream()
+                .map(n -> n.toLowerCase(java.util.Locale.ROOT)).toList());
+        assertTrue(names.containsAll(de.kumpewo.autohotkey.include.AhkFolderVariables.values().keySet()));
+        assertEquals(16, names.size());
     }
 
     /** The lines of a settings file that belong to the user: neither explanations nor empty. */
@@ -1754,8 +2125,8 @@ public class AhkDeployTest extends BasePlatformTestCase {
     /** Both actions on many files: user lines and meaning stay, a second run changes nothing. */
     public void testExplanationsKeepTheUserLines() throws Exception {
         List<String> files = List.of("", "\n\n", "x\n", "; only a comment",
-                AhkSettingsFile.text("tool", false), AhkSettingsFile.text("tool", true),
-                AhkNewLibraryProject.existing("Str", List.of("Str.ahk"), true),
+                AhkSettingsFile.text(null), AhkSettingsFile.text("a.exe=."),
+                AhkSettingsFile.complete(AhkNewLibraryProject.existing(List.of("Str.ahk")), true),
                 "[SetVersion]\r\nscratch/=no\r\n\r\n; mine\r\n[Deploy]\r\nCompile=no\r\n",
                 "\uFEFF;; old\n;;; mine\n\n[deploy]\n;;x\n ;; y\nBANNER=@standard\nunknown=1\n;Compile=yes\n;;; end\n"
                         + "[Other]\n;; gone\na=b\n\n\nc=d\n[Deploy]\nMessage=twice\n[Install]\na.ahk=.\n\nb.ahk=.",
@@ -1767,20 +2138,20 @@ public class AhkDeployTest extends BasePlatformTestCase {
                 assertEquals(meaning(text), meaning(compact));
                 assertEquals(compact, AhkSettingsExplain.compact(compact));
                 assertFalse(compact, compact.lines().anyMatch(l -> l.equals(";;") || l.startsWith(";; ")));
-                String full = AhkSettingsExplain.restore(text, library, "tool");
+                String full = AhkSettingsExplain.restore(text, library);
                 assertTrue(full, isSubsequence(userLines(text), userLines(full)));
                 assertEquals(meaning(text), meaning(full));
-                assertEquals(full, AhkSettingsExplain.restore(full, library, "tool"));
+                assertEquals(full, AhkSettingsExplain.restore(full, library));
                 // the way over the compact file leads to the same lines
-                assertEquals(userLines(full), userLines(AhkSettingsExplain.restore(compact, library, "tool")));
+                assertEquals(userLines(full), userLines(AhkSettingsExplain.restore(compact, library)));
                 for (String line : full.split("\\R")) {
                     if (line.startsWith(";; ")) assertTrue(line, line.length() <= 120 && line.matches("\\p{ASCII}*"));
                 }
             }
         }
         // the new files are complete
-        assertEquals(files.get(4), AhkSettingsExplain.restore(files.get(4), false, "tool"));
-        assertEquals(files.get(6), AhkSettingsExplain.restore(files.get(6), true, "Str"));
+        assertEquals(files.get(4), AhkSettingsExplain.restore(files.get(4), false));
+        assertEquals(files.get(6), AhkSettingsExplain.restore(files.get(6), true));
     }
 
     /** The form of the compact and of the explained file, comments of the user in [Deploy]. */
@@ -1820,7 +2191,7 @@ public class AhkDeployTest extends BasePlatformTestCase {
                 a.ahk=.
                 b.ahk=.
                 """, AhkSettingsExplain.compact(text));
-        String full = AhkSettingsExplain.restore(text, false, "tool");
+        String full = AhkSettingsExplain.restore(text, false);
         assertTrue(full, full.startsWith(";; settings.ahk-v2-plugin.ini - settings"));
         // one empty line after the header, none in it; [Deploy] without an explanation of its own
         assertTrue(full, full.indexOf("\n\n") == full.indexOf("\n\n[Deploy]\n\n;; Absolute folder"));
@@ -1829,50 +2200,46 @@ public class AhkDeployTest extends BasePlatformTestCase {
         assertTrue(full, full.contains("\n;;; about RequiresAdmin\n;RequiresAdmin=yes\n\n;; "));
         assertTrue(full, full.contains("\n;;; last\n\n[Install]\n;; Lines source=target"));
         // empty lines in other sections stay
-        assertTrue(full, full.contains("\na.ahk=.\n\nb.ahk=.\n;pictures\\*.png=pictures\n\n[InstallIfMissing]\n;; "));
+        assertTrue(full, full.contains("\na.ahk=.\n\nb.ahk=.\n\n[InstallIfMissing]\n;; "));
         assertFalse(full, full.contains("\n\n\n"));
     }
 
     /** What "Restore Explanations" adds: commented out, only what is missing, nothing taken from the project. */
     public void testRestoreMissingOptions() {
         String full = AhkSettingsExplain.restore("[Deploy]\nRequiresAdmin=no\n;Banner=@standard\n;Compile=yes\n"
-                + "[SetVersion]\n;test/=no\n", false, "tool");
+                + "[SetVersion]\n;test/=no\n", false);
         List<String> lines = userLines(full);
         assertFalse(full, lines.contains(";RequiresAdmin=yes"));
-        // an option with several examples gets all of them, another one counts by its name
-        assertTrue(full, lines.contains(";Banner=find:banner.txt")
-                && lines.stream().filter(l -> l.startsWith(";Banner=")).count() == 3);
+        // another line of the option is enough
+        assertEquals(1, lines.stream().filter(l -> l.startsWith(";Banner=")).count());
         assertEquals(1, lines.stream().filter(l -> l.startsWith(";Compile=")).count());
-        assertEquals(2, lines.stream().filter(l -> l.startsWith(";Destination=")).count());
-        assertTrue(full, lines.contains(";Message=Deploy tool to %DESTINATION%"));
+        assertTrue(full, lines.contains(";Destination="));
+        assertTrue(full, lines.contains(";Message=Deploy {project-name} to %DESTINATION%"));
         assertTrue(full, lines.contains(";EmbedOrigin=no"));
         // sections in the order of the template, all examples commented out
-        assertEquals(List.of("[Deploy]", "[Install]", "[InstallIfMissing]", "[AddBanner]", "[Cleanup]", "[SetVersion]"),
+        assertEquals(List.of("[Deploy]", "[Install]", "[InstallIfMissing]", "[Cleanup]", "[AddBanner]", "[SetVersion]"),
                 lines.stream().filter(l -> l.startsWith("[")).toList());
-        assertTrue(full, full.endsWith("\n;test/=no\n;scratch\\=no\n;version.txt=line:#\n"));
-        assertTrue(full, lines.contains(";*.tmp=%A_Temp%\\tool\\"));
-        assertFalse(full, full.contains("$") || full.contains(";tool.ahk") || full.contains("-old.exe")
-                || full.contains("*.cmd=yes"));
+        assertTrue(full, full.endsWith("\n;test/=no\n;*.ahk=no\n;*.ah2=no\n;*.ahk2=no\n"));
+        assertFalse(full, full.contains("$"));
         // an active option: no examples
-        full = AhkSettingsExplain.restore("[deploy]\nBANNER=x\ndestination=C:\\x\n", false, "tool");
+        full = AhkSettingsExplain.restore("[deploy]\nBANNER=x\ndestination=C:\\x\n", false);
         assertFalse(full, full.contains(";Banner=") || full.contains(";Destination="));
-        full = AhkSettingsExplain.restore("\n", true, "Gui");
-        assertTrue(full, full.contains("\n;Banner=@library\n") && !full.contains("Gui.ini")
-                && !full.contains("Gui-old.exe") && !full.contains("*.cmd=yes"));
+        full = AhkSettingsExplain.restore("\n", true);
+        assertTrue(full, full.contains("\n;Banner=@library\n"));
     }
 
     /** The setting for new files: without explanations the file is the compact form of the explained one. */
     public void testNewSettingsWithoutExplanations() throws Exception {
         var settings = de.kumpewo.autohotkey.settings.AhkSettings.getInstance();
         assertTrue(settings.isExplainNewSettings());
-        String tool = AhkSettingsFile.text("tool", true);
-        String library = AhkNewLibraryProject.existing("Str", List.of("Str.ahk"), false);
+        String tool = AhkSettingsFile.text(null);
+        String library = AhkSettingsFile.complete(AhkNewLibraryProject.existing(List.of("Str.ahk")), true);
         assertTrue(tool.startsWith(";; ") && library.startsWith(";; "));
         settings.setExplainNewSettings(false);
         try {
-            assertEquals(AhkSettingsExplain.compact(tool), AhkSettingsFile.text("tool", true));
+            assertEquals(AhkSettingsExplain.compact(tool), AhkSettingsFile.text(null));
             assertEquals(AhkSettingsExplain.compact(library),
-                    AhkNewLibraryProject.existing("Str", List.of("Str.ahk"), false));
+                    AhkSettingsFile.complete(AhkNewLibraryProject.existing(List.of("Str.ahk")), true));
         } finally {
             settings.setExplainNewSettings(true);
         }
@@ -1889,8 +2256,28 @@ public class AhkDeployTest extends BasePlatformTestCase {
             assertFalse(id, AhkSettingsHelp.comment(id).isEmpty());
             for (String line : AhkSettingsHelp.comment(id)) assertFalse(line, line.matches(".*&[a-z]+;.*|.*</?code>.*"));
         }
+        // the examples are valid, each one alone and for Banner each line alone; they are not in the comments
+        int examples = 0;
+        for (String id : AhkSettingsHelp.ids()) {
+            var m = java.util.regex.Pattern.compile("<pre>(.*?)</pre>", java.util.regex.Pattern.DOTALL)
+                    .matcher(AhkSettingsHelp.html(id));
+            if (!m.find()) continue;
+            examples++;
+            boolean option = id.startsWith(AhkSettingsHelp.OPTION);
+            String section = option ? "Deploy" : id;
+            for (String part : option ? m.group(1).split("\n") : new String[]{m.group(1)}) {
+                AhkDeployConfig config = AhkDeployConfig.parse("[" + section + "]\n" + part);
+                assertEquals(List.of(), config.errors());
+                assertEquals(List.of(), config.versionErrors());
+            }
+            for (String line : m.group(1).split("\n")) {
+                assertFalse(line, String.join("\n", AhkSettingsHelp.comment(id)).contains(line));
+                assertTrue(line, AhkSettingsDocumentation.html(option ? "Deploy" : id).contains(line));
+            }
+        }
+        assertEquals(7, examples);
         for (String resource : List.of(AhkSettingsFile.TEMPLATE, AhkNewLibraryProject.TEMPLATE)) {
-            String text = AhkSettingsExplain.template(resource).replaceAll("\\$[a-z]+-banner\\$", "");
+            String text = AhkSettingsExplain.template(resource);
             for (int at = 0; at < text.length(); at = text.indexOf('\n', at) + 1) {
                 assertNotNull(AhkSettingsExplain.topicAt(text, at, false));
                 int start = at;
@@ -1952,7 +2339,7 @@ public class AhkDeployTest extends BasePlatformTestCase {
         String before = document.getText();
         myFixture.getEditor().getCaretModel().moveToOffset(before.indexOf("a.ahk") + 3);
         AhkSettingsNotification.change(getProject(), file, editor, "settings.explain.restore",
-                t -> AhkSettingsExplain.restore(t, false, "tool"));
+                t -> AhkSettingsExplain.restore(t, false));
         String full = document.getText();
         assertEquals(full.indexOf("a.ahk=."), myFixture.getEditor().getCaretModel().getOffset());
         var undo = com.intellij.openapi.command.undo.UndoManager.getInstance(getProject());
@@ -1965,7 +2352,7 @@ public class AhkDeployTest extends BasePlatformTestCase {
         com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(getProject(),
                 () -> document.setText("[Deploy]"));
         AhkSettingsNotification.change(getProject(), file, editor, "settings.explain.restore",
-                t -> AhkSettingsNotification.restored(getProject(), file, t));
+                t -> AhkSettingsNotification.restored(file, t));
         assertTrue(document.getText().contains("\n;Compile=no\n"));
         assertNull(new AhkSettingsNotification().collectNotificationData(getProject(),
                 myFixture.addFileToProject("y/other.ini", "x").getVirtualFile()));
@@ -2034,17 +2421,18 @@ public class AhkDeployTest extends BasePlatformTestCase {
                 .replace("\r\n", "\n"));
     }
 
-    /** "Create Settings" in a folder below a banner.txt: Banner=find:banner.txt is active. */
-    public void testCreateSettingsFileFindsSharedBanner() throws Exception {
-        write(root.resolve(AhkNewLibraryProject.SHARED_BANNER), "Copy of {project-name}");
+    /** "Create Settings" inserts the user settings found above the folder. */
+    public void testCreateSettingsFileWithUserSettings() throws Exception {
+        write(root.resolve("user.ini"), "[Deploy]\nBanner=find:banner.txt\n[SetVersion]\ntest\\=no\n");
         write(root.resolve("tools/clip/clip.ahk"), "MsgBox 1\n");
         var dir = com.intellij.openapi.vfs.LocalFileSystem.getInstance()
                 .refreshAndFindFileByNioFile(root.resolve("tools/clip"));
         assertNotNull(dir);
-        AhkSettingsFile.create(getProject(), dir);
-        assertEquals("find:banner.txt",
-                AhkDeployConfig.parse(Files.readString(root.resolve("tools/clip/" + AhkDeployConfig.FILE_NAME)))
-                        .banner());
+        withUserSettings("user.ini", () -> AhkSettingsFile.create(getProject(), dir));
+        AhkDeployConfig config = AhkDeployConfig.load(root.resolve("tools/clip/" + AhkDeployConfig.FILE_NAME));
+        assertEquals("find:banner.txt", config.banner());
+        assertEquals(1, config.versionRules().size());
+        assertEquals("clip.ahk", config.entries().get(0).source());
     }
 
     /**
@@ -2063,8 +2451,8 @@ public class AhkDeployTest extends BasePlatformTestCase {
         assertNotNull(document);
         String dest = root.resolve("dest").toString();
         com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(getProject(), () -> document.setText(
-                document.getText().replace(";Destination=C:\\bin", "Destination=" + dest)
-                        .replace(";pictures\\*.png=pictures", "pictures\\*.png=pictures")));
+                document.getText().replace("Destination=\n", "Destination=" + dest + "\n")
+                        .replace("\n[InstallIfMissing]", "pictures\\*.png=pictures\n\n[InstallIfMissing]")));
         assertTrue(documents.isDocumentUnsaved(document));
         assertTrue(de.kumpewo.autohotkey.validate.AhkValidator.saveAllDocuments(getProject(), "Deploy"));
         assertFalse(documents.isDocumentUnsaved(document));
@@ -2437,15 +2825,15 @@ public class AhkDeployTest extends BasePlatformTestCase {
         Path extra = write(lib.resolve("v2/Extra.ahk"), "e := 1\n");
         if (com.intellij.openapi.util.SystemInfo.isWindows) Files.setAttribute(extra, "dos:readonly", true);
         AhkAddToLibraryProject.Result result = AhkAddToLibraryProject.add(gui, extra, env());
-        assertEquals(gui.resolve("Extra.ahk"), result.copy());
+        assertEquals(gui.resolve("Extra-v2.ahk"), result.copy());
         if (com.intellij.openapi.util.SystemInfo.isWindows) assertFalse(isReadOnly(result.copy()));
-        assertEquals("Extra.ahk=.", result.line());
+        assertEquals("Extra-v2.ahk=Extra.ahk", result.line());
         assertEquals("e := 1\n", Files.readString(result.copy()));
-        assertEquals("[Deploy]\r\nDestination=" + lib + "\\v2\\\r\n[Install]\r\nGui.ahk=.\r\nExtra.ahk=.\r\n"
+        assertEquals("[Deploy]\r\nDestination=" + lib + "\\v2\\\r\n[Install]\r\nGui.ahk=.\r\nExtra-v2.ahk=Extra.ahk\r\n"
                 + "\r\n; more\r\n", Files.readString(gui.resolve(AhkDeployConfig.FILE_NAME)));
         // the library file is a copy of the project now
         Map<String, AhkLibraryProjects.Source> copies = AhkLibraryProjects.scan(library.toString(), env(), lib);
-        assertEquals(gui.resolve("Extra.ahk"), copies.get(extra.toString().toLowerCase()).file());
+        assertEquals(gui.resolve("Extra-v2.ahk"), copies.get(extra.toString().toLowerCase()).file());
         // a file in another folder: relative to Destination
         Path top = write(lib.resolve("Top.ahk"), "t\n");
         assertEquals("Top.ahk=..\\", AhkAddToLibraryProject.add(gui, top, env()).line());
@@ -2497,6 +2885,10 @@ public class AhkDeployTest extends BasePlatformTestCase {
         List<String> overview = AhkDeployer.overview(config, root, List.of());
         assertEquals("[Cleanup]", overview.get(2));
         assertEquals("pictures\\*.PNG=.", overview.get(3));
+        // [Cleanup] comes before [AddBanner], whatever the order of the file
+        assertEquals(List.of("[Install]", "tool.ahk=.", "[Cleanup]", "x.exe=.", "[AddBanner]", "*.cmd=yes"),
+                AhkDeployer.overview(AhkDeployConfig.parse("[Deploy]\nBanner=x\n[AddBanner]\n*.cmd=yes\n[Install]\n"
+                        + "tool.ahk=.\n[Cleanup]\nx.exe=.\n"), root, List.of()));
 
         config = AhkDeployConfig.parse("[Deploy]\nDestination=" + dest + "\n[Install]\ntool.ahk=.\n[Cleanup]\n"
                 + "x.exe=" + test + "\n..\\x.exe=.\n*.ahk=.\ny.exe=\n");

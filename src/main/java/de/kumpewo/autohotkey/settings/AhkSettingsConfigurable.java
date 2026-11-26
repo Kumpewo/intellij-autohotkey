@@ -3,6 +3,7 @@ package de.kumpewo.autohotkey.settings;
 import de.kumpewo.autohotkey.AhkBundle;
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
 import com.intellij.openapi.options.Configurable;
+import com.intellij.openapi.options.ConfigurationException;
 import com.intellij.openapi.ui.ComboBox;
 import com.intellij.openapi.ui.TextFieldWithBrowseButton;
 import com.intellij.openapi.util.NlsContexts;
@@ -21,8 +22,8 @@ import java.nio.file.Path;
  * v2.1 interpreter, command line of the
  * external help (Shift+F1), automatic validation with AutoHotkey, path to the compiler Ahk2Exe and the compression
  * of the compiled executable, language level of files without {@code #Requires}, whether the Project view shows
- * the language level of AutoHotkey files, the folder of the library projects and whether new settings files of projects
- * contain explanations; below them a link to the user manual of the plugin.
+ * the language level of AutoHotkey files, the folder of the library projects, whether new settings files of projects
+ * contain explanations and the name of the user settings file; below them a link to the user manual of the plugin.
  */
 public final class AhkSettingsConfigurable implements Configurable {
 
@@ -36,6 +37,7 @@ public final class AhkSettingsConfigurable implements Configurable {
     private JCheckBox showLevel;
     private TextFieldWithBrowseButton libraryFolder;
     private JCheckBox explainSettings;
+    private JBTextField userSettings;
     private JPanel panel;
 
     /** Name of the page in the settings tree. */
@@ -112,6 +114,10 @@ public final class AhkSettingsConfigurable implements Configurable {
         libraryHint.setComponentStyle(UIUtil.ComponentStyle.SMALL);
         libraryHint.setFontColor(UIUtil.FontColor.BRIGHTER);
         explainSettings = new JCheckBox(AhkBundle.message("settings.explain.new"));
+        userSettings = new JBTextField();
+        JBLabel userHint = new JBLabel(AhkBundle.message("settings.user.hint"));
+        userHint.setComponentStyle(UIUtil.ComponentStyle.SMALL);
+        userHint.setFontColor(UIUtil.FontColor.BRIGHTER);
         panel = FormBuilder.createFormBuilder()
                 .addLabeledComponent(AhkBundle.message("settings.autohotkey.path"), path)
                 .addComponentToRightColumn(hint)
@@ -132,6 +138,8 @@ public final class AhkSettingsConfigurable implements Configurable {
                 .addVerticalGap(10)
                 .addComponent(new TitledSeparator(AhkBundle.message("settings.explain")))
                 .addComponent(explainSettings)
+                .addLabeledComponent(AhkBundle.message("settings.user"), userSettings)
+                .addComponentToRightColumn(userHint)
                 .addVerticalGap(10)
                 .addComponent(new com.intellij.ui.components.ActionLink(AhkBundle.message("settings.manual"),
                         (java.awt.event.ActionListener) e -> de.kumpewo.autohotkey.documentation.AhkManual.open(null)))
@@ -153,15 +161,20 @@ public final class AhkSettingsConfigurable implements Configurable {
                 || languageLevel.getSelectedItem() != settings.getDefaultLanguageLevel()
                 || showLevel.isSelected() != settings.isShowLevelInProjectView()
                 || explainSettings.isSelected() != settings.isExplainNewSettings()
+                || !userSettings.getText().trim().equals(settings.getUserSettingsName())
                 || !libraryFolder.getText().trim().equals(settings.getLibraryProjectsFolder());
     }
 
     /**
      * Stores the fields; a new program path may change the library roots, another language level means parsing
-     * and highlighting the open files again.
+     * and highlighting the open files again. The name of the user settings must be a plain file name.
      */
     @Override
-    public void apply() {
+    public void apply() throws ConfigurationException {
+        String user = userSettings.getText().trim();
+        if (!de.kumpewo.autohotkey.install.AhkUserSettings.isValidName(user)) {
+            throw new ConfigurationException(AhkBundle.message("settings.user.invalid", user));
+        }
         // other program (v2.0 or v2.1) = possibly another standard Lib folder: update the library "AutoHotkey Lib"
         String text = path.getText();
         String v21Text = v21Path.getText();
@@ -184,6 +197,11 @@ public final class AhkSettingsConfigurable implements Configurable {
             de.kumpewo.autohotkey.level.AhkLevelDecorator.refreshAll();
         }
         AhkSettings.getInstance().setExplainNewSettings(explainSettings.isSelected());
+        if (!user.equals(AhkSettings.getInstance().getUserSettingsName())) {
+            // the bar above the settings files offers the user settings
+            AhkSettings.getInstance().setUserSettingsName(user);
+            de.kumpewo.autohotkey.install.AhkLibraryCopyNotification.refreshAll();
+        }
         if (!libraryFolder.getText().trim().equals(AhkSettings.getInstance().getLibraryProjectsFolder())) {
             // other library projects: other installed copies (write access, notification in the editor)
             AhkSettings.getInstance().setLibraryProjectsFolder(libraryFolder.getText());
@@ -208,6 +226,7 @@ public final class AhkSettingsConfigurable implements Configurable {
         showLevel.setSelected(AhkSettings.getInstance().isShowLevelInProjectView());
         libraryFolder.setText(AhkSettings.getInstance().getLibraryProjectsFolder());
         explainSettings.setSelected(AhkSettings.getInstance().isExplainNewSettings());
+        userSettings.setText(AhkSettings.getInstance().getUserSettingsName());
     }
 
     /** Releases the UI components. */
@@ -223,6 +242,7 @@ public final class AhkSettingsConfigurable implements Configurable {
         showLevel = null;
         libraryFolder = null;
         explainSettings = null;
+        userSettings = null;
         panel = null;
     }
 }

@@ -49,6 +49,8 @@ public final class AhkSettings implements PersistentStateComponent<AhkSettings.D
         public String libraryProjectsFolder = "";
         /** Write explanations into new {@code settings.ahk-v2-plugin.ini} files. */
         public boolean explainNewSettings = true;
+        /** File name of the user settings ({@code AhkUserSettings}); empty = none. */
+        public String userSettingsName = "";
     }
 
     /**
@@ -208,6 +210,16 @@ public final class AhkSettings implements PersistentStateComponent<AhkSettings.D
     /** Sets whether new {@code settings.ahk-v2-plugin.ini} files contain explanations. */
     public void setExplainNewSettings(boolean explain) {
         data.explainNewSettings = explain;
+    }
+
+    /** File name of the user settings, searched from the project root upwards (empty = none). */
+    public @NotNull String getUserSettingsName() {
+        return data.userSettingsName == null ? "" : data.userSettingsName;
+    }
+
+    /** Sets the file name of the user settings. */
+    public void setUserSettingsName(@NotNull String name) {
+        data.userSettingsName = name.trim();
     }
 
     /** Folder of the library projects (empty = none). */

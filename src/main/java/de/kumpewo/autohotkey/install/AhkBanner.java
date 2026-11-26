@@ -220,7 +220,7 @@ public final class AhkBanner {
     }
 
     /** Whether {@code name} is a plain file name for {@code find:}: not empty, no folder, no variable. */
-    private static boolean isPlainName(@NotNull String name) {
+    static boolean isPlainName(@NotNull String name) {
         return !name.isEmpty() && !name.equals(".") && !name.equals("..")
                 && name.chars().noneMatch(c -> c == '\\' || c == '/' || c == ':' || c == '%');
     }

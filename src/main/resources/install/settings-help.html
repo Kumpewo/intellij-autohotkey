@@ -1,5 +1,6 @@
 <!-- Explanations of settings.ahk-v2-plugin.ini (AhkSettingsHelp): the popup shows them, the file gets them as comments.
-     One <topic> per option (Deploy.Name), section and file header; only <p>, <ul>, <li> and <code>, ASCII. -->
+     One <topic> per option (Deploy.Name), section and file header; only <p>, <ul>, <li> and <code>, ASCII; examples in
+     <pre>, which only the popup shows. -->
 
 <topic id="file" anchor="Ini">
 <p>settings.ahk-v2-plugin.ini - settings of the AutoHotkey v2 plugin for the tool of this project</p>
@@ -37,12 +38,14 @@ commented-out switch shows the value you set to change it (the default is named 
 Without it all targets must be absolute. For a library: the user library folder that
 <code>#Include &lt;Name&gt;</code> searches; subfolders such as <code>v2\</code> belong in the targets below, so that
 one project can deploy into several of them.</p>
+<pre>; the user library folder (for libraries)
+Destination=%A_MyDocuments%\AutoHotkey\Lib</pre>
 </topic>
 
 <topic id="Deploy.Message" anchor="Install">
 <p>Text shown in the confirmation before anything is copied. <code>`n</code> is a line break; variables and
-<code>%DESTINATION%</code> are resolved (<code>%DESTINATION%</code> needs <code>Destination</code>). Often used with
-<code>GenerateOverview=no</code>.</p>
+<code>%DESTINATION%</code> are resolved (<code>%DESTINATION%</code> needs <code>Destination</code>), and
+<code>{project-name}</code> is the folder name of this project. Often used with <code>GenerateOverview=no</code>.</p>
 </topic>
 
 <topic id="Deploy.GenerateOverview" anchor="Install">
@@ -71,8 +74,16 @@ folder; a line whose placeholders are all empty is left out.</p>
 <p>With <code>{version}</code> in the text, the copy loses its own version line (except a script with
 <code>;@Ahk2Exe-Base</code>). Characters other than ASCII are only written into files with a byte order mark (UTF-8 or
 UTF-16); elsewhere they become _.</p>
-<p>A new settings file uses <code>find:banner.txt</code> if the project folder or a folder above it contains banner.txt;
-otherwise a library project uses <code>@library</code>.</p>
+<pre>; built-in template for tools
+Banner=@standard
+; built-in template for libraries
+Banner=@library
+; the nearest banner.txt in the project root or above
+Banner=find:banner.txt
+; a text file of the project
+Banner=file:texts\banner.txt
+; the text itself, here with two lines
+Banner=Deployed from {project-path}`nVersion {version}</pre>
 </topic>
 
 <topic id="Deploy.RequiresAdmin" anchor="Install">
@@ -107,11 +118,30 @@ exists as a folder, or if the source has a wildcard; otherwise it is the new fil
 lines (also of <code>[InstallIfMissing]</code>) must not give the same target. For several targets of one file use
 wildcards: <code>MyTool.exe=dest1</code>, <code>MyTool.ex?=dest2</code>.</p>
 <p>A tool with a GUI and a console variant lists both executables.</p>
+<pre>; deploy all files of a folder into a subfolder of Destination
+pictures\*=pictures\
+; deploy and rename a file
+main.exe=MyTool.exe</pre>
 </topic>
 
 <topic id="InstallIfMissing" anchor="Copy">
 <p>Like <code>[Install]</code>, but a target that exists already is skipped (for configuration files you may have
 changed). These files never get a banner: the copy belongs to the user from then on.</p>
+<pre>; provide defaults, do not overwrite the target
+config.ini=%A_AppData%\configs\MyTool.ini</pre>
+</topic>
+
+<topic id="Cleanup" anchor="Cleanup">
+<p>Lines <code>files=folder</code>: before copying, Deploy moves leftovers of earlier deployments to the Recycle Bin
+(risky: a second confirmation lists every file). Folder: absolute or relative to <code>Destination</code>. Files:
+relative to that folder, <code>*</code> and <code>?</code> in the file name; only files, not in subfolders. A file this
+deployment writes is an error.</p>
+<pre>; delete a formerly deployed file from its wrong place (protected folder: needs RequiresAdmin=yes)
+MyTool.exe=C:\Program Files\wrong_place
+; delete a formerly deployed file after renaming the source
+OldTool.exe=.
+; be careful with wildcards
+*.*=C:\better_not_to_use__Windows__here</pre>
 </topic>
 
 <topic id="AddBanner" anchor="Rules">
@@ -129,17 +159,16 @@ comment, <code>yes</code> is an error that asks for <code>line:</code> or <code>
 <code>line:&lt;!-- --&gt;</code>;</li>
 <li><code>block:&lt;start&gt; &lt;end&gt;</code>: one block comment, e.g. <code>block:/* */</code>.</li>
 </ul>
-<p>Binary files (.exe, .png ...) and the files of <code>[InstallIfMissing]</code> (meant to be changed by the user)
-never get a banner. The banner shifts the line numbers of the copy; "Open Library Project" takes this into account.
+<p>Binary files (.exe, .dll, .png ...) and the files of <code>[InstallIfMissing]</code> (meant to be changed by the
+user) never get a banner. The banner shifts the line numbers of the copy; "Open Library Project" takes this into account.
 Without <code>Banner</code>, deploying AutoHotkey files shows a warning; <code>*.ahk=no</code> says that they are meant
 to be deployed without a banner.</p>
-</topic>
-
-<topic id="Cleanup" anchor="Cleanup">
-<p>Lines <code>files=folder</code>: before copying, Deploy moves leftovers of earlier deployments to the Recycle Bin
-(risky: a second confirmation lists every file). Folder: absolute or relative to <code>Destination</code>. Files:
-relative to that folder, <code>*</code> and <code>?</code> in the file name; only files, not in subfolders. A file this
-deployment writes is an error.</p>
+<p>AutoHotkey files have <code>yes</code> by default, so the commented-out lines show the opposite.</p>
+<pre>; add banners to all batch files
+*.bat=yes
+*.cmd=yes
+; but not to this one
+this_one.bat=no</pre>
 </topic>
 
 <topic id="SetVersion" anchor="Exclude">
@@ -151,4 +180,13 @@ Other files only by a line with <code>yes</code>; they get <code>@SetVersion</co
 <p>This only concerns the version lines: commit and tag still need every file of the project to be versioned or ignored
 by Git. To keep files out of the commit, list them in .gitignore. The last matching line wins, so exclusions come after
 the lines that include files.</p>
+<p>AutoHotkey files have <code>yes</code> by default, so the commented-out lines show the opposite.</p>
+<pre>; add version codes to batch files
+*.bat=yes
+*.cmd=yes
+; but not to this one
+this_one.bat=no
+; and not to files in test or scratch
+test\=no
+scratch\=no</pre>
 </topic>

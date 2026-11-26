@@ -36,7 +36,7 @@ import java.util.Set;
  * Inspection "Use of a deprecated definition": a name whose matching definitions (as for Ctrl+B, by name) are all
  * functions, methods, classes, properties or fields marked {@code @deprecated} in their doc comment
  * ({@link AhkDocComment}) is struck out, with the first line of the {@code @deprecated} text as message. Only names
- * that some deprecated definition of the file or its direct #Include files has are resolved. As an inspection it
+ * that some deprecated definition of the file or the files it includes has are resolved. As an inspection it
  * also runs in <i>Code &gt; Inspect Code</i> for a whole project, and its level can be changed in the settings.
  */
 public class AhkDeprecatedInspection extends LocalInspectionTool {
@@ -92,15 +92,15 @@ public class AhkDeprecatedInspection extends LocalInspectionTool {
     }
 
     /**
-     * Names (lower case) of the deprecated functions, methods, classes, properties and fields in the file and its
-     * direct #Include files, recomputed on every PSI change.
+     * Names (lower case) of the deprecated functions, methods, classes, properties and fields in the file and the
+     * files it includes, recomputed on every PSI change.
      */
     private static Set<String> deprecatedNames(PsiFile file) {
         return CachedValuesManager.getCachedValue(file, () -> {
             Set<String> names = new HashSet<>();
             List<PsiFile> files = new ArrayList<>();
             files.add(file);
-            files.addAll(AhkInclude.includedFiles(file));
+            files.addAll(AhkInclude.visibleFiles(file));
             for (PsiFile source : files) {
                 for (PsiElement definition : PsiTreeUtil.findChildrenOfAnyType(source,
                         AhkFunc.class, AhkClass.class, AhkClassProperty.class)) {

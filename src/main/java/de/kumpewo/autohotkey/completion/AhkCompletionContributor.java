@@ -47,7 +47,7 @@ import java.util.Set;
  *   <li>directly after "Loop": Files/Parse/Read/Reg, plus the free-standing names</li>
  *   <li>free-standing: local variables and parameters of the function (first), built-in variables, classes,
  *       functions, own functions and classes of the file and of the
- *       files included directly with #Include (not recursive, as for navigation);
+ *       files it includes, also indirectly (as for navigation);
  *       at the start of a statement also the flow control keywords</li>
  *   <li>after goto/break/continue: only labels (provided by AhkLabelReference.getVariants)</li>
  *   <li>in a string of Send.../ControlSend... after "{": key names (keys.txt), with "}"</li>
@@ -501,13 +501,13 @@ public class AhkCompletionContributor extends CompletionContributor {
     }
 
     /**
-     * Files with own definitions: the file itself, then the files included directly with #Include (not recursive,
-     * as for navigation, AhkDefinitionReference).
+     * Files with own definitions: the file itself, then the files it includes ({@link AhkInclude#visibleFiles}, as for
+     * navigation, AhkDefinitionReference).
      */
     private static List<PsiFile> definitionFiles(PsiFile file) {
         List<PsiFile> files = new java.util.ArrayList<>();
         files.add(file);
-        files.addAll(AhkInclude.includedFiles(file));
+        files.addAll(AhkInclude.visibleFiles(file));
         return files;
     }
 

@@ -58,7 +58,7 @@
 <ol>
   <li>Once: set the library projects folder (in the <a href="settings.htm#Library">settings</a>, or with the link <em>Set Library Projects Folder...</em> in the notification bar above the library file).</li>
   <li>Open <code>Logger.ahk</code> and click <em>Create Library Project 'Logger'</em> in the notification bar.</li>
-  <li>The plugin creates <code>&lt;library projects folder&gt;\Logger\</code> with a copy of the file and a ready <code>settings.ahk-v2-plugin.ini</code>; the project opens in a window of its own.</li>
+  <li>The plugin creates <code>&lt;library projects folder&gt;\Logger\</code> with a copy of the file (<code>Logger-v2.ahk</code>, because it comes from the version folder <code>v2\</code>) and a ready <code>settings.ahk-v2-plugin.ini</code>; the project opens in a window of its own.</li>
   <li><em>Deploy</em> writes the file back to its old place right away &ndash; also into <code>v2\</code>, without adjusting any path.</li>
   <li>If you work with Git anyway, create a repository for the project as well.</li>
 </ol>
@@ -134,21 +134,16 @@ Encode-v2.ahk=v2\Encode.ahk</pre></li>
 </ul>
 
 <h3 id="Add">Adding an existing library file to a project</h3>
-<p><em>Starting point:</em> the project <code>Encode</code> already deploys <code>Encode.ahk</code> (v1) to <code>Lib\Encode.ahk</code>. The library folder still contains <code>Lib\v2\Encode.ahk</code> without a project.</p>
+<p><em>Starting point:</em> the project <code>Encode</code> already deploys <code>Encode-v1.ahk</code> to <code>Lib\v1\Encode.ahk</code>. The library folder still contains <code>Lib\v2\Encode.ahk</code> without a project.</p>
 <ol>
   <li>Open <code>Lib\v2\Encode.ahk</code>, choose <em>Add to Library Project...</em> and select <code>Encode</code>.
     <p><img src="images/library-add-to-project.png" alt="Library file without a project, with the list of library projects" style="max-width:100%; border:1px solid #ccc"><br><em><code>Lib\v2\Encode.ahk</code>, opened from <code>MyTool.ahk</code> with <kbd>Ctrl</kbd>+click: a library file without a project. <em>Add to Library Project...</em> offers the existing projects.</em></p></li>
-  <li>The name is already taken in the project, so the file comes in as <code>Encode_added.ahk</code>; its line in the settings has the target <code>{set target}</code>, and Deploy refuses it until you write the target &ndash; so that nothing is overwritten by mistake:
+  <li>The file comes from the version folder <code>v2\</code>, so it becomes the source <code>Encode-v2.ahk</code>, and its line in the settings already has the right target:
 <pre>[Install]
-Encode.ahk=.
-Encode_added.ahk={set target}</pre>
-    <p><img src="images/library-added-file.png" alt="The project Encode with the added file and its settings" style="max-width:100%; border:1px solid #ccc"><br><em>The project <code>Encode</code> right after adding: the new source <code>Encode_added.ahk</code> and its line in <code>[Install]</code>, still waiting for a target.</em></p></li>
-  <li><em>Refactor &gt; Rename</em> it to <code>Encode-v2.ahk</code> (the line in the settings follows), then write the target <code>v2\Encode.ahk</code>:
-<pre>[Install]
-Encode.ahk=.
-; changed by hand: target v2\Encode.ahk
+Encode-v1.ahk=v1\Encode.ahk
 Encode-v2.ahk=<strong>v2\Encode.ahk</strong></pre>
-    (The comment is a line of its own, because the settings file has no comments at the end of a line.)</li>
+    <p><img src="images/library-added-file.png" alt="The project Encode with the added file and its settings" style="max-width:100%; border:1px solid #ccc"><br><em>The project <code>Encode</code> right after adding: the new source <code>Encode-v2.ahk</code> and its line in <code>[Install]</code>, ready to deploy.</em></p>
+    If the project already has an <code>Encode-v2.ahk</code>, the file comes in as <code>Encode_added.ahk</code> with the target <code>{set target}</code>, and Deploy refuses it until you write the target &ndash; so that nothing is overwritten by mistake. After renaming it, <kbd>Ctrl</kbd>+<kbd>Space</kbd> behind <code>=</code> offers the target for its new name.</li>
   <li>The result is the same as in <a href="#TwoLevels">One library, two language levels</a>: one project with a version for each language level. After the deploy the copy <code>Lib\v2\Encode.ahk</code> shows its banner and leads back with <em>Open Library Project</em>.
     <p><img src="images/library-installed-copy.png" alt="Read-only library copy with its banner and the notification bar" style="max-width:100%; border:1px solid #ccc"><br><em><code>Lib\v2\Encode.ahk</code> after the next deploy, again opened from <code>MyTool.ahk</code>: read-only, with the banner of its project (no <code>Commit</code> line, the project has no Git) and the way back with <em>Open Library Project</em>.</em></p></li>
 </ol>
@@ -156,7 +151,7 @@ Encode-v2.ahk=<strong>v2\Encode.ahk</strong></pre>
 
 <h2 id="More">More</h2>
 <ul>
-  <li><strong>Your own banner for all libraries.</strong> A <code>banner.txt</code> in the library projects folder (for example with author and license) sets the <a href="installer.htm#Banner">banner</a> of every copy; every new library project uses it automatically (<code>Banner=find:banner.txt</code> finds it in the project folder or above, so you can also sort projects into subfolders). Another <code>banner.txt</code> in the folder above, for example with the standard template (<code>@standard</code>), serves the tool projects there: <em>Create Settings</em> uses it as well. A good start is the built-in template for libraries (<code>Banner=@library</code>), here with one more line:
+  <li><strong>Your own banner for all libraries.</strong> A <code>banner.txt</code> in the library projects folder (for example with author and license) sets the <a href="installer.htm#Banner">banner</a> of every copy in the projects with <code>Banner=find:banner.txt</code>, which finds it in the project folder or above, so you can also sort projects into subfolders. Put this line into your <a href="installer.htm#UserSettings">user settings</a>, and every new project has it. Another <code>banner.txt</code> in the folder above, for example with the standard template (<code>@standard</code>), serves the tool projects there. A good start is the built-in template for libraries (<code>Banner=@library</code>), here with one more line:
 <pre>---------------------------------------------------------------------------
 INSTALLED LIBRARY  -  Do not modify here. Edit the source and deploy again.
 

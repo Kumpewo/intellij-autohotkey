@@ -4,6 +4,42 @@
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-11-26
+
+### Added
+
+- `settings.ahk-v2-plugin.ini`: completion (*Ctrl+Space* and while typing) of files of the project, folders, variables
+  (`%A_MyDocuments%` …) and values (`yes`, `no`, `@standard`, `find:` …).
+- User settings: a file with your own defaults, found in the project folder or above (*Languages & Frameworks >
+  AutoHotkey*, *User settings file*), is inserted into new settings files, and by *Apply User Settings* into existing
+  ones.
+- The *Ctrl+Q* explanations of `settings.ahk-v2-plugin.ini` contain examples to copy.
+- `Message` knows `{project-name}`.
+
+### Changed
+
+- Go to declaration, completion, parameter info, quick documentation, types and *Find Usages* now also cover files that
+  are included indirectly, so one `#Include` of a file that includes a whole framework is enough. Files of language
+  level v2.1 still only see the files they include directly.
+- Library projects: a library file in a version folder (`Lib\v2\Encode.ahk`) becomes the source `Encode-v2.ahk` with
+  the target `v2\Encode.ahk` in *Create Library Project*, *Add to Library Project* and new library projects, and a new
+  source requires that version. *Create Settings* and *Ctrl+Space* derive the target from such a name.
+- *Create Settings* and new library projects write a much shorter `settings.ahk-v2-plugin.ini`. `Banner` is always
+  `@standard` or `@library`, and `scratch\=no` and `test\=no` are gone; put `Banner=find:banner.txt` and such lines into
+  your user settings. *Create Settings* lists the main script of a tool in `[Install]`.
+- `settings.ahk-v2-plugin.ini`: new files and the overview of *Deploy* have `[Cleanup]` before `[AddBanner]`.
+- Deploy: binary files (`.exe`, `.dll` …; more types are known) no longer cause messages about the banner, and "Banner is
+  set, but no deployed file gets it" is only a gray hint.
+- Installing, updating or removing the plugin now requires a restart of the IDE. After an update without a restart, the
+  IDE could lose the code style options of AutoHotkey.
+- A line that starts with any binary operator (`+`, `|`, `=`, `:=`, `=>` ...) continues the previous line, also outside
+  parentheses; before, this was marked as an error. Hotkeys such as `+a::` are still recognized.
+
+### Fixed
+
+- Deploy: if the old `settings.ahk-plugin.ini` has errors, the error message now offers *Update Settings*, too; before,
+  the file could only be turned into `settings.ahk-v2-plugin.ini` when it had no errors.
+
 ## [2.2.1] - 2026-11-24
 
 ### Fixed: wrong version in compiled programs

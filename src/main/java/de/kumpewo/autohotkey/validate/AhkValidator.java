@@ -31,10 +31,6 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiErrorElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
-import com.intellij.openapi.vfs.VirtualFileManager;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
-import com.intellij.psi.util.PsiModificationTracker;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.ui.JBColor;
 import de.kumpewo.autohotkey.AhkBundle;
@@ -57,10 +53,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -481,27 +475,10 @@ public final class AhkValidator {
         PsiFile start = PsiManager.getInstance(project).findFile(script);
         if (start == null) return false;
         // cached: the menu actions ask for their target every time a menu opens
-        Set<VirtualFile> included = CachedValuesManager.getCachedValue(start, () -> CachedValueProvider.Result.create(
-                includedFiles(start), PsiModificationTracker.MODIFICATION_COUNT,
-                VirtualFileManager.VFS_STRUCTURE_MODIFICATIONS));
-        return included.contains(file);
-    }
-
-    /** All files that {@code start} includes, also indirectly (without {@code start} itself unless included). */
-    private static Set<VirtualFile> includedFiles(@NotNull PsiFile start) {
-        Set<VirtualFile> result = new HashSet<>();
-        Set<PsiFile> visited = new HashSet<>();
-        Deque<PsiFile> queue = new ArrayDeque<>(List.of(start));
-        while (!queue.isEmpty()) {
-            PsiFile current = queue.poll();
-            if (!visited.add(current)) continue;
-            for (PsiFile included : AhkInclude.includedFiles(current)) {
-                VirtualFile virtualFile = included.getVirtualFile();
-                if (virtualFile != null) result.add(virtualFile);
-                queue.add(included);
-            }
+        for (PsiFile included : AhkInclude.allIncludedFiles(start)) {
+            if (file.equals(included.getVirtualFile())) return true;
         }
-        return Set.copyOf(result);
+        return false;
     }
 
     /** The first error message in the output (warnings are skipped), or {@code null}. */

@@ -531,9 +531,9 @@ public class AhkPluginTest extends BasePlatformTestCase {
         }
         openInFile(dir, "#Include a.ahk\nLibFunktion(1, <caret>)\n");
         assertEquals("Wert, [Anzahl := 1] | 1", parameterInfoAmCursor());
-        // not recursive
+        // b.ahk is only included via a.ahk
         openInFile(dir, "#Include a.ahk\nLibTief(<caret>)\n");
-        assertNull(parameterInfoAmCursor());
+        assertEquals("x | 0", parameterInfoAmCursor());
     }
 
     public void testNoCompletionInCommentAndString() {
@@ -1137,13 +1137,15 @@ public class AhkPluginTest extends BasePlatformTestCase {
         // the base class Tief is only in the file of the class (a.ahk includes b.ahk)
         List<String> k = suggestionsInFile(dir, "#Include a.ahk\n;@declare-type k as LibKlasse\nx := k.<caret>\n");
         assertTrue(k.toString(), k.containsAll(List.of("LibMethode", "TiefMethode", "HasProp")));
-        // b.ahk is only included via a.ahk: not known as a type (not recursive). Directly via lookup,
+        // b.ahk is only included via a.ahk. Directly via lookup,
         // because no annotator runs in files outside of the project.
         openInFile(dir, "#Include a.ahk\n;@declare-type k as LibKlasse, n as NurTief\n");
         AhkTypeDeclarations.Declared declared = AhkTypeDeclarations.lookup(myFixture.getFile(), "k");
         assertNotNull(declared);
         assertEquals(List.of("LibKlasse"), declared.classes());
-        assertNull(AhkTypeDeclarations.lookup(myFixture.getFile(), "n"));
+        declared = AhkTypeDeclarations.lookup(myFixture.getFile(), "n");
+        assertNotNull(declared);
+        assertEquals(List.of("NurTief"), declared.classes());
     }
 
     public void testCompletionWithoutMetaMembers() {
@@ -1509,8 +1511,8 @@ public class AhkPluginTest extends BasePlatformTestCase {
 
     /** Target of the #Include: path of the file, "Verzeichnis …" (directory) or null. */
     /**
-     * Ctrl+B searches in the file itself and in the files included directly with #Include, not recursively; own
-     * file first, then in the order of the #Include lines.
+     * Ctrl+B searches in the file itself and in the files it includes, also indirectly; own file first, then in
+     * the order of the #Include lines.
      */
     public void testNavigationInIncludedFiles() throws Exception {
         java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("ahk").toRealPath();
@@ -1532,11 +1534,69 @@ public class AhkPluginTest extends BasePlatformTestCase {
         assertEquals(List.of("a.ahk:4"), targetsIn("x := K()", "K"));
         assertEquals(List.of("a.ahk:5"), targetsIn("x.Zeige()", "Zeige"));
         assertEquals(List.of("a.ahk:4"), targetsIn("extends K", "K"));
-        // b.ahk is only included via a.ahk: not recursive, so no target
-        assertEquals(List.of(), targetsIn("Tief()", "Tief"));
+        // b.ahk is only included via a.ahk
+        assertEquals(List.of("b.ahk:1"), targetsIn("Tief()", "Tief"));
     }
 
-    /** Completion also offers functions, classes and members of the directly included files. */
+    /** Names of the files that main.ahk sees, with the given files (path, text) in a new folder. */
+    private List<String> visibleFiles(String... files) throws Exception {
+        java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("ahk").toRealPath();
+        for (int i = 0; i < files.length; i += 2) {
+            java.nio.file.Path path = dir.resolve(files[i]);
+            java.nio.file.Files.createDirectories(path.getParent());
+            java.nio.file.Files.writeString(path, files[i + 1]);
+            com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByNioFile(path);
+        }
+        com.intellij.psi.PsiFile main = com.intellij.psi.PsiManager.getInstance(getProject()).findFile(
+                java.util.Objects.requireNonNull(com.intellij.openapi.vfs.LocalFileSystem.getInstance()
+                        .refreshAndFindFileByNioFile(dir.resolve("main.ahk"))));
+        return de.kumpewo.autohotkey.include.AhkInclude.visibleFiles(java.util.Objects.requireNonNull(main)).stream()
+                .map(com.intellij.psi.PsiFile::getName).toList();
+    }
+
+    /** Files that include each other (also the start file) are visited once: direct ones first, then deeper ones. */
+    public void testIncludeCycles() throws Exception {
+        assertEquals(List.of("all.ahk", "a.ahk", "b.ahk", "c.ahk"), visibleFiles(
+                "main.ahk", "#Include fw\\all.ahk\n",
+                "fw/all.ahk", "#Include a.ahk\n#Include b.ahk\n",
+                "fw/a.ahk", "#Include b.ahk\n#Include all.ahk\n#Include a.ahk\n",
+                "fw/b.ahk", "#Include a.ahk\n#Include c.ahk\n",
+                "fw/c.ahk", "#Include ..\\main.ahk\n#Include b.ahk\n"));
+    }
+
+    /** In included files A_ScriptDir and the local Lib folder are those of the start file, else of the file itself. */
+    public void testIncludeScriptDirOfStartFile() throws Exception {
+        assertEquals(List.of("a.ahk", "x.ahk", "AhkTestLib.ahk", "own.ahk", "sub.ahk"), visibleFiles(
+                "main.ahk", "#Include fw\\a.ahk\n",
+                "x.ahk", "",
+                "Lib/AhkTestLib.ahk", "",
+                "fw/a.ahk", "#Include %A_ScriptDir%\\x.ahk\n#Include <AhkTestLib>\n#Include %A_ScriptDir%\\own.ahk\n"
+                        + "#Include sub\n#Include sub.ahk\n",
+                "fw/own.ahk", "",
+                "fw/sub/sub.ahk", ""));
+    }
+
+    /** Files of language level v2.1 only see the files they include directly. */
+    public void testIncludesV21OnlyDirect() throws Exception {
+        assertEquals(List.of("a.ahk"), visibleFiles("main.ahk", "#Requires AutoHotkey v2.1-alpha.39\n#Include a.ahk\n",
+                "a.ahk", "#Include b.ahk\n", "b.ahk", ""));
+    }
+
+    /** Pragmas only come from a directly included pragmas.ahk. */
+    public void testPragmasOnlyFromDirectInclude() throws Exception {
+        java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("ahk").toRealPath();
+        java.nio.file.Files.writeString(dir.resolve("a.ahk"), "#Include pragmas.ahk\n");
+        java.nio.file.Files.writeString(dir.resolve("pragmas.ahk"), ";@declare-type k as Array\n");
+        for (String name : List.of("a.ahk", "pragmas.ahk")) {
+            com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByNioFile(dir.resolve(name));
+        }
+        openInFile(dir, "#Include a.ahk\n");
+        assertNull(AhkTypeDeclarations.lookup(myFixture.getFile(), "k"));
+        openInFile(dir, "#Include pragmas.ahk\n");
+        assertNotNull(AhkTypeDeclarations.lookup(myFixture.getFile(), "k"));
+    }
+
+    /** Completion also offers functions, classes and members of the included files. */
     public void testCompletionFromIncludedFiles() throws Exception {
         java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("ahk").toRealPath();
         java.nio.file.Files.writeString(dir.resolve("a.ahk"), String.join("\n", "#Include b.ahk",
@@ -1547,8 +1607,8 @@ public class AhkPluginTest extends BasePlatformTestCase {
         }
         List<String> frei = suggestionsInFile(dir, "#Include a.ahk\nx := Lib<caret>\n");
         assertTrue(frei.toString(), frei.containsAll(List.of("LibFunktion", "LibKlasse")));
-        // b.ahk is only included via a.ahk: not recursive
-        assertFalse(frei.toString(), frei.contains("LibTief"));
+        // b.ahk is only included via a.ahk
+        assertTrue(frei.toString(), frei.contains("LibTief"));
         // without #Include nothing from a.ahk
         assertFalse(suggestionsInFile(dir, "x := Lib<caret>\n").contains("LibFunktion"));
         assertEquals("#Include a.ahk\nx := obj.LibMethode()\n",
@@ -1578,6 +1638,8 @@ public class AhkPluginTest extends BasePlatformTestCase {
                 ""));
         // does not include lib.ahk: its calls don't count
         java.nio.file.Files.writeString(dir.resolve("other.ahk"), "Helper()\nb.Open()\n");
+        // includes lib.ahk only through main.ahk
+        java.nio.file.Files.writeString(dir.resolve("top.ahk"), "#Include main.ahk\nHelper()\n");
         var root = com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByNioFile(dir);
         var entry = com.intellij.testFramework.PsiTestUtil.addContentRoot(myFixture.getModule(), root);
         com.intellij.openapi.util.Disposer.register(getTestRootDisposable(),
@@ -1600,7 +1662,7 @@ public class AhkPluginTest extends BasePlatformTestCase {
         var funcs = new ArrayList<>(com.intellij.psi.util.PsiTreeUtil.findChildrenOfType(lib, de.kumpewo.autohotkey.psi.AhkFunc.class));
         de.kumpewo.autohotkey.psi.AhkClass box = com.intellij.psi.util.PsiTreeUtil.findChildOfType(lib, de.kumpewo.autohotkey.psi.AhkClass.class);
         // function: in its own file and in main.ahk (includes lib.ahk), any case; not in other.ahk
-        assertEquals(List.of("lib.ahk:9", "main.ahk:2", "main.ahk:6"), usages.apply(funcs.get(0)));
+        assertEquals(List.of("lib.ahk:9", "main.ahk:2", "main.ahk:6", "top.ahk:2"), usages.apply(funcs.get(0)));
         // method and class
         assertEquals(List.of("main.ahk:4"), usages.apply(funcs.get(1)));
         assertEquals(List.of("main.ahk:3"), usages.apply(box));
@@ -4173,12 +4235,17 @@ public class AhkPluginTest extends BasePlatformTestCase {
         }
     }
 
-    /** Operator at the start of a line inside ( ): continuation indent, spaces as configured, ". " stays a concatenation. */
+    /** Operator at the start of a line: continuation indent, spaces as configured, ". " stays a concatenation. */
     public void testFormatOperatorAtStartOfLine() {
         assertFormatted("x := (a\n+   b\n  -c)\n", "x := (a\n        + b\n        - c)\n");
         assertFormatted("f() {\nfoo(obj\n.First()\n   .Second())\n}\n",
                 "f() {\n    foo(obj\n            .First()\n            .Second())\n}\n");
         assertFormatted("x := \"a\"\n. b\n", "x := \"a\"\n        . b\n");
+        // also outside of ( )
+        assertFormatted("f() {\nx := a\n+   b\n  |c\nreturn x\n=1\n}\n",
+                "f() {\n    x := a\n            + b\n            | c\n    return x\n            = 1\n}\n");
+        assertFormatted("f(a) => a\n|1\n", "f(a) => a\n        | 1\n");
+        assertFormatted("x := 1\n+a::f()\n", "x := 1\n+a::f()\n");
         // default value of a parameter across lines: continuation indent, the body stays normal
         assertFormatted("f(a := \"x\"\n\"y\") {\nreturn a\n}\n", "f(a := \"x\"\n        \"y\") {\n    return a\n}\n");
     }

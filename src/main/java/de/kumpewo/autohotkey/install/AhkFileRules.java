@@ -88,8 +88,10 @@ public final class AhkFileRules {
     }
 
     /** Binary file types (lower-case extensions): never changed. */
-    private static final List<String> BINARY = List.of("exe", "dll", "png", "jpg", "jpeg", "gif", "bmp", "ico", "zip",
-            "pdf", "chm");
+    private static final List<String> BINARY = List.of("exe", "dll", "com", "sys", "ocx", "msi", "lib", "obj", "pdb",
+            "res", "lnk", "png", "jpg", "jpeg", "gif", "bmp", "ico", "cur", "ani", "webp", "tif", "tiff", "ttf", "otf",
+            "woff", "woff2", "wav", "mp3", "mp4", "avi", "zip", "7z", "rar", "gz", "tar", "jar", "cab", "pdf", "chm",
+            "doc", "docx", "xls", "xlsx", "ppt", "pptx", "db", "sqlite");
 
     private AhkFileRules() {
     }

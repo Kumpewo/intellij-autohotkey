@@ -24,13 +24,13 @@ import java.util.Set;
  *       project root (wildcards {@code *} and {@code ?} in the file name), the target absolute or relative to
  *       {@code Destination}. {@code [InstallIfMissing]} only copies if the target does not exist yet. The target
  *       {@value #TARGET_PLACEHOLDER} is an error (still to be written by hand).</li>
+ *   <li>{@code [Cleanup]}: lines {@code selector=folder}; the folder (absolute or relative to {@code Destination}) is
+ *       where the selector applies, the selector names files relative to it (wildcards in the file name). The same
+ *       selector may appear in several lines.</li>
  *   <li>{@code [AddBanner]} and {@code [SetVersion]}: lines {@code selector=value} ({@link AhkFileRules}):
  *       the selector is written like a line of {@code .gitignore} ({@link AhkPathPattern}), the value includes or
  *       excludes the files and may name the comment style. Whether {@code [AddBanner]} has an effect is
  *       checked by {@link AhkDeployPlan}.</li>
- *   <li>{@code [Cleanup]}: lines {@code selector=folder}; the folder (absolute or relative to {@code Destination}) is
- *       where the selector applies, the selector names files relative to it (wildcards in the file name). The same
- *       selector may appear in several lines.</li>
  * </ul>
  * Comments are lines starting with {@code ;} (leading whitespace allowed); a {@code ;} later in a line is text.
  * Keys and values are trimmed, and one pair of enclosing double quotes is removed (like Windows INI files);
@@ -230,7 +230,7 @@ public final class AhkDeployConfig {
     }
 
     /** Sections of the file. */
-    private enum Section { NONE, DEPLOY, INSTALL, INSTALL_IF_MISSING, ADD_BANNER, SET_VERSION, CLEANUP }
+    private enum Section { NONE, DEPLOY, INSTALL, INSTALL_IF_MISSING, CLEANUP, ADD_BANNER, SET_VERSION }
 
     /** Is this a {@code settings.ahk-plugin.ini} with the names of version 2.1 ({@link AhkSettingsFormat})? */
     private boolean legacy;
@@ -269,9 +269,9 @@ public final class AhkDeployConfig {
                     case "deploy" -> Section.DEPLOY;
                     case "install" -> Section.INSTALL;
                     case "installifmissing" -> Section.INSTALL_IF_MISSING;
+                    case "cleanup" -> Section.CLEANUP;
                     case "addbanner" -> Section.ADD_BANNER;
                     case "setversion" -> Section.SET_VERSION;
-                    case "cleanup" -> Section.CLEANUP;
                     default -> null;
                 };
                 if (section == null) {

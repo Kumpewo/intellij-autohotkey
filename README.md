@@ -20,13 +20,13 @@ More screenshots: [library completion](docs/images/include-completion.png),
   built-in names when reformatting.
 - **Code completion** for built-in and own names, members after the dot, directives, key names (in `Send`
   strings and hotkeys), parameter values (`CoordMode "Mouse"`), option strings (`MsgBox "YesNo Icon!"`,
-  `Gui.Add("Edit", "w200 ReadOnly")`), labels after `goto`.
+  `Gui.Add("Edit", "w200 ReadOnly")`), labels after `goto`; also paths and values in `settings.ahk-v2-plugin.ini`.
 - **Parameter info** (Ctrl+P) for built-in functions, directives, methods and own functions.
 - **AutoHotkey v2.1 (alpha, in development like v2.1 itself; v2.0 is fully supported):** files that require v2.1 get its built-in names, parameter info and help pages
   (v2.1-alpha.39); of the new v2.1 syntax so far the operators `!~=`, `??=`, `?.`, `struct`, mandatory parameters after optional ones, modules (`#Module`/`#Import` as separate namespaces for navigation, completion, Find Usages and Rename, module files in the search path), function definition expressions and typed properties (`x : Int32`, `union`).
   The level of the current file is shown in the status bar and after the file names in the Project view.
 - **Go to declaration** (Ctrl+B) for functions, classes, members, base classes, labels and `#Include` files,
-  also into directly included files and the AutoHotkey library folders.
+  also into included files (directly or indirectly) and the AutoHotkey library folders.
 - **Quick documentation** (Ctrl+Q, hover) from the AutoHotkey help and an **external help viewer** (Shift+F1).
 - **Doc comments** (`/** ... */` with `@param`, `@returns`, `@see` ...) for own functions, methods and classes,
   shown as quick documentation, in the completion list and in the parameter info.

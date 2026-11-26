@@ -90,7 +90,6 @@ public class AhkParsingTest extends ParsingTestCase {
         assertEquals(r.tree, 6, r.tree.split("PROPERTY").length - 1);
     }
 
-    /** Inside ( ) a binary operator or the dot of a member access may start the next line (also after comments). */
     /** Default values of parameters may continue across line breaks, as in ( ) (AutoHotkey accepts this). */
     public void testParameterDefaultAcrossLines() {
         String[][] cases = {
@@ -112,6 +111,7 @@ public class AhkParsingTest extends ParsingTestCase {
         assertTrue(assertNoErrors("f(a\n\"y\")").tree.contains("AhkArgListImpl"));
     }
 
+    /** Inside ( ) a binary operator or the dot of a member access may start the next line (also after comments). */
     public void testOperatorAtStartOfLineInParentheses() {
         String[][] cases = {
                 {"x := (a\n    + b)", "AhkAddExprImpl"},
@@ -143,10 +143,6 @@ public class AhkParsingTest extends ParsingTestCase {
         // the result is ONE expression: a + b, not a statement "a" plus a stray "+ b"
         Result r = assertNoErrors("x := (a\n    + b)");
         assertEquals(r.tree, 1, r.tree.split("AhkAddExprImpl").length - 1);
-        // outside of ( ) the end of a line still ends the statement
-        assertFalse(parse("x := a\n+ b").errors.isEmpty() && parse("x := a\n* b").errors.isEmpty());
-        Result outside = parse("x := a\n* b");
-        assertFalse(outside.tree, outside.tree.contains("AhkMulExprImpl"));
         // ". " at the start of a line is a concatenation, also without indentation (not a member access)
         for (String text : new String[]{"x := \"a\"\n. b", "x := \"a\"\n    . b", "MsgBox(\"a\"\n. b\n+ c)"}) {
             Result c = assertNoErrors(text);
@@ -155,6 +151,46 @@ public class AhkParsingTest extends ParsingTestCase {
         }
         // ++ and -- at the start of the line are no binary operators
         assertFalse(parse("x := (a\n    ++b)").tree.contains("AhkAddExprImpl"));
+    }
+
+    /** Outside of ( ) an operator at the start of a line continues the previous line as well. */
+    public void testOperatorAtStartOfLine() {
+        String[][] cases = {
+                {"x := a\n+ b", "AhkAddExprImpl"}, {"x := a\n-b", "AhkAddExprImpl"}, {"x := a\n    * b", "AhkMulExprImpl"},
+                {"x := a\n/ b", "AhkMulExprImpl"}, {"x := a\n// b", "AhkMulExprImpl"}, {"x := a\n** 2", "AhkPowerExprImpl"},
+                {"x := a\n= b", "AhkCompareExprImpl"}, {"x := a\n== b", "AhkCompareExprImpl"},
+                {"x := a\n!= b", "AhkCompareExprImpl"}, {"x := a\n!== b", "AhkCompareExprImpl"},
+                {"x := a\n< b", "AhkCompareExprImpl"}, {"x := a\n>= b", "AhkCompareExprImpl"},
+                {"x := a\n~= \"x\"", "AhkCompareExprImpl"}, {"x := a\n| b\n  | c", "AhkBitOrExprImpl"},
+                {"x := a\n& b", "AhkBitAndExprImpl"}, {"x := a\n^ b", "AhkBitXorExprImpl"},
+                {"x := a\n>>> 2", "AhkShiftExprImpl"}, {"x\n:= a", "AhkAssignExprImpl"}, {"x\n.= a", "AhkAssignExprImpl"},
+                {"x\n+= a", "AhkAssignExprImpl"}, {"x\n|= a", "AhkAssignExprImpl"},
+                {"if a\n= 1\n    b()", "AhkCompareExprImpl"}, {"return a\n+\nb", "AhkAddExprImpl"},
+                {"f(a) => a\n    | 1", "AhkBitOrExprImpl"}, {"f(a)\n    => a", "AhkFuncImpl"},
+                {"x := () \n=> 1", "AhkLambdaExprImpl"}, {"x := a\n; comment\n\n/* b */\n+ b", "AhkAddExprImpl"},
+                // "::" in a string or comment is no hotkey
+                {"x := a\n+ f(\"a::b\")", "AhkAddExprImpl"}, {"x := a\n| 2 ; a::b", "AhkBitOrExprImpl"},
+        };
+        for (String[] c : cases) {
+            Result r = assertNoErrors(c[0]);
+            assertTrue(c[0] + "\n" + r.tree, r.tree.contains(c[1]));
+            assertFalse(c[0] + "\n" + r.tree, r.tree.contains("HOTKEY"));
+        }
+        // ++ and -- start a statement
+        assertEquals(2, assertNoErrors("x := a\n++b").tree.split("EXPR_STMT").length - 1);
+        assertEquals(2, assertNoErrors("x := a\n--b").tree.split("EXPR_STMT").length - 1);
+    }
+
+    /** A hotkey that starts with an operator character never continues the previous line. */
+    public void testHotkeyWithOperatorAtStartOfLine() {
+        for (String key : new String[]{"+a", "^a", "!a", "*a", "~a", "<^>!m", ">!a", "|", "=", "-", "/", "&", "^", "+", "^!s Up",
+                "~LButton & b", "+;", "=>", "^+\"", "  +a"}) {
+            for (String between : new String[]{"\n", "\n\n; comment\n"}) {
+                String text = "x := 1" + between + key + "::MsgBox \"a\"\ny := 2";
+                Result r = assertNoErrors(text);
+                assertEquals(text + "\n" + r.tree, 1, r.tree.split("AhkTokenType.HOTKEY\\)").length - 1);
+            }
+        }
     }
 
     /** A float without leading zero (.5) is a number; directly after an operand the dot stays member access. */

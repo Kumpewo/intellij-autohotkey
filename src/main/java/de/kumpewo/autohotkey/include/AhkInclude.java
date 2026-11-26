@@ -2,11 +2,18 @@ package de.kumpewo.autohotkey.include;
 
 import com.intellij.lang.ASTNode;
 import com.intellij.openapi.util.TextRange;
+import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.openapi.vfs.VirtualFileManager;
 import com.intellij.psi.PsiFile;
+import com.intellij.psi.PsiManager;
+import com.intellij.psi.util.CachedValueProvider;
+import com.intellij.psi.util.CachedValuesManager;
+import com.intellij.psi.util.PsiModificationTracker;
 import com.intellij.psi.util.PsiTreeUtil;
 import de.kumpewo.autohotkey.highlighting.AhkColors;
 import de.kumpewo.autohotkey.highlighting.AhkNames;
+import de.kumpewo.autohotkey.module.AhkModules;
 import de.kumpewo.autohotkey.parser.AhkLanguageLevel;
 import de.kumpewo.autohotkey.psi.AhkDirective;
 import de.kumpewo.autohotkey.psi.AhkTypes;
@@ -17,11 +24,15 @@ import org.jetbrains.annotations.Nullable;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -37,9 +48,9 @@ import java.util.regex.Pattern;
  *       {@code %A_…%} variables. Relative to the directory of the file, unless an earlier
  *       {@code #Include Directory} in the same file has set another one.</li>
  * </ul>
- * Without knowledge of the main script, {@code A_ScriptDir} = directory of the file containing the {@code #Include}.
- * Used by navigation, completion, parameter info and type declarations (all of them look at the directly
- * included files, see {@link #includedFiles}).
+ * Without knowledge of the main script, {@code A_ScriptDir} = directory of the file containing the {@code #Include};
+ * in a chain of includes, directory of the file at its start ({@link #allIncludedFiles}). Used by navigation,
+ * completion, parameter info and types (all of them look at {@link #visibleFiles}).
  */
 public final class AhkInclude {
 
@@ -77,7 +88,7 @@ public final class AhkInclude {
         if (!isInclude(directive)) return null;
         Path file = localPath(directive.getContainingFile());
         Path directory = includeDirectory(directive);
-        return file == null || directory == null ? null : resolveIn(directive, file, directory);
+        return file == null || directory == null ? null : resolveIn(directive, file, file, directory);
     }
 
     /**
@@ -91,7 +102,7 @@ public final class AhkInclude {
         for (AhkDirective previous : PsiTreeUtil.findChildrenOfType(directive.getContainingFile(), AhkDirective.class)) {
             if (previous == directive) break;
             if (!isInclude(previous)) continue;
-            Path target = resolveIn(previous, file, directory);
+            Path target = resolveIn(previous, file, file, directory);
             if (target != null && Files.isDirectory(target)) directory = target;
         }
         return directory;
@@ -105,7 +116,7 @@ public final class AhkInclude {
     public static @Nullable Path typedDirectory(@NotNull String typed, @NotNull Path base, @NotNull PsiFile file) {
         Path script = localPath(file);
         if (script == null) return null;
-        String expanded = expand(typed.replace("`;", ";"), script);
+        String expanded = expand(typed.replace("`;", ";"), script, script);
         if (expanded == null) return null;
         try {
             Path path = Path.of(expanded);
@@ -123,31 +134,94 @@ public final class AhkInclude {
      * non-local files are left out. No VFS refresh (may run in a read action).
      */
     public static @NotNull List<PsiFile> includedFiles(@NotNull PsiFile file) {
-        List<PsiFile> result = new ArrayList<>();
-        PsiFile original = file.getOriginalFile();
-        for (AhkDirective directive : PsiTreeUtil.findChildrenOfType(file, AhkDirective.class)) {
-            Path target = resolve(directive);
-            if (target == null || !Files.isRegularFile(target)) continue;
-            VirtualFile virtualFile = com.intellij.openapi.vfs.LocalFileSystem.getInstance().findFileByNioFile(target);
-            if (virtualFile == null) continue;
-            PsiFile included = com.intellij.psi.PsiManager.getInstance(file.getProject()).findFile(virtualFile);
-            if (included != null && !included.equals(original) && !result.contains(included)) result.add(included);
-        }
-        return result;
+        Path path = localPath(file);
+        return path == null ? List.of() : includedFiles(file, path);
     }
 
-    /** Resolves one directive relative to {@code directory} (the current include directory). */
-    private static @Nullable Path resolveIn(AhkDirective directive, Path file, Path directory) {
+    /**
+     * The files whose definitions {@code file} sees (without the file itself): all files it includes, directly or
+     * indirectly ({@link #allIncludedFiles}); in files of language level v2.1 only the directly included ones.
+     */
+    public static @NotNull List<PsiFile> visibleFiles(@NotNull PsiFile file) {
+        return AhkModules.isActive(file) ? includedFiles(file) : allIncludedFiles(file);
+    }
+
+    /**
+     * All files that {@code file} includes, directly or indirectly: first the direct ones, then those included by
+     * them and so on, each once, without the file itself. {@code file} counts as the main script for
+     * {@code A_ScriptDir} and the local Lib folder in all of them. Cached until the PSI, the file system or the
+     * settings change.
+     */
+    public static @NotNull List<PsiFile> allIncludedFiles(@NotNull PsiFile file) {
+        PsiFile start = file.getOriginalFile();
+        return CachedValuesManager.getCachedValue(start, () -> CachedValueProvider.Result.create(
+                findAllIncludedFiles(start), PsiModificationTracker.MODIFICATION_COUNT,
+                VirtualFileManager.VFS_STRUCTURE_MODIFICATIONS, AhkSettings.LANGUAGE_LEVEL_TRACKER));
+    }
+
+    /** Breadth-first search for {@link #allIncludedFiles}; files that include each other are visited once. */
+    private static List<PsiFile> findAllIncludedFiles(PsiFile start) {
+        Path script = localPath(start);
+        if (script == null) return List.of();
+        Set<PsiFile> seen = new LinkedHashSet<>();
+        Deque<PsiFile> queue = new ArrayDeque<>(includedFiles(start, script));
+        while (!queue.isEmpty()) {
+            PsiFile next = queue.poll();
+            if (next.equals(start) || !seen.add(next)) continue;
+            queue.addAll(includedFiles(next, script));
+        }
+        return List.copyOf(seen);
+    }
+
+    /** Directly included files as in {@link #includedFiles(PsiFile)}, with {@code script} as the main script. */
+    private static List<PsiFile> includedFiles(PsiFile file, Path script) {
+        Path path = localPath(file);
+        if (path == null || path.getParent() == null) return List.of();
+        Path directory = path.getParent();
+        Set<PsiFile> result = new LinkedHashSet<>();
+        for (AhkDirective directive : PsiTreeUtil.findChildrenOfType(file, AhkDirective.class)) {
+            if (!isInclude(directive)) continue;
+            Path target = resolveFrom(directive, path, script, directory);
+            if (target == null) continue;
+            if (Files.isDirectory(target)) {
+                directory = target;
+                continue;
+            }
+            VirtualFile virtualFile = LocalFileSystem.getInstance().findFileByNioFile(target);
+            if (virtualFile == null) continue;
+            PsiFile included = PsiManager.getInstance(file.getProject()).findFile(virtualFile);
+            if (included != null && !included.equals(file.getOriginalFile())) result.add(included);
+        }
+        return new ArrayList<>(result);
+    }
+
+    /**
+     * Resolves a directive of {@code file} with {@code script} as the main script; if nothing is found, and always
+     * for v2.1, as if {@code file} were the main script.
+     */
+    private static @Nullable Path resolveFrom(AhkDirective directive, Path file, Path script, Path directory) {
+        if (!script.equals(file) && AhkLanguageLevel.of(directive) != AhkLanguageLevel.V2_1) {
+            Path target = resolveIn(directive, file, script, directory);
+            if (target != null) return target;
+        }
+        return resolveIn(directive, file, file, directory);
+    }
+
+    /**
+     * Resolves one directive of {@code file} relative to {@code directory} (the current include directory);
+     * {@code script} gives {@code A_ScriptDir} and the local Lib folder.
+     */
+    private static @Nullable Path resolveIn(AhkDirective directive, Path file, Path script, Path directory) {
         TextRange range = argumentRange(directive);
         if (range == null) return null;
         String argument = range.substring(directive.getText());
         if (argument.length() > 2 && argument.startsWith("<") && argument.endsWith(">")) {
-            return library(argument.substring(1, argument.length() - 1).trim(), file, AhkLanguageLevel.of(directive));
+            return library(argument.substring(1, argument.length() - 1).trim(), script, AhkLanguageLevel.of(directive));
         }
         argument = unquote(argument);
         if (argument.regionMatches(true, 0, "*i ", 0, 3)) argument = argument.substring(3).trim();
         argument = argument.replace("`;", ";");
-        String expanded = expand(argument, file);
+        String expanded = expand(argument, file, script);
         if (expanded == null || expanded.isEmpty()) return null;
         try {
             Path path = Path.of(expanded);
@@ -239,7 +313,7 @@ public final class AhkInclude {
         if (value == null) return globalLibraryDirectories(AhkLanguageLevel.V2_1);
         List<Path> result = new ArrayList<>();
         for (String item : value.split(";")) {
-            String expanded = expand(item.trim(), file);
+            String expanded = expand(item.trim(), file, file);
             if (expanded == null || expanded.isEmpty()) continue;
             try {
                 Path path = Path.of(expanded);
@@ -308,8 +382,8 @@ public final class AhkInclude {
      * Replaces {@code %A_…%}. Unknown built-in variable: {@code null} (path cannot be determined); other
      * {@code %…%} stay as they are (literal according to the help).
      */
-    private static @Nullable String expand(String text, Path file) {
-        Map<String, String> values = variables(file);
+    private static @Nullable String expand(String text, Path file, Path script) {
+        Map<String, String> values = variables(file, script);
         Matcher matcher = VARIABLE.matcher(text);
         StringBuilder out = new StringBuilder();
         int last = 0;
@@ -323,13 +397,13 @@ public final class AhkInclude {
         return out.append(text.substring(last)).toString();
     }
 
-    /** Values of the built-in variables supported in {@code #Include} (lower-case names). */
-    private static Map<String, String> variables(Path file) {
+    /** Values of the built-in variables in an {@code #Include} of {@code file} (lower-case names). */
+    private static Map<String, String> variables(Path file, Path script) {
         Map<String, String> values = new HashMap<>();
-        values.put("a_scriptdir", String.valueOf(file.getParent()));
+        values.put("a_scriptdir", String.valueOf(script.getParent()));
         values.put("a_linefile", file.toString());
-        values.put("a_scriptfullpath", file.toString());
-        values.put("a_scriptname", String.valueOf(file.getFileName()));
+        values.put("a_scriptfullpath", script.toString());
+        values.put("a_scriptname", String.valueOf(script.getFileName()));
         values.put("a_space", " ");
         values.put("a_tab", "\t");
         values.putAll(AhkFolderVariables.values());

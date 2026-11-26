@@ -40,7 +40,7 @@ import java.util.regex.Pattern;
  * <ul>
  *   <li>{@code ;@declare-type Pattern as Class, ...}: pattern = name, {@code prefix*} or {@code *suffix}
  *       (wildcard = any characters, also none; prefix/suffix not empty). Class = built-in class from members.txt
- *       (also {@code Gui.Edit}) or an own class from the file or the files included directly with #Include (also
+ *       (also {@code Gui.Edit}) or an own class from the file or the files it includes (also
  *       nested, {@code Outer.Inner}). Built-in takes precedence (AutoHotkey does not allow an own class with the
  *       name of a built-in class).</li>
  *   <li>{@code ;@declare-auto-type ClassPattern, ...}: at most one wildcard anywhere in the class name
@@ -168,7 +168,7 @@ public final class AhkTypeDeclarations {
         return List.of();
     }
 
-    /** Is the class name known (built-in or own class of the file and its direct #Include files)? */
+    /** Is the class name known (built-in or own class of the file and the files it includes)? */
     public static boolean isKnownClass(@NotNull PsiFile file, @NotNull String name) {
         return resolve(file, name) != null;
     }
@@ -273,9 +273,9 @@ public final class AhkTypeDeclarations {
 
     /**
      * The class and its base classes via {@code extends}, the derived one first. Own base classes are searched in
-     * the file and its direct #Include files, otherwise in the file of the class and its direct #Include files. An
-     * own class without {@code extends} inherits from {@code Object}. Unknown class: empty; the chain ends at an
-     * unknown base class.
+     * the file and the files it includes, otherwise in the file of the class and the files that one includes. An own
+     * class without {@code extends} inherits from {@code Object}. Unknown class: empty; the chain ends at an unknown
+     * base class.
      */
     public static @NotNull List<Level> hierarchy(@NotNull PsiFile file, @NotNull String className) {
         List<Level> result = new ArrayList<>();
@@ -300,7 +300,7 @@ public final class AhkTypeDeclarations {
         return result;
     }
 
-    /** Built-in class (takes precedence) or own class from the file and its direct #Include files. */
+    /** Built-in class (takes precedence) or own class from the file and the files it includes. */
     private static @Nullable Level resolve(PsiFile file, String name) {
         AhkNames.BuiltinClass builtin = AhkNames.of(file).builtinClass(name);
         if (builtin != null) return new Level(builtin.name(), null, builtin);
@@ -310,13 +310,13 @@ public final class AhkTypeDeclarations {
 
     /**
      * Own class for the name ({@code K} at the top level, {@code Outer.Inner} nested), case-insensitive; searched
-     * in the file, then in the direct #Include files (the first one wins).
+     * in the file, then in the files it includes (the first one wins).
      */
     public static @Nullable AhkClass ownClass(@NotNull PsiFile file, @NotNull String name) {
         String[] parts = name.split("\\.", -1);
         List<PsiFile> files = new ArrayList<>();
         files.add(file);
-        files.addAll(AhkInclude.includedFiles(file));
+        files.addAll(AhkInclude.visibleFiles(file));
         for (PsiFile source : files) {
             for (AhkClass top : PsiTreeUtil.findChildrenOfType(source, AhkClass.class)) {
                 if (PsiTreeUtil.getParentOfType(top, AhkClass.class, AhkFunc.class) != null) continue;

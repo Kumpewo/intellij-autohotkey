@@ -263,8 +263,8 @@ public final class AhkOwnDoc {
 
     /**
      * Link target for a name in {@code @see}: own function or class ({@code Helper}, {@code Box}, {@code Outer.Inner}),
-     * method or nested class of an own class ({@code Box.Open}) in the file of the comment and its direct #Include
-     * files; otherwise a help page ({@code MsgBox}, {@code Gui.Add}); {@code null} = none.
+     * method or nested class of an own class ({@code Box.Open}) in the file of the comment and the files
+     * it includes; otherwise a help page ({@code MsgBox}, {@code Gui.Add}); {@code null} = none.
      */
     static @Nullable String seeTarget(@NotNull PsiElement context, @NotNull String name) {
         PsiFile file = context.getContainingFile();
@@ -294,7 +294,7 @@ public final class AhkOwnDoc {
         if (dot < 0) {
             List<PsiFile> files = new ArrayList<>();
             files.add(file);
-            files.addAll(AhkInclude.includedFiles(file));
+            files.addAll(AhkInclude.visibleFiles(file));
             for (PsiFile source : files) {
                 for (AhkFunc func : PsiTreeUtil.findChildrenOfType(source, AhkFunc.class)) {
                     if (AhkDefinitions.ownerClass(func) == null && name.equalsIgnoreCase(func.getName())) return func;

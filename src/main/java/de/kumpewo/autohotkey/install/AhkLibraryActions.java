@@ -48,17 +48,20 @@ public final class AhkLibraryActions {
     static void createProject(@Nullable Project current, @NotNull List<String> segments, byte @Nullable [] content) {
         Path projects = AhkLibraryLayout.projectsFolder();
         if (projects == null) return;
-        Path source;
+        AhkNewLibraryProject.Created created;
         try {
-            source = AhkNewLibraryProject.create(projects, segments, content);
+            created = AhkNewLibraryProject.create(projects, segments, content);
         } catch (IOException | InvalidPathException e) {
             Messages.showErrorDialog(current, AhkBundle.message("library.project.failed", e.getMessage()),
                     AhkBundle.message("library.project.title"));
             return;
         }
         AhkLibraryCopyNotification.refreshAll();
-        AhkOpenLibraryProjectAction.open(current,
-                new AhkLibraryProjects.Source(AhkLibraryLayout.projectFolder(projects, segments), source), 0);
+        Project opened = AhkOpenLibraryProjectAction.open(current,
+                new AhkLibraryProjects.Source(AhkLibraryLayout.projectFolder(projects, segments), created.source()),
+                0);
+        // in the new window: the current one is behind it
+        if (created.user() != null) AhkUserSettings.notify(opened != null ? opened : current, created.user(), false);
     }
 
     /** "AutoHotkey Library File": a file in the user library folder. */

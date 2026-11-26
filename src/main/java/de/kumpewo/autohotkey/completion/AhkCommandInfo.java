@@ -108,9 +108,9 @@ public final class AhkCommandInfo {
     }
 
     /**
-     * Forms for the parameter info: own functions with this name (the file itself and the files included
-     * directly with #Include, not recursive, as for navigation; only functions outside of classes), otherwise the
-     * built-in forms from signatures.txt.
+     * Forms for the parameter info: own functions with this name (the file itself and the files it includes,
+     * {@link AhkInclude#visibleFiles}, as for navigation; only functions outside of classes), otherwise the built-in
+     * forms from signatures.txt.
      */
     public static @NotNull List<Signature> signatures(@NotNull PsiFile file, @NotNull String name) {
         List<Signature> own = ownSignatures(file, name, false);
@@ -159,7 +159,7 @@ public final class AhkCommandInfo {
 
     /**
      * Forms for the parameter info of a method {@code qualifier.name(…)}: first the methods of the own classes
-     * (file and direct #Include files), then the built-in forms from method-signatures.txt:
+     * (file and included files), then the built-in forms from method-signatures.txt:
      * <ul>
      *   <li>a built-in class on the left ({@code Gui.}, {@code Gui.ListView.}): only its forms</li>
      *   <li>a name declared with ;@declare-type on the left: only the forms of its classes</li>
@@ -222,13 +222,13 @@ public final class AhkCommandInfo {
 
     /**
      * Own functions ({@code methods} = false: outside of classes) or methods (true: directly in a class) with this
-     * name from the file and the files included directly with #Include.
+     * name from the file and the files it includes ({@link AhkInclude#visibleFiles}).
      */
     private static List<Signature> ownSignatures(PsiFile file, String name, boolean methods) {
         List<Signature> own = new ArrayList<>();
         List<PsiFile> files = new ArrayList<>();
         files.add(file);
-        files.addAll(AhkInclude.includedFiles(file));
+        files.addAll(AhkInclude.visibleFiles(file));
         for (PsiFile source : files) {
             for (AhkFunc func : PsiTreeUtil.findChildrenOfType(source, AhkFunc.class)) {
                 AhkClass owner = AhkDefinitions.ownerClass(func);

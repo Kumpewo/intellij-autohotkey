@@ -45,12 +45,12 @@ import java.util.function.Function;
  * Modules of AutoHotkey v2.1 ({@code modules.htm}, {@code _Module.htm}, {@code _Import.htm}): which module a
  * position belongs to, which parts of which files make up a module, what {@code #Import} makes visible, and where
  * a name resolves to. Only in v2.1 files ({@link #isActive}); in v2.0 files everything stays as before (the file and
- * its direct includes are one namespace).
+ * all files it includes are one namespace).
  * <p>
  * Model (as far as the plugin can know it without the main script):
  * <ul>
  *   <li>The <em>home</em> file is the file being looked at, or a module file loaded by {@code #Import}. Its
- *       <em>group</em> is the file and the files it includes directly (no recursion, as everywhere in the plugin).</li>
+ *       <em>group</em> is the file and the files it includes directly (no recursion).</li>
  *   <li>A file is split into regions: {@code __Main} up to the first {@code #Module}, then each {@code #Module Name}
  *       up to the next one ({@link #regions}). A module can be reopened: all regions with its name belong to it.</li>
  *   <li>The content of an included file before its first {@code #Module} belongs to the module of the

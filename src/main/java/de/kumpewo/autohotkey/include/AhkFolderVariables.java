@@ -9,6 +9,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -21,6 +22,11 @@ import java.util.Map;
  * ({@link AhkInclude}) and by {@code settings.ahk-v2-plugin.ini}.
  */
 public final class AhkFolderVariables {
+
+    /** The names of the variables as AutoHotkey writes them. */
+    public static final List<String> NAMES = List.of("A_MyDocuments", "A_AppData", "A_AppDataCommon", "A_Desktop",
+            "A_DesktopCommon", "A_ProgramFiles", "A_Programs", "A_ProgramsCommon", "A_StartMenu", "A_StartMenuCommon",
+            "A_Startup", "A_StartupCommon", "A_Temp", "A_UserName", "A_ComputerName", "A_WinDir");
 
     private AhkFolderVariables() {
     }

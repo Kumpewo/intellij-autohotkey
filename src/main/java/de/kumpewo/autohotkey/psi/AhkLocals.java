@@ -324,7 +324,7 @@ public final class AhkLocals {
 
     /**
      * Is the name a built-in function or class, or a function or class (outside of classes) of the file or of a file
-     * it includes directly? In v2.1 files one of the module of {@code context} or one it imports.
+     * it includes? In v2.1 files one of the module of {@code context} or one it imports.
      */
     private static boolean isFunctionOrClass(String name, PsiElement context) {
         var role = AhkNames.of(context).nonMember(name);
@@ -342,13 +342,13 @@ public final class AhkLocals {
         return ownFunctionsAndClasses(file).contains(key(name));
     }
 
-    /** Names of the functions and classes outside of classes in the file and its direct includes (lower case). */
+    /** Names of the functions and classes outside of classes in the file and the files it includes (lower case). */
     private static Set<String> ownFunctionsAndClasses(PsiFile file) {
         return CachedValuesManager.getCachedValue(file, () -> {
             Set<String> names = new HashSet<>();
             List<PsiFile> files = new ArrayList<>();
             files.add(file);
-            files.addAll(AhkInclude.includedFiles(file));
+            files.addAll(AhkInclude.visibleFiles(file));
             for (PsiFile f : files) {
                 for (AhkFunc func : PsiTreeUtil.findChildrenOfType(f, AhkFunc.class)) {
                     if (func.getName() != null && AhkDefinitions.ownerClass(func) == null) names.add(key(func.getName()));

@@ -66,7 +66,7 @@ final class AhkSettingsExplain {
     }
 
     /** A line {@code key=value}; the key is normalized ({@link #entry}). */
-    private record Entry(@NotNull String key, @NotNull String value, boolean active) {
+    record Entry(@NotNull String key, @NotNull String value, boolean active) {
     }
 
     /** The text without explanations and without empty lines, except one between the sections. */
@@ -87,11 +87,10 @@ final class AhkSettingsExplain {
      * The text with all explanations and everything the template offers.
      *
      * @param library is it the settings file of a library project?
-     * @param name    name of the project, for the examples
      */
-    static @NotNull String restore(@NotNull String text, boolean library, @NotNull String name) {
+    static @NotNull String restore(@NotNull String text, boolean library) {
         List<Part> parts = parse(text);
-        Map<String, Part> template = generic(library, name);
+        Map<String, Part> template = generic(library);
         addSections(parts, template);
         StringBuilder result = new StringBuilder();
         append(result, AhkSettingsHelp.comment(library ? AhkSettingsHelp.FILE_LIBRARY : AhkSettingsHelp.FILE));
@@ -165,10 +164,9 @@ final class AhkSettingsExplain {
 
     /**
      * The lines of the template that {@link #restore} adds, by section (lower case) in the order of the template, all
-     * commented out: every fixed line. Not added are the lines taken from the project (placeholders such as
-     * {@code $install$}) and, outside of {@code [Deploy]}, the lines whose key contains the project name.
+     * commented out: every line except the placeholder {@code $install$}.
      */
-    private static @NotNull Map<String, Part> generic(boolean library, @NotNull String name) {
+    private static @NotNull Map<String, Part> generic(boolean library) {
         Map<String, Part> result = new LinkedHashMap<>();
         Part part = null;
         for (String line : template(library ? AhkNewLibraryProject.TEMPLATE : AhkSettingsFile.TEMPLATE).split("\n")) {
@@ -176,14 +174,9 @@ final class AhkSettingsExplain {
             if (isHeader(line)) {
                 part = new Part(line);
                 result.put(part.name, part);
-                continue;
+            } else if (part != null) {
+                part.lines.add(line.startsWith(";") ? line : ";" + line);
             }
-            line = line.replaceFirst("^\\$[a-z]+-banner\\$", "");
-            if (!line.startsWith(";")) line = ";" + line;
-            String key = line.substring(0, line.indexOf('='));
-            boolean named = key.contains("{tool}") || key.contains("$project$");
-            if (part == null || named && !part.name.equals(DEPLOY)) continue;
-            part.lines.add(line.replace("{tool}", name).replace("$project$", name));
         }
         return result;
     }
@@ -302,7 +295,7 @@ final class AhkSettingsExplain {
      * The line as {@code key=value}, also commented out ({@code ;key=value}: one {@code ;} in the first column, no
      * blank after it); the key in lower case with {@code \}. {@code null} for other lines.
      */
-    private static Entry entry(@NotNull String line) {
+    static Entry entry(@NotNull String line) {
         boolean active = !line.stripLeading().startsWith(";");
         if (!active && !line.matches(";[^;\\s].*")) return null;
         String text = active ? line : line.substring(1);
@@ -313,14 +306,19 @@ final class AhkSettingsExplain {
                 AhkDeployConfig.unquote(text.substring(eq + 1).strip()), active);
     }
 
+    /** Is the line an explanation? */
+    static boolean isExplanation(@NotNull String line) {
+        return EXPLANATION.matcher(line).matches();
+    }
+
     /** Is the line a section header? */
-    private static boolean isHeader(@NotNull String line) {
+    static boolean isHeader(@NotNull String line) {
         String text = line.strip();
         return text.startsWith("[") && text.endsWith("]");
     }
 
     /** The name of the section, lower case. */
-    private static @NotNull String sectionName(@NotNull String header) {
+    static @NotNull String sectionName(@NotNull String header) {
         return writtenName(header).toLowerCase(Locale.ROOT);
     }
 
@@ -335,7 +333,7 @@ final class AhkSettingsExplain {
         List<Part> parts = new ArrayList<>(List.of(new Part(null)));
         String body = text.startsWith("\uFEFF") ? text.substring(1) : text;
         for (String line : body.split("\\r\\n|\\n|\\r", -1)) {
-            if (EXPLANATION.matcher(line).matches()) continue;
+            if (isExplanation(line)) continue;
             if (isHeader(line)) {
                 parts.add(new Part(line));
             } else {

@@ -17,16 +17,13 @@
   <li><strong>The end of a line ends a statement.</strong> A statement continues on the next line only
     <ul>
       <li>after an operator at the end of the line (<code>x := a +</code>), also after the <code>:</code> of a ternary (<code>x := a ?</code>, next line <code>b :</code>, next line <code>c</code>);</li>
-      <li>before a line that starts with <code>and</code>, <code>or</code>, <code>is</code>, <code>in</code>, <code>contains</code>, <code>&amp;&amp;</code>, <code>||</code>, <code>??</code>, <code>?</code>, <code>:</code>, <code>.</code> (with a space after it) or <code>,</code>;</li>
+      <li>before a line that starts with an operator (<code>and</code>, <code>||</code>, <code>?</code>, <code>:</code>, <code>.</code> with a space after it, <code>,</code>, <code>+</code>, <code>|</code>, <code>=</code>, <code>:=</code>, <code>=&gt;</code> ...), but not <code>++</code> and <code>--</code>; a hotkey such as <code>+a::</code> never continues the previous line;</li>
       <li>before a line that starts with the dot of a method chain (<code>.Name</code>):
 <pre>rows := db.Query("SELECT *")
     .Filter(IsActive)
     .ToArray()</pre></li>
-      <li>inside parentheses <code>( )</code>, also before a line that starts with any binary operator (<code>+</code>, <code>*</code>, <code>=</code>, <code>&lt;</code>, <code>|</code>, <code>:=</code> ...) or with the dot of a method call:
-<pre>total := (price
-        * quantity
-        + shipping)
-okButton := (win
+      <li>inside parentheses <code>( )</code>:
+<pre>okButton := (win
         .AddButton("Default", "OK"))</pre></li>
       <li>in continuation sections: a line that starts with <code>(</code> (without another parenthesis on it; options like <code>LTrim Join</code> are allowed) continues the previous line up to a line that starts with <code>)</code>, inside or outside a string. Strings may span lines there:
 <pre>MsgBox(

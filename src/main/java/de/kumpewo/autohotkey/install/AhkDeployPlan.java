@@ -35,16 +35,16 @@ import java.util.stream.Stream;
  *       errors); wildcards {@code *} and {@code ?} only in the file name, not recursive, only files. A missing file or
  *       a wildcard without match is an error, unless the file will be created by the compilation
  *       ({@code willExist}).</li>
- *   <li>{@code Message}: variables like the targets, {@code `n} is a line break.</li>
+ *   <li>{@code Message}: variables like the targets, {@code {project-name}}, {@code `n} is a line break.</li>
  *   <li>Banner ({@code Banner}, {@link AhkBanner}), only for {@code [Install]}: AutoHotkey files get it
  *       unless the last matching line of {@code [AddBanner]} excludes them, other files only if it includes
- *       them. The comment style comes from the line or the file type (otherwise an error); binary files never get it
- *       (warning). A file that is no AutoHotkey file and whose banner uses {@code {version}} loses its line
+ *       them. The comment style comes from the line or the file type (otherwise an error); binary files never get it,
+ *       without a message. A file that is no AutoHotkey file and whose banner uses {@code {version}} loses its line
  *       {@code @SetVersion} in the copy. {@code {commit}} asks Git only if the text uses it; {@code {include}} is the
  *       target relative to a Lib folder ({@link #libraries}). Files of {@code [InstallIfMissing]} never get a banner; a
  *       line that includes one is a hint. The summary of the banner ({@link #summarizeBanner}): with
- *       {@code Banner} but no banner written, a warning if a file could take one and is not excluded by
- *       {@code no}, a hint ({@link #hints()}) if no deployed file could take one; without {@code Banner}, a
+ *       {@code Banner} but no banner written, a hint ({@link #hints()}) if a file could take one and is not excluded by
+ *       {@code no}, or if no deployed file could take one and not all of them are binary; without {@code Banner}, a
  *       warning for the first file an including line names and one for the AutoHotkey files that would get it.</li>
  *   <li>Origin ({@code EmbedOrigin}, {@link AhkExeOrigin}): an executable of {@code [Install]} with a script of the
  *       same name next to it gets the project folder and the computer at its end; a signed one does not (hint).
@@ -108,6 +108,9 @@ public final class AhkDeployPlan {
     private boolean bannerApplied;
     /** A source of {@code [Install]} could take a banner (known comment style, no binary file). */
     private boolean bannerCapable;
+
+    /** Does a file that is not binary and that no line names have a type without a known comment? */
+    private boolean bannerUnknown;
     /** Sources of {@code [Install]} that could take a banner, get none and are not excluded by {@code no}. */
     private final List<String> bannerMissed = new ArrayList<>();
     /** A banner could not be made (mistake of a line or of {@code Banner}): no summary. */
@@ -249,7 +252,11 @@ public final class AhkDeployPlan {
         String message = null;
         if (config.message() != null) {
             message = expand(config.message(), env, destination, errors, "Message");
-            if (message != null) message = message.replace("`n", "\n");
+            Path project = root.toAbsolutePath().normalize().getFileName();
+            if (message != null) {
+                message = message.replace("`n", "\n")
+                        .replace(AhkUserSettings.PROJECT_NAME, project == null ? root.toString() : project.toString());
+            }
         }
         AhkDeployPlan plan = new AhkDeployPlan(destination, message);
         plan.errors.addAll(errors);
@@ -288,9 +295,9 @@ public final class AhkDeployPlan {
         if (config.banner() != null) {
             if (bannerApplied) return;
             if (!bannerMissed.isEmpty()) {
-                warnings.add(AhkBundle.message("deploy.banner.none", bannerMissed.get(0), bannerMissed.size() - 1,
+                hints.add(AhkBundle.message("deploy.banner.none", bannerMissed.get(0), bannerMissed.size() - 1,
                         selector(bannerMissed.get(0))));
-            } else if (!bannerCapable && !steps.isEmpty()) {
+            } else if (!bannerCapable && bannerUnknown) {
                 hints.add(AhkBundle.message("deploy.banner.no.types"));
             }
             return;
@@ -426,13 +433,13 @@ public final class AhkDeployPlan {
     }
 
     /**
-     * The banner lines for one source, {@code null} = none (see class comment); mistakes go to the errors, binary
-     * files to the warnings, including lines for {@code [InstallIfMissing]} to the hints. Records what
-     * {@link #summarizeBanner} needs.
+     * The banner lines for one source, {@code null} = none (see class comment); mistakes go to the errors, including
+     * lines for {@code [InstallIfMissing]} to the hints. Records what {@link #summarizeBanner} needs.
      */
     private @NotNull Banner banner(Path file, Path root, Path target, boolean ifMissing) {
         String relative = root.relativize(file).toString();
         String name = file.getFileName().toString();
+        if (AhkFileRules.isBinary(name)) return Banner.NONE;
         AhkFileRules.Rule rule = AhkFileRules.find(config.bannerRules(), relative);
         boolean ruleIncludes = rule != null && rule.include();
         if (ifMissing) {
@@ -453,16 +460,13 @@ public final class AhkDeployPlan {
             return Banner.NONE;
         }
         if (bannerText == null) return Banner.NONE;
-        boolean capable = !AhkFileRules.isBinary(name) && AhkFileRules.style(rule, name) != null;
-        if (capable) {
+        if (AhkFileRules.style(rule, name) != null) {
             bannerCapable = true;
             if (!include && rule == null) bannerMissed.add(relative);
+        } else if (rule == null) {
+            bannerUnknown = true;
         }
         if (!include) return Banner.NONE;
-        if (AhkFileRules.isBinary(name)) {
-            addOnce(warnings, AhkBundle.message("deploy.banner.binary", relative));
-            return Banner.NONE;
-        }
         AhkFileRules.Style style = AhkFileRules.style(rule, name);
         if (style == null) {
             bannerFailed = true;

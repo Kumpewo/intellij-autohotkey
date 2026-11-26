@@ -12,7 +12,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 /**
- * Parameter info (Ctrl+P) for own functions (file and direct #Include files; they take precedence) as well as
+ * Parameter info (Ctrl+P) for own functions (file and included files; they take precedence) as well as
  * built-in functions and directives from names/signatures.txt, for a call {@code f(|)}, a command {@code f |} and
  * a directive {@code #Warn |}. The current argument is highlighted; commands with several forms (BlockInput) show
  * all of them.

@@ -21,16 +21,17 @@
   <tr><td nowrap="nowrap"><code>#Include</code></td><td>Opens the included file (see <a href="#Include">below</a>).</td></tr>
   <tr><td nowrap="nowrap">Built-in name (<code>MsgBox</code>)</td><td>If there is no own definition: the help popup, as with <kbd>Ctrl</kbd>+<kbd>Q</kbd>.</td></tr>
 </table>
-<p>The search covers the file itself and the files it includes <strong>directly</strong> with <code>#Include</code> or <code>#IncludeAgain</code>, not the files included by those, and not the rest of the project. The same files are used by the completion and the parameter info.</p>
+<p>The search covers the file itself and all files it includes with <code>#Include</code> or <code>#IncludeAgain</code>, <strong>directly or through other included files</strong>, but not the rest of the project. So one <code>#Include</code> of a file that includes a whole framework is enough. Files of language level v2.1 only see the files they include directly. The same files are used by the completion and the parameter info.</p>
 
 <div class="ex" id="ExInclude">
-<p><a class="ex_number" href="#ExInclude"></a> Main script and a directly included file.</p>
+<p><a class="ex_number" href="#ExInclude"></a> Main script and included files.</p>
 <pre><em>; main.ahk</em>
 #Include lib\tools.ahk
 Log("started")          <em>; Ctrl+B jumps to Log in tools.ahk</em>
+Beep()                  <em>; Ctrl+B jumps to Beep in helpers.ahk</em>
 
 <em>; lib\tools.ahk</em>
-#Include helpers.ahk    <em>; functions in helpers.ahk are not visible from main.ahk</em>
+#Include helpers.ahk    <em>; defines Beep</em>
 Log(text) {
     FileAppend text "`n", "app.log"
 }</pre>
@@ -41,7 +42,7 @@ Log(text) {
 <ul>
   <li><code>&lt;Name&gt;</code> is a library file <code>Name.ahk</code> searched in the folders <code>Lib</code> next to the script, <code>Documents\AutoHotkey\Lib</code>, and <code>Lib</code> of the AutoHotkey installation (for the launcher <code>v2\Lib</code>). If it is not found and the name contains <code>_</code>, the part before the first <code>_</code> is tried. A subfolder is allowed: <code>&lt;v2\Tools&gt;</code>. In files of language level v2.1 the search follows AutoHotkey v2.1: the folder of the file comes first, each folder is searched for the exact name (<code>Name</code>, <code>Name.txt</code>) before <code>Name.ahk</code>, <code>_</code> has no special meaning, and the standard library is <code>Lib</code> next to the <a href="settings.htm#ProgramV21">v2.1 interpreter</a>.</li>
   <li>Other arguments are files or folders: with or without quotes, with <code>*i</code>, relative to the folder of the file or to the folder of an earlier <code>#Include Folder</code> in the same file.</li>
-  <li>Built-in variables in percent signs are resolved: <code>%A_ScriptDir%</code>, <code>%A_LineFile%</code>, <code>%A_MyDocuments%</code>, <code>%A_AppData%</code>, <code>%A_ProgramFiles%</code>, <code>%A_Temp%</code>, <code>%A_AhkPath%</code> and others. <code>A_ScriptDir</code> is the folder of the file with the <code>#Include</code>, because the plugin does not know the main script.</li>
+  <li>Built-in variables in percent signs are resolved: <code>%A_ScriptDir%</code>, <code>%A_LineFile%</code>, <code>%A_MyDocuments%</code>, <code>%A_AppData%</code>, <code>%A_ProgramFiles%</code>, <code>%A_Temp%</code>, <code>%A_AhkPath%</code> and others. <code>A_ScriptDir</code> is the folder of the file with the <code>#Include</code>, because the plugin does not know the main script; when the search above goes through several files, it is the folder of the file you start from.</li>
   <li>If the argument is a folder, a hint says so (such a line only sets the folder for the following <code>#Include</code> lines).</li>
 </ul>
 
@@ -73,7 +74,7 @@ Average(values) {
 </div>
 
 <h2 id="Usages">Find Usages</h2>
-<p><kbd>Alt</kbd>+<kbd>F7</kbd> on a function, method, class, property, field or label (at its definition or at a use) lists its usages. Searched are the file of the definition and all AutoHotkey files of the project that include it with a direct <code>#Include</code> - exactly the places from which <kbd>Ctrl</kbd>+<kbd>B</kbd> leads to the definition. The matching follows navigation: by name, ignoring case, so a free-standing variable with the name of a function counts as well. <kbd>Ctrl</kbd>+<kbd>B</kbd> on a definition shows the same list. For a <a href="#Locals">local variable or parameter</a> only its function is searched.</p>
+<p><kbd>Alt</kbd>+<kbd>F7</kbd> on a function, method, class, property, field or label (at its definition or at a use) lists its usages. Searched are the file of the definition and all AutoHotkey files of the project that include it, directly or indirectly - exactly the places from which <kbd>Ctrl</kbd>+<kbd>B</kbd> leads to the definition. The matching follows navigation: by name, ignoring case, so a free-standing variable with the name of a function counts as well. <kbd>Ctrl</kbd>+<kbd>B</kbd> on a definition shows the same list. For a <a href="#Locals">local variable or parameter</a> only its function is searched.</p>
 
 <h2 id="Rename">Rename</h2>
 <p><kbd>Shift</kbd>+<kbd>F6</kbd> on a function, method, class, property, field or label (at its definition or at a use) renames it. The dialog always leads to a <strong>preview</strong>: all occurrences appear in the Find tool window, grouped by file. Exclude occurrences that belong to something else (<kbd>Delete</kbd> or <em>Exclude</em> in the context menu, also whole files), then click <em>Do Refactor</em>. <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes the rename in all files.</p>
@@ -95,7 +96,7 @@ Average(values) {
   <li>Each entry shows the name with its classes (<code>Box.Open()</code>, <code>Box.count</code>, <code>Start:</code>, <code>F1::</code>, <code>::btw::</code>) and the file. For a hotkey type its keys (<code>F1</code>, <code>^!a</code>), for a hotstring its abbreviation (<code>btw</code>).</li>
   <li>The library <em>AutoHotkey Lib</em> is searched only with <em>Include non-project items</em> (or pressing the shortcut twice).</li>
 </ul>
-<p>Unlike <kbd>Ctrl</kbd>+<kbd>B</kbd>, this is a free search over the whole project: a function with the same name in another script appears as well, and you choose the entry. Go to declaration still only looks at the file and its directly included files.</p>
+<p>Unlike <kbd>Ctrl</kbd>+<kbd>B</kbd>, this is a free search over the whole project: a function with the same name in another script appears as well, and you choose the entry. Go to declaration still only looks at the file and the files it includes.</p>
 
 <h2 id="Structure">Other ways to navigate</h2>
 <ul>

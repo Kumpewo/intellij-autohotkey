@@ -1,5 +1,6 @@
 package de.kumpewo.autohotkey.install;
 
+import com.intellij.CommonBundle;
 import com.intellij.execution.ExecutionException;
 import com.intellij.execution.executors.DefaultRunExecutor;
 import com.intellij.execution.filters.TextConsoleBuilder;
@@ -219,7 +220,7 @@ public final class AhkDeployer {
     /**
      * The overview: "compile tool.ahk" for each script to compile (relative to the project root), then each copy
      * section with its lines {@code source=target} as written (without comments and empty lines), then the lines of
-     * {@code [AddBanner]} if there is a {@code Banner}, then the lines of {@code [Cleanup]}.
+     * {@code [Cleanup]}, then the lines of {@code [AddBanner]} if there is a {@code Banner}.
      */
     static @NotNull List<String> overview(@NotNull AhkDeployConfig config, @NotNull Path root,
                                           @NotNull List<Path> compile) {
@@ -236,15 +237,15 @@ public final class AhkDeployer {
                 overview.add(entry.source() + "=" + entry.target());
             }
         }
-        if (config.banner() != null && !config.bannerRules().isEmpty()) {
-            overview.add("[AddBanner]");
-            for (AhkFileRules.Rule rule : config.bannerRules()) overview.add(rule.pattern().text() + "=" + rule.value());
-        }
         if (!config.cleanup().isEmpty()) {
             overview.add("[Cleanup]");
             for (AhkDeployConfig.CleanupEntry entry : config.cleanup()) {
                 overview.add(entry.selector() + "=" + entry.folder());
             }
+        }
+        if (config.banner() != null && !config.bannerRules().isEmpty()) {
+            overview.add("[AddBanner]");
+            for (AhkFileRules.Rule rule : config.bannerRules()) overview.add(rule.pattern().text() + "=" + rule.value());
         }
         return overview;
     }
@@ -370,22 +371,22 @@ public final class AhkDeployer {
                 if (failure != null || !prepared.errors().isEmpty()) {
                     RUNNING.remove(key);
                     String text = failure != null ? failure : "- " + String.join("\n- ", prepared.errors());
-                    Messages.showErrorDialog(project, AhkBundle.message("deploy.errors", text), title);
+                    String message = AhkBundle.message("deploy.errors", text);
+                    if (failure != null || !prepared.config().legacy()) {
+                        Messages.showErrorDialog(project, message, title);
+                    } else if (Messages.showDialog(project,
+                            message + "\n\n" + AhkBundle.message("deploy.errors.legacy"), title,
+                            new String[]{AhkBundle.message("deploy.dialog.update"), CommonBundle.getCloseButtonText()},
+                            1, Messages.getErrorIcon()) == 0) {
+                        // an old file with errors: "Update Settings" is offered here, too
+                        update(project, root, title);
+                    }
                     return;
                 }
                 AhkDeployDialog dialog = new AhkDeployDialog(project, title, project.getName(), prepared);
                 if (!dialog.showAndGet()) {
                     RUNNING.remove(key);
-                    if (dialog.updateRequested()) {
-                        // "Update Settings": rename, then check again and confirm with the new names
-                        String problem = updateSettings(root);
-                        if (problem != null) {
-                            Messages.showErrorDialog(project, AhkBundle.message("deploy.update.failed", problem),
-                                    title);
-                        } else {
-                            deploy(project);
-                        }
-                    }
+                    if (dialog.updateRequested()) update(project, root, title);
                     return;
                 }
                 boolean remove = false;
@@ -401,6 +402,20 @@ public final class AhkDeployer {
                 start(project, title, prepared, remove);
             }
         }.queue();
+    }
+
+    /**
+     * "Update Settings" (confirmation or error dialog of a {@code settings.ahk-plugin.ini} of version 2.1): renames the
+     * file with the new names ({@link #updateSettings}), then checks again, so the confirmation or the remaining errors
+     * appear with the new names.
+     */
+    private static void update(@NotNull Project project, @NotNull Path root, @NotNull String title) {
+        String problem = updateSettings(root);
+        if (problem != null) {
+            Messages.showErrorDialog(project, AhkBundle.message("deploy.update.failed", problem), title);
+        } else {
+            deploy(project);
+        }
     }
 
     /**

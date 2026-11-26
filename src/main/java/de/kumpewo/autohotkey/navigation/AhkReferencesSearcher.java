@@ -23,23 +23,19 @@ import de.kumpewo.autohotkey.module.AhkModules;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * References to a function, method, class, property, field or label (Find Usages, Alt+F7; Rename, Shift+F6).
  * <ul>
  *   <li>Find Usages ({@code transitive = false}): the file of the definition and every AutoHotkey file in the
- *       search scope that includes it with a direct {@code #Include} - exactly the files from which navigation
- *       reaches the definition. A reference counts if one of its targets ({@code multiResolve}) is the
+ *       search scope that includes it, also indirectly ({@link AhkInclude#visibleFiles}) - exactly the files from which
+ *       navigation reaches the definition. A reference counts if one of its targets ({@code multiResolve}) is the
  *       definition.</li>
- *   <li>Rename ({@code transitive = true}, {@link AhkRenameProcessor}): also files that include the file of the
- *       definition indirectly (through other included files). A reference in such a file counts if the definition
- *       is among the matching definitions in that file and all files it includes, directly or indirectly.</li>
+ *   <li>Rename ({@code transitive = true}, {@link AhkRenameProcessor}): also files of language level v2.1 that
+ *       include the file of the definition indirectly. A reference in such a file counts if the definition is among the
+ *       matching definitions in that file and all files it includes, directly or indirectly.</li>
  * </ul>
  * <ul>
  *   <li>A local variable or parameter ({@link AhkLocalVariable}): only the function that owns it, including
@@ -55,7 +51,7 @@ public class AhkReferencesSearcher extends QueryExecutorBase<PsiReference, Refer
         super(true);
     }
 
-    /** Reports the references to the element if it is an AutoHotkey definition (Find Usages: direct includes). */
+    /** Reports the references to the element if it is an AutoHotkey definition (Find Usages). */
     @Override
     public void processQuery(@NotNull ReferencesSearch.SearchParameters parameters,
                              @NotNull Processor<? super PsiReference> consumer) {
@@ -70,8 +66,8 @@ public class AhkReferencesSearcher extends QueryExecutorBase<PsiReference, Refer
     }
 
     /**
-     * Reports the references to {@code target} in the scope; with {@code transitive} also in files that include
-     * the definition's file indirectly. Returns false if the consumer stopped.
+     * Reports the references to {@code target} in the scope; with {@code transitive} also in v2.1 files
+     * that include the definition's file indirectly. Returns false if the consumer stopped.
      */
     public static boolean search(@NotNull PsiElement target, @NotNull SearchScope scope, boolean transitive,
                                  @NotNull Processor<? super PsiReference> consumer) {
@@ -112,8 +108,8 @@ public class AhkReferencesSearcher extends QueryExecutorBase<PsiReference, Refer
     }
 
     /**
-     * The file of the definition and the AutoHotkey files in the scope that include it directly (or, with
-     * {@code transitive}, directly or indirectly), and (v2.1) those that import it directly with
+     * The file of the definition and the AutoHotkey files in the scope that include it, also indirectly
+     * (v2.1 files only directly, unless {@code transitive}), and (v2.1) those that import it directly with
      * {@code #Import} (a module file, or a module file that includes it).
      */
     public static @NotNull List<PsiFile> candidateFiles(@NotNull PsiFile definitionFile, @NotNull SearchScope scope,
@@ -126,7 +122,7 @@ public class AhkReferencesSearcher extends QueryExecutorBase<PsiReference, Refer
             for (VirtualFile virtualFile : ahkFiles(original.getProject(), global)) {
                 PsiFile file = manager.findFile(virtualFile);
                 if (file == null || file.equals(original)) continue;
-                List<PsiFile> included = transitive ? includeClosure(file) : AhkInclude.includedFiles(file);
+                List<PsiFile> included = transitive ? includeClosure(file) : AhkInclude.visibleFiles(file);
                 if (included.contains(original) || imports(file, original)) result.add(file);
             }
         }
@@ -177,15 +173,10 @@ public class AhkReferencesSearcher extends QueryExecutorBase<PsiReference, Refer
 
     /** The file and all files it includes, directly or indirectly (each once). */
     public static @NotNull List<PsiFile> includeClosure(@NotNull PsiFile file) {
-        Set<PsiFile> seen = new LinkedHashSet<>();
-        Deque<PsiFile> queue = new ArrayDeque<>();
-        queue.add(file.getOriginalFile());
-        while (!queue.isEmpty()) {
-            PsiFile next = queue.poll();
-            if (!seen.add(next)) continue;
-            queue.addAll(AhkInclude.includedFiles(next));
-        }
-        return new ArrayList<>(seen);
+        List<PsiFile> result = new ArrayList<>();
+        result.add(file.getOriginalFile());
+        result.addAll(AhkInclude.allIncludedFiles(file));
+        return result;
     }
 
     /** Is the file in the scope? Files without a virtual file (in memory) always are. */
@@ -196,7 +187,7 @@ public class AhkReferencesSearcher extends QueryExecutorBase<PsiReference, Refer
 
     /**
      * Is one of the targets of the reference the definition? With {@code visible} (rename), definition references
-     * are resolved over these files instead of the file and its direct includes (not in files with modules: their
+     * are resolved over these files instead of the visible ones (not in files with modules: their
      * references are resolved by module). Fields are compared with equals
      * (new objects).
      */
