@@ -107,7 +107,8 @@ public class AhkHighlightUsagesHandlerFactory extends HighlightUsagesHandlerFact
 
         /**
          * The occurrences of the local variable under the caret, otherwise all identifiers of the file with the same
-         * name, ignoring case, that are no local variables.
+         * name, ignoring case, that are no local variables, and the class names and members with that name in doc
+         * comments and type pragmas ({@link AhkTypeNameReference}).
          */
         @Override
         public void computeUsages(@NotNull List<? extends PsiElement> targets) {
@@ -124,6 +125,11 @@ public class AhkHighlightUsagesHandlerFactory extends HighlightUsagesHandlerFact
                 for (PsiElement leaf = PsiTreeUtil.firstChild(myFile); leaf != null; leaf = PsiTreeUtil.nextLeaf(leaf)) {
                     if (!isName(leaf) || !leaf.getText().equalsIgnoreCase(name) || AhkLocals.resolve(leaf) != null) continue;
                     (isWrite(leaf) ? myWriteUsages : myReadUsages).add(leaf.getTextRange());
+                }
+                for (PsiElement comment : PsiTreeUtil.findChildrenOfType(myFile, com.intellij.psi.PsiComment.class)) {
+                    for (AhkTypeNameReference reference : AhkTypeNameReference.in(comment)) {
+                        if (reference.getValue().equalsIgnoreCase(name)) myReadUsages.add(reference.getAbsoluteRange());
+                    }
                 }
             }
             buildStatusText(name, myReadUsages.size() + myWriteUsages.size());

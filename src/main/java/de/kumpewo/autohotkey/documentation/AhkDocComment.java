@@ -184,6 +184,18 @@ public final class AhkDocComment {
         return statement.getParent() == null ? null : statement;
     }
 
+    /** Parameter names of a property with parameters ({@code Item[index]}), as written; empty without. */
+    public static @NotNull List<String> parameterNames(@NotNull AhkClassProperty property) {
+        List<String> result = new ArrayList<>();
+        var list = property.getNode().findChildByType(AhkTypes.INDEX_PARAMETER_LIST);
+        if (list == null) return result;
+        for (AhkParameter parameter : PsiTreeUtil.findChildrenOfType(list.getPsi(), AhkParameter.class)) {
+            var id = parameter.getNode().findChildByType(AhkTypes.IDENTIFIER);
+            if (id != null) result.add(id.getText());
+        }
+        return result;
+    }
+
     /** Parameter names of the function (as written, without {@code &}), for the check of {@code @param}. */
     public static @NotNull List<String> parameterNames(@NotNull AhkFunc func) {
         List<String> result = new ArrayList<>();
@@ -195,13 +207,14 @@ public final class AhkDocComment {
     }
 
     /**
-     * The function, method or class documented by the comment whose last token ({@code *}{@code /}) is
-     * {@code commentEnd}, or {@code null} (no definition directly after it).
+     * The function, method, class or property documented by the comment whose last token ({@code *}{@code /}) is
+     * {@code commentEnd}, or {@code null} (no definition directly after it; also for fields).
      */
     public static @Nullable PsiElement documentedDefinition(@NotNull PsiElement commentEnd) {
         PsiElement next = PsiTreeUtil.nextLeaf(commentEnd);
         while (next != null && isSpace(next)) next = PsiTreeUtil.nextLeaf(next);
-        PsiElement definition = PsiTreeUtil.getParentOfType(next, AhkFunc.class, AhkClass.class);
+        PsiElement definition = PsiTreeUtil.getParentOfType(next, AhkFunc.class, AhkClass.class,
+                AhkClassProperty.class);
         if (definition == null || PsiTreeUtil.prevLeaf(definition) == null) return null;
         Source source = source(definition);
         return source != null && source.offset() + source.text().length() == commentEnd.getTextRange().getEndOffset()
@@ -219,16 +232,21 @@ public final class AhkDocComment {
     }
 
     /**
-     * The block comment before the definition: skips whitespace and line breaks (at most one) backwards, then
-     * collects the consecutive BLOCK_COMMENT tokens (the lexer splits a block comment into several). Must start
-     * with {@code /**} and end with {@code *}{@code /}.
+     * The block comment before the definition: skips whitespace and line breaks (at most one) backwards, and lines
+     * with a pragma ({@code ;@declare-member-type ...}) in between, then collects the consecutive BLOCK_COMMENT
+     * tokens (the lexer splits a block comment into several). Must start with {@code /**} and end with
+     * {@code *}{@code /}.
      */
     private static @Nullable Source source(PsiElement definition) {
         PsiElement leaf = PsiTreeUtil.prevLeaf(definition);
         int lineBreaks = 0;
-        while (leaf != null && isSpace(leaf)) {
-            lineBreaks += count(leaf.getText(), '\n');
-            if (lineBreaks > 1) return null;
+        while (leaf != null && (isSpace(leaf) || isPragmaLine(leaf))) {
+            if (isPragmaLine(leaf)) {
+                lineBreaks = 0;
+            } else {
+                lineBreaks += count(leaf.getText(), '\n');
+                if (lineBreaks > 1) return null;
+            }
             leaf = PsiTreeUtil.prevLeaf(leaf);
         }
         if (leaf == null || leaf.getNode().getElementType() != AhkTypes.BLOCK_COMMENT
@@ -244,6 +262,22 @@ public final class AhkDocComment {
         int start = text.indexOf("/**");
         if (start < 0 || !text.substring(0, start).isBlank() || text.length() < start + 5) return null;
         return new Source(text.toString(), first.getTextRange().getStartOffset());
+    }
+
+    /**
+     * A line comment with a pragma ({@code ;@...}) on a line of its own (only whitespace before it on its line; the
+     * token may include that whitespace).
+     */
+    private static boolean isPragmaLine(PsiElement leaf) {
+        if (leaf.getNode().getElementType() != AhkTypes.LINE_COMMENT || !leaf.getText().strip().startsWith(";@")) {
+            return false;
+        }
+        PsiElement before = PsiTreeUtil.prevLeaf(leaf);
+        while (before != null && before.getNode().getElementType() == com.intellij.psi.TokenType.WHITE_SPACE
+                && !before.getText().contains("\n")) {
+            before = PsiTreeUtil.prevLeaf(before);
+        }
+        return before == null || before.getNode().getElementType() == AhkTypes.CRLF || before.getText().contains("\n");
     }
 
     /** Whitespace or line break between the comment and the definition. */

@@ -149,8 +149,12 @@
 
   <!-- Pragmas of the plugin -->
   <template name="dt" value=";@declare-type $NAME$ as $CLASS$$END$" resource-bundle="messages.AhkBundle" key="livetemplate.dt" toReformat="false" toShortenFQNames="false">
-    <variable name="NAME" expression="" defaultValue="&quot;myGui&quot;" alwaysStopAt="true"/>
-    <variable name="CLASS" expression="" defaultValue="&quot;Gui&quot;" alwaysStopAt="true"/>
+    <variable name="NAME" expression="" defaultValue="&quot;myVar&quot;" alwaysStopAt="true"/>
+    <variable name="CLASS" expression="" defaultValue="&quot;ClassName&quot;" alwaysStopAt="true"/>
+    <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
+  </template>
+  <template name="dm" value=";@declare-member-type $CLASS$$END$" resource-bundle="messages.AhkBundle" key="livetemplate.dm" toReformat="false" toShortenFQNames="false">
+    <variable name="CLASS" expression="" defaultValue="&quot;ClassName&quot;" alwaysStopAt="true"/>
     <context><option name="AUTOHOTKEY_CODE" value="true"/></context>
   </template>
   <template name="ign" value=";@ignore-next-line $REASON$" resource-bundle="messages.AhkBundle" key="livetemplate.ign" toReformat="false" toShortenFQNames="false">

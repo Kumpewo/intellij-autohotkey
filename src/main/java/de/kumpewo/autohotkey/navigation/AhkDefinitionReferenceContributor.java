@@ -38,7 +38,8 @@ import java.util.List;
  * A free-standing name or command name that is a local variable or parameter ({@link AhkLocals}) gets an
  * {@link AhkLocalReference} instead; so do the definitions of local variables (parameters, {@code local}/{@code static}
  * declarations, {@code for} and {@code catch ... as} variables, the parameter of {@code x => ...}). The names after
- * {@code @param} in the doc comment of a function get an {@link AhkDocParamReference} to the parameter.
+ * {@code @param} in the doc comment of a function get an {@link AhkDocParamReference} to the parameter, class names in
+ * doc comments and type pragmas an {@link AhkTypeNameReference}.
  */
 public final class AhkDefinitionReferenceContributor extends PsiReferenceContributor {
 
@@ -78,7 +79,11 @@ public final class AhkDefinitionReferenceContributor extends PsiReferenceContrib
             registrar.registerReferenceProvider(PlatformPatterns.psiElement(type), definitions);
         }
         registrar.registerReferenceProvider(PlatformPatterns.psiComment().withLanguage(de.kumpewo.autohotkey.AhkLanguage.INSTANCE),
-                provider(element -> AhkDocParamReference.in(element).toArray(PsiReference.EMPTY_ARRAY)));
+                provider(element -> {
+                    List<PsiReference> result = new ArrayList<>(AhkDocParamReference.in(element));
+                    result.addAll(AhkTypeNameReference.in(element));
+                    return result.toArray(PsiReference.EMPTY_ARRAY);
+                }));
         registrar.registerReferenceProvider(PlatformPatterns.psiElement(AhkMemberExpr.class), provider(element -> {
             ASTNode name = memberName(element.getNode());
             if (name == null) return none();

@@ -1,0 +1,68 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<title>;@declare-member-type - Pragma | AutoHotkey v2 Plugin</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="../styles/theme.css" rel="stylesheet" />
+</head>
+<body>
+
+<h1>;@declare-member-type</h1>
+
+<p>Declares the class of the field or property defined in the next line, right where it is defined. Completion, parameter info and help then know the members of the field: <code>this.log.</code> in the class, <code>myGui.log.</code> wherever the class is known. This is a <a href="pragmas.htm">pragma</a>: AutoHotkey treats it as an ordinary comment.</p>
+
+<pre class="Syntax">;@<span class="func">declare-member-type</span> Class</pre>
+
+<h2 id="Parameters">Parameters</h2>
+<dl>
+
+  <dt>Class</dt>
+  <dd>
+    <p>Exactly one class: a built-in class (<code>Map</code>, <code>Gui.Edit</code>) or an own class of the file or the files it includes (also nested, <code>Outer.Inner</code>).</p>
+  </dd>
+
+</dl>
+
+<h2 id="Effect">Effect</h2>
+<p>The pragma applies to the next code line; blank lines and comments in between are skipped, so it may also stand above a doc comment. That line must define instance members in a class body:</p>
+<ul>
+  <li>a field (<code>log := ToolLog()</code>); in a line with several fields (<code>first := 0, second := 0</code>) it applies to each of them;</li>
+  <li>a property without parameters (<code>View => this._view</code>, <code>View { get ... }</code>).</li>
+</ul>
+<p>Behind code in the same line, the pragma applies to that line: <code>log := ToolLog() ;@declare-member-type ToolLog</code>.</p>
+<p>It has the same effect as <code>;@declare-type LogGui.log as ToolLog</code> (see <a href="declare-type.htm#Members">;@declare-type, Members</a>): the type also holds for classes derived from <code>LogGui</code>, and in every script that includes the file of the class. If both pragmas declare the same member, both classes count.</p>
+
+<h2 id="Remarks">Remarks</h2>
+<p>Because the pragma names neither the class nor the member, nothing has to be adjusted when you rename the field or its class or move the field. Since it is a line comment, it also survives when you comment out a whole region with <code>/* ... */</code>, which a doc comment in between would break.</p>
+<p>The class name belongs to the class: <kbd>Ctrl</kbd>+<kbd>B</kbd> leads to it (for a built-in class to its help), <kbd>Ctrl</kbd>+<kbd>Q</kbd> shows its documentation, and renaming the class adjusts the pragma.</p>
+<p>Static fields, methods and properties with parameters (<code>Item[i]</code>) cannot be declared. The pragma then gets the warning "No instance field or property without parameters follows.", as it does outside of a class body. Other mistakes are marked in the comment: "Unknown class.", "Class expected." and "Only one class expected.".</p>
+<p>The live template <code>dm</code> inserts <code>;@declare-member-type ClassName</code>; left unchanged, the placeholder gets the warning "Unknown class.".</p>
+
+<h2 id="Related">Related</h2>
+<p><a href="declare-type.htm">;@declare-type</a>, <a href="types.htm">Type declarations</a>, <a href="pragmas.htm">Pragmas</a></p>
+
+<h2 id="Examples">Examples</h2>
+<div class="ex" id="ExField">
+<p><a class="ex_number" href="#ExField"></a> The log window keeps its log in a field; users of the window get the members of the log.</p>
+<pre>;@declare-type theGui as LogGui
+
+class ToolLog {
+    Write(text) {
+    }
+}
+
+class LogGui extends Gui {
+    ;@declare-member-type ToolLog
+    log := ToolLog()
+    Run() {
+        this.log.Write("started")    <em>; completion offers Write</em>
+    }
+}
+
+theGui := LogGui()
+theGui.log.Write("ready")            <em>; completion offers Write</em></pre>
+</div>
+
+</body>
+</html>

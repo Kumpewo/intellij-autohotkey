@@ -118,6 +118,11 @@
       <param name="ImageNumber" value="11">
     </object>
     <li><object type="text/sitemap">
+      <param name="Name" value=";@declare-member-type">
+      <param name="Local" value="extra\declare-member-type.htm">
+      <param name="ImageNumber" value="11">
+    </object>
+    <li><object type="text/sitemap">
       <param name="Name" value=";@declare-private">
       <param name="Local" value="extra\declare-private.htm">
       <param name="ImageNumber" value="11">

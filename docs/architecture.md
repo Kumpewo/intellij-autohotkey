@@ -184,17 +184,27 @@ The generated PSI classes extend hand-written mixins (`mixin=` in the grammar):
 
 ## Type declarations (`types/`)
 
-`AhkTypeDeclarations` parses the comment pragmas `;@declare-type`, `;@declare-auto-type` and `;@declare-private` of
-a file and of the files named `pragmas.ahk` that it includes directly (cached until the PSI changes, because own
-classes and pragmas can come from included files). It answers:
+`AhkTypeDeclarations` parses the comment pragmas `;@declare-type`, `;@declare-auto-type`, `;@declare-private` and
+`;@declare-member-type` of a file and of the files named `pragmas.ahk` that it includes directly (cached until the
+PSI changes, because own classes and pragmas can come from included files). It answers:
 
 - `lookup(file, name)`: declared classes of a name and whether the declaration is explicit (no wildcard);
+- `typeOf(expr)`: declared classes of the expression left of a dot (a name, `this` via `thisClass`, a member chain
+  `a.b.c` via `memberType`); completion (`addMembers`) and `AhkCommandInfo.qualifierClasses` (parameter info, help
+  variants) use it;
+- `memberType(file, receiver, member)`: the classes of `;@declare-type Class.member as Type` along the hierarchy of
+  the receiver's classes (the most derived declaration wins), from the file and from the file defining the own
+  class (entries with an `owner`; `lookup` and `privacy` ignore them); `;@declare-member-type` gives the same
+  entries, its members come from the PSI (`memberTargets`: the class-body statement of the next code line, or of the
+  comment's own line behind code), the text parser only checks the class;
 - `privacy(file, name)`: whether a member name is declared private (exactly or through a wildcard); `AhkAnnotator`
   uses it for member definitions, fields and names after the dot (color `AHK_PRIVATE_MEMBER`);
 - `hierarchy(file, className)`: the class and its base classes as `Level` objects (own `AhkClass` or a built-in
   class from `members.txt`);
 - `members(file, declared)`: instance members along the hierarchy with their depth (for completion order);
-- `problems(comment)`: warnings for the annotator (in a `pragmas.ahk` without "Unknown class.").
+- `problems(comment)`: warnings for the annotator (in a `pragmas.ahk` without "Unknown class.");
+- `nameOccurrences(comment)`: the class names and members of a type pragma that are references
+  (`AhkTypeNameReference`).
 
 `annotation/AhkInspectionSuppressor` suppresses the platform inspection "Non-ASCII characters" for names in
 AutoHotkey files (AutoHotkey allows non-ASCII characters in names, e.g. a `§` prefix for private members).
@@ -203,9 +213,11 @@ AutoHotkey files (AutoHotkey allows non-ASCII characters in names, e.g. a `§` p
 
 - `AhkCompletionContributor` decides by the leaf at the caret: directive, string (parameter values, key names),
   directive arguments (values; for `#Include` file paths via `AhkIncludeCompletion`, which uses
-  `AhkInclude.includeDirectory`/`typedDirectory`/`libraryDirectories`), hotkey (key names), name after the dot (members), free-standing name (built-ins, own
-  definitions, keywords). It uses `AhkNames`, `AhkTypeDeclarations`, `AhkInclude` and `AhkKeywordCase` for the
-  keyword spelling.
+  `AhkInclude.includeDirectory`/`typedDirectory`/`libraryDirectories`), hotkey (key names), name after the dot
+  (members), free-standing name (built-ins, own definitions, global variables from `global` declarations via
+  `AhkDefinitions.globalDeclarations` or `AhkModules.declaredVariables`, keywords), name after `global` in a function
+  (the same global variables without those of the function). It uses `AhkNames`,
+  `AhkTypeDeclarations`, `AhkInclude` and `AhkKeywordCase` for the keyword spelling.
 - `AhkArguments` finds the owner of the arguments at a position (call, command, directive, method call) and the
   index of the current argument.
 - `AhkCommandInfo` loads `signatures.txt`, `method-signatures.txt`, `values.txt` and `options.txt` (option strings,
@@ -232,6 +244,13 @@ AutoHotkey files (AutoHotkey allows non-ASCII characters in names, e.g. a `§` p
   default processor. Every occurrence, also the definition, is a reference, so `setName` does nothing. The name
   after `@param` in a function's doc comment carries an `AhkDocParamReference` (provider on AutoHotkey comments;
   the searcher adds it explicitly, because the comment lies outside the function).
+- `AhkTypeNameReference`: class names in `{...}` of `@param`/`@returns` and in the type pragmas (one reference per
+  part of `Outer.Inner`), and the member of `;@declare-type Class.member` (field or property along the own base
+  classes). Built-in classes resolve to `AhkHelpTarget`, own ones via `AhkTypeDeclarations.ownClass`; in a
+  `pragmas.ahk` also via the project files that include it directly (`pragmaIncluders`, not in Lib folders).
+  `AhkReferencesSearcher` adds those `pragmas.ahk` files to the searched files, `AhkRenameProcessor` leaves the
+  reference ranges out of the text search in comments, `AhkDocumentationProvider.documentationElement` maps a class
+  name in a comment to the class (or its help page) for *Ctrl+Q*.
 - `AhkLabelReferenceContributor` / `AhkLabelReference`: targets of `goto`, `break`, `continue`.
 - `AhkInclude` resolves `#Include` arguments (library folders, built-in variables, current include directory);
   `<Name>` by the language level of the file (`library`: v2.0 with the `_` rule, v2.1 own directory first and
@@ -351,13 +370,17 @@ AutoHotkey files (AutoHotkey allows non-ASCII characters in names, e.g. a `§` p
   (reused while the JAR is unchanged, stamp file `.stamp`) and opens `index.htm` in the browser.
 - In a compiler directive `;@Ahk2Exe-...` the help key is `@Ahk2Exe` (`AhkDocumentationProvider.pragmaKey`), an
   entry of `docs.txt` that points to `/docs/misc/Ahk2ExeDirectives.htm`.
-- Doc comments: `AhkDocComment.of(definition)` finds the `/** */` before a function, method or class (the
-  lexer splits a block comment into several `BLOCK_COMMENT` tokens; they are joined) and parses description and
+- Doc comments: `AhkDocComment.of(definition)` finds the `/** */` before a function, method, class, property or
+  field (the statement of the field; pragma lines `;@...` in between are skipped; the lexer splits a block
+  comment into several `BLOCK_COMMENT` tokens; they are joined) and parses description and
   tags, with absolute ranges of `@param` names and types for warnings; cached until the next PSI change.
   `AhkOwnDoc` renders the page (`DocumentationMarkup`, Markdown via the platform's `DocMarkdownToHtmlConverter`,
   signature from `AhkCommandInfo.ownSignature`), finds the definitions of the token under the caret through the
-  `AhkDefinitionReference` (`definitions`; own definitions go before the help topics in
-  `AhkDocumentationProvider.generateDoc`), builds the overview for several matches and the links
+  `AhkDefinitionReference` (`definitions`; after the dot of an expression with a declared type only the members
+  of its own classes, `receiverClasses`; own definitions go before the help topics in
+  `AhkDocumentationProvider.generateDoc`), for properties and fields the kind and the declared type
+  (`memberType` via `AhkTypeDeclarations.memberType`, at a use from the type left of the dot; `shortInfo` for
+  Ctrl+hover), builds the overview for several matches and the links
   `psi_element://ahkdef:<offset>:<url>` (`link`/`resolveLink`) and resolves `@see` targets. Completion items of
   own functions, methods and classes carry the definition as lookup object
   (`getDocumentationElementForLookupItem`); `AhkCommandInfo.Parameter.description` feeds the parameter info.
@@ -538,7 +561,7 @@ custom folding providers only know `//`, `#` and `/*` as comment prefixes, so th
   case-insensitive, `;` comments only at the line start, one pair of quotes removed from keys and values, duplicates,
   unknown sections and unknown keys are errors). Mistakes have a scope: those of the file
   itself stop every action, the others only Deploy (`errors`) or Set Version (`versionErrors`); `warnings` for the
-  confirmation. Until 2.5.0, the settings file of version 2.1 (`AhkDeployConfig.LEGACY_FILE_NAME`,
+  confirmation. Until 3.0.0, the settings file of version 2.1 (`AhkDeployConfig.LEGACY_FILE_NAME`,
   `settings.ahk-plugin.ini`) is still read: the file name tells the format, `AhkDeployConfig.file` finds the new
   file first, then the old one (`isLegacy`, `load`, `parse(text, legacy)`; with both, `prepare` warns about the
   old one). `AhkSettingsFormat` knows the old names (`[Install]` for the options, `[Overwrite]`, `[KeepExisting]`,

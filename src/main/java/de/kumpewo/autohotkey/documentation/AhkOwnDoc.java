@@ -15,24 +15,31 @@ import de.kumpewo.autohotkey.AhkBundle;
 import de.kumpewo.autohotkey.completion.AhkCommandInfo;
 import de.kumpewo.autohotkey.include.AhkInclude;
 import de.kumpewo.autohotkey.navigation.AhkDefinitionReference;
+import de.kumpewo.autohotkey.navigation.AhkFieldTarget;
 import de.kumpewo.autohotkey.psi.AhkClass;
+import de.kumpewo.autohotkey.psi.AhkClassProperty;
 import de.kumpewo.autohotkey.psi.AhkDefinitions;
 import de.kumpewo.autohotkey.psi.AhkFunc;
+import de.kumpewo.autohotkey.psi.AhkMemberExpr;
 import de.kumpewo.autohotkey.psi.AhkTypes;
 import de.kumpewo.autohotkey.types.AhkTypeDeclarations;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Quick documentation of own functions, methods and classes: signature, file and the doc comment
- * ({@link AhkDocComment}). The definitions are found by name like Ctrl+B ({@link AhkDefinitionReference}); an own
- * definition takes precedence over the built-in help. Several matching definitions give an overview page with one
- * link each ({@code psi_element://ahkdef:offset:url}).
+ * Quick documentation of own functions, methods, classes, properties and fields: signature, file and the doc comment
+ * ({@link AhkDocComment}); for instance properties and fields also the declared type ({@code ;@declare-member-type},
+ * {@code ;@declare-type Class.member}). The definitions are found by name like Ctrl+B ({@link AhkDefinitionReference});
+ * after the dot of an expression with a declared type (or {@code this}) only those of its class and the own base
+ * classes count. An own definition takes precedence over the built-in help. Several matching definitions give an
+ * overview page with one link each ({@code psi_element://ahkdef:offset:url}).
  */
 public final class AhkOwnDoc {
 
@@ -46,37 +53,84 @@ public final class AhkOwnDoc {
     private AhkOwnDoc() {
     }
 
-    /** Is the element a definition with own documentation (function, method or class)? */
+    /** Is the element a definition with own documentation (function, method, class, property or field)? */
     public static boolean isDocumented(@Nullable PsiElement element) {
-        return element instanceof AhkFunc || element instanceof AhkClass;
+        return element instanceof AhkFunc || element instanceof AhkClass || element instanceof AhkClassProperty
+                || element instanceof AhkFieldTarget;
     }
 
     /**
-     * The own functions, methods and classes the token under the caret stands for: the definition itself if it is
-     * its name, otherwise the targets of the definition reference at the token (properties and fields left out).
+     * The own definitions the token under the caret stands for: the definition itself if it is its name (also the
+     * name of a field in its defining statement), otherwise the targets of the definition reference at the token. After
+     * the dot of an expression with a declared type ({@link AhkTypeDeclarations#typeOf}) only the members of that
+     * class and its own base classes; none of them = no own definition (the help of a built-in type may follow).
      */
     public static @NotNull List<PsiElement> definitions(@Nullable PsiElement leaf) {
         if (leaf == null || leaf instanceof AhkHelpElement) return List.of();
         PsiElement parent = leaf.getParent();
-        if (isDocumented(parent) && ((com.intellij.psi.PsiNameIdentifierOwner) parent).getNameIdentifier() == leaf) {
+        if (isDocumented(parent) && parent instanceof com.intellij.psi.PsiNameIdentifierOwner owner
+                && owner.getNameIdentifier() == leaf) {
             return List.of(parent);
         }
+        AhkDefinitions.Field field = leaf.getNode().getElementType() == AhkTypes.IDENTIFIER
+                ? AhkDefinitions.field(leaf) : null;
+        if (field != null) return List.of(new AhkFieldTarget(field));
         if (parent == null) return List.of();
         int offset = leaf.getTextRange().getStartOffset();
         List<PsiElement> result = new ArrayList<>();
         for (PsiReference reference : parent.getReferences()) {
             if (!(reference instanceof AhkDefinitionReference definitionReference)) continue;
             if (!reference.getAbsoluteRange().containsOffset(offset)) continue;
+            Set<AhkClass> owners = receiverClasses(definitionReference);
             for (ResolveResult resolved : definitionReference.multiResolve(false)) {
                 PsiElement target = resolved.getElement();
-                if (isDocumented(target) && !result.contains(target)) result.add(target);
+                if (!isDocumented(target) || result.contains(target)) continue;
+                if (owners != null && !owners.contains(ownerOf(target))) continue;
+                result.add(target);
             }
         }
         return result;
     }
 
-    /** Signature as in the parameter info: {@code Box.Open(name, [force := false])}, {@code class Box extends Base}. */
+    /**
+     * For a name after the dot whose left side has a declared type (or is {@code this}): the own classes of that type
+     * and their own base classes; {@code null} if the type is unknown (then all definitions of the name count).
+     */
+    private static @Nullable Set<AhkClass> receiverClasses(AhkDefinitionReference reference) {
+        PsiElement element = reference.getElement();
+        if (reference.kind() != AhkDefinitionReference.Kind.MEMBER || !(element instanceof AhkMemberExpr)) return null;
+        AhkTypeDeclarations.Declared declared = AhkTypeDeclarations.typeOf(element.getFirstChild());
+        PsiFile file = element.getContainingFile();
+        if (declared == null || file == null) return null;
+        Set<AhkClass> result = new HashSet<>();
+        for (String className : declared.classes()) {
+            for (AhkTypeDeclarations.Level level : AhkTypeDeclarations.hierarchy(file, className)) {
+                if (level.own() != null) result.add(level.own());
+            }
+        }
+        return result;
+    }
+
+    /** The class that defines the member (method, property, field, nested class), or {@code null}. */
+    private static @Nullable AhkClass ownerOf(PsiElement definition) {
+        if (definition instanceof AhkFieldTarget target) {
+            return PsiTreeUtil.getParentOfType(target.identifier(), AhkClass.class);
+        }
+        return AhkDefinitions.ownerClass(definition);
+    }
+
+    /**
+     * Signature as in the parameter info: {@code Box.Open(name, [force := false])}, {@code class Box extends Base};
+     * for members the kind and the name with the class: {@code field Box.count}, {@code static field Box.total},
+     * {@code property Box.Item[index] (get, set)}.
+     */
     public static @NotNull String signature(@NotNull PsiElement definition) {
+        if (definition instanceof AhkFieldTarget target) {
+            AhkClass owner = ownerOf(target);
+            return (target.field().isStatic() ? "static field " : "field ")
+                    + (owner == null ? "" : AhkTypeDeclarations.qualifiedName(owner) + ".") + target.getName();
+        }
+        if (definition instanceof AhkClassProperty property) return propertySignature(property);
         if (definition instanceof AhkClass cls) {
             String text = "class " + AhkTypeDeclarations.qualifiedName(cls);
             ASTNode extendsKeyword = cls.getNode().findChildByType(AhkTypes.KEYWORD_EXTENDS);
@@ -106,8 +160,73 @@ public final class AhkOwnDoc {
         return text.append(')').toString();
     }
 
-    /** The documentation page of one definition. */
+    /** {@code property Box.Item[index] (get, set)}: {@code static}, class, parameters, accessors ({@code =>} = get). */
+    private static String propertySignature(AhkClassProperty property) {
+        StringBuilder text = new StringBuilder(AhkTypeDeclarations.isStatic(property) ? "static property "
+                : "property ");
+        AhkClass owner = AhkDefinitions.ownerClass(property);
+        if (owner != null) text.append(AhkTypeDeclarations.qualifiedName(owner)).append('.');
+        text.append(property.getName());
+        ASTNode parameters = property.getNode().findChildByType(AhkTypes.INDEX_PARAMETER_LIST);
+        if (parameters != null) text.append(parameters.getText().replaceAll("\\s+", " "));
+        List<String> accessors = new ArrayList<>();
+        ASTNode block = property.getNode().findChildByType(AhkTypes.PROPERTY_BLOCK);
+        if (block == null) {
+            accessors.add("get");
+        } else {
+            for (ASTNode accessor : block.getChildren(com.intellij.psi.tree.TokenSet.create(AhkTypes.ACCESSOR))) {
+                ASTNode name = accessor.findChildByType(AhkTypes.IDENTIFIER);
+                if (name != null) accessors.add(name.getText().toLowerCase(java.util.Locale.ROOT));
+            }
+        }
+        if (!accessors.isEmpty()) text.append(" (").append(String.join(", ", accessors)).append(')');
+        return text.toString();
+    }
+
+    /**
+     * Declared type of an instance property or field ({@code ;@declare-member-type},
+     * {@code ;@declare-type Class.member}): at a use after the dot of an expression with a declared type that of the
+     * expression's class, otherwise that of the defining class; {@code null} for other definitions, static members and
+     * undeclared ones. {@code context} = token under the caret (or {@code null}).
+     */
+    public static @Nullable List<String> memberType(@NotNull PsiElement definition, @Nullable PsiElement context) {
+        String name;
+        if (definition instanceof AhkFieldTarget target && !target.field().isStatic()) {
+            name = target.getName();
+        } else if (definition instanceof AhkClassProperty property && !AhkTypeDeclarations.isStatic(property)) {
+            name = property.getName();
+        } else {
+            return null;
+        }
+        AhkClass owner = ownerOf(definition);
+        PsiFile file = context != null && context.getContainingFile() != null ? context.getContainingFile()
+                : definition.getContainingFile();
+        if (owner == null || file == null || name == null) return null;
+        AhkTypeDeclarations.Declared receiver = null;
+        PsiElement parent = context == null ? null : context.getParent();
+        if (parent instanceof AhkMemberExpr && parent.getFirstChild() != context) {
+            receiver = AhkTypeDeclarations.typeOf(parent.getFirstChild());
+        }
+        if (receiver == null) {
+            receiver = new AhkTypeDeclarations.Declared(List.of(AhkTypeDeclarations.qualifiedName(owner)), true);
+        }
+        AhkTypeDeclarations.Declared type = AhkTypeDeclarations.memberType(file, receiver, name);
+        return type == null ? null : type.classes();
+    }
+
+    /** Short info (Ctrl+hover): the signature, for a member with a declared type {@code signature : Type}. */
+    public static @NotNull String shortInfo(@NotNull PsiElement definition, @Nullable PsiElement context) {
+        List<String> type = memberType(definition, context);
+        return signature(definition) + (type == null ? "" : " : " + String.join("|", type));
+    }
+
+    /** The documentation page of one definition (without a place of use). */
     public static @NotNull String render(@NotNull PsiElement definition) {
+        return render(definition, null);
+    }
+
+    /** The documentation page of one definition; {@code context} = token under the caret for the member type. */
+    public static @NotNull String render(@NotNull PsiElement definition, @Nullable PsiElement context) {
         AhkDocComment doc = AhkDocComment.of(definition);
         PsiFile file = definition.getContainingFile();
         StringBuilder html = new StringBuilder(DocumentationMarkup.DEFINITION_START)
@@ -121,6 +240,8 @@ public final class AhkOwnDoc {
                     .append(DocumentationMarkup.CONTENT_END);
         }
         html.append(DocumentationMarkup.SECTIONS_START);
+        List<String> type = memberType(definition, context);
+        if (type != null) section(html, AhkBundle.message("doc.section.type"), escape(String.join("|", type)));
         if (doc != null) {
             if (doc.deprecated() != null) {
                 section(html, AhkBundle.message("doc.section.deprecated"),
@@ -208,7 +329,10 @@ public final class AhkOwnDoc {
         if (file == null) file = context.getContainingFile();
         if (file == null) return null;
         PsiElement leaf = file.findElementAt(offset);
-        PsiElement definition = PsiTreeUtil.getParentOfType(leaf, AhkFunc.class, AhkClass.class);
+        if (leaf == null) return null;
+        AhkDefinitions.Field field = AhkDefinitions.field(leaf);
+        if (field != null) return new AhkFieldTarget(field);
+        PsiElement definition = PsiTreeUtil.getParentOfType(leaf, AhkFunc.class, AhkClass.class, AhkClassProperty.class);
         return definition != null && definition.getTextOffset() == offset ? definition : null;
     }
 

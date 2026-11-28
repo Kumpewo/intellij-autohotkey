@@ -175,9 +175,9 @@ public class AhkDocumentationProvider extends AbstractDocumentationProvider impl
             return html == null ? null : AhkHelpRepository.fromAnchor(html, help.getAnchor());
         }
         // a definition itself (link of the overview, completion item)
-        if (AhkOwnDoc.isDocumented(element)) return AhkOwnDoc.render(element);
+        if (AhkOwnDoc.isDocumented(element)) return AhkOwnDoc.render(element, originalElement);
         List<PsiElement> own = ownDefinitions(element, originalElement);
-        if (own.size() == 1) return AhkOwnDoc.render(own.get(0));
+        if (own.size() == 1) return AhkOwnDoc.render(own.get(0), originalElement != null ? originalElement : element);
         if (own.size() > 1) {
             String name = ((com.intellij.psi.PsiNamedElement) own.get(0)).getName();
             return AhkOwnDoc.overview(name == null ? "" : name, own);
@@ -196,12 +196,18 @@ public class AhkDocumentationProvider extends AbstractDocumentationProvider impl
         return generateDoc(element, originalElement);
     }
 
-    /** Short info (Ctrl+hover): the signature of an own definition, otherwise the name of the help entry. */
+    /**
+     * Short info (Ctrl+hover): the signature of an own definition (for a property or field with its declared type),
+     * otherwise the name of the help entry.
+     */
     @Override
     public @Nullable String getQuickNavigateInfo(PsiElement element, PsiElement originalElement) {
-        if (AhkOwnDoc.isDocumented(element)) return AhkOwnDoc.escape(AhkOwnDoc.signature(element));
+        if (AhkOwnDoc.isDocumented(element)) return AhkOwnDoc.escape(AhkOwnDoc.shortInfo(element, originalElement));
         List<PsiElement> own = ownDefinitions(element, originalElement);
-        if (!own.isEmpty()) return AhkOwnDoc.escape(AhkOwnDoc.signature(own.get(0)));
+        if (!own.isEmpty()) {
+            PsiElement context = originalElement != null ? originalElement : element;
+            return AhkOwnDoc.escape(AhkOwnDoc.shortInfo(own.get(0), context));
+        }
         AhkHelpRepository.Topic topic = topic(element, originalElement);
         return topic == null ? null : topic.name();
     }
@@ -219,7 +225,11 @@ public class AhkDocumentationProvider extends AbstractDocumentationProvider impl
         return documentationElement(file, contextElement, targetOffset);
     }
 
-    /** See {@link #getCustomDocumentationElement}; without editor for tests. */
+    /**
+     * See {@link #getCustomDocumentationElement}; without editor for tests. A class name in a doc comment or type
+     * pragma ({@link de.kumpewo.autohotkey.navigation.AhkTypeNameReference}) stands for its class: an own class, or the
+     * help page of a built-in class; the member in {@code Class.member} for its field or property.
+     */
     public static @Nullable PsiElement documentationElement(@NotNull PsiFile file, @Nullable PsiElement contextElement,
                                                             int targetOffset) {
         if (targetOffset > 0 && (contextElement == null
@@ -227,7 +237,30 @@ public class AhkDocumentationProvider extends AbstractDocumentationProvider impl
             PsiElement before = file.findElementAt(targetOffset - 1);
             if (before != null && before.getNode().getElementType() == AhkTypes.LINE_COMMENT) return before;
         }
+        if (contextElement instanceof com.intellij.psi.PsiComment) {
+            PsiElement type = typeNameTarget(contextElement, targetOffset);
+            if (type != null) return type;
+        }
         return contextElement;
+    }
+
+    /**
+     * The class or member whose name in the comment contains the offset: the own class, field or property, or an
+     * {@link AhkHelpElement} with the help page of a built-in class; {@code null} elsewhere in the comment.
+     */
+    private static @Nullable PsiElement typeNameTarget(@NotNull PsiElement comment, int offset) {
+        for (var reference : de.kumpewo.autohotkey.navigation.AhkTypeNameReference.in(comment)) {
+            if (!reference.getAbsoluteRange().containsOffset(offset)) continue;
+            PsiElement target = reference.resolve();
+            if (AhkOwnDoc.isDocumented(target)) return target;
+            if (target instanceof de.kumpewo.autohotkey.navigation.AhkHelpTarget help) {
+                AhkHelpRepository.Topic topic = AhkHelpRepository.topic(
+                        de.kumpewo.autohotkey.parser.AhkLanguageLevel.of(comment), help.getName());
+                if (topic != null) return new AhkHelpElement(topic.page(), topic.anchor(), comment);
+            }
+            return null;
+        }
+        return null;
     }
 
     /** Completion item of an own function, method or class: the definition, for Ctrl+Q in the list. */

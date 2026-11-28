@@ -5,6 +5,9 @@ import com.intellij.navigation.ItemPresentation;
 import com.intellij.ide.projectView.PresentationData;
 import com.intellij.lang.ASTNode;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
+import com.intellij.psi.util.CachedValueProvider;
+import com.intellij.psi.util.CachedValuesManager;
 import com.intellij.psi.tree.IElementType;
 import com.intellij.psi.tree.TokenSet;
 import com.intellij.psi.util.PsiTreeUtil;
@@ -101,6 +104,26 @@ public final class AhkDefinitions {
         if (target == null || target.getElementType() != AhkTypes.REF_EXPR) return null;
         ASTNode id = target.findChildByType(AhkTypes.IDENTIFIER);
         return id == null ? null : id.getPsi();
+    }
+
+    /**
+     * The names declared with {@code global} in the file, at the top level and in functions ({@code global x},
+     * {@code global x := 1}, {@code global a, b}): their {@code IDENTIFIER} leaves in the order of the code. A
+     * {@code global} without a name (assume-global) declares nothing.
+     */
+    public static @NotNull List<PsiElement> globalDeclarations(@NotNull PsiFile file) {
+        return CachedValuesManager.getCachedValue(file, () -> {
+            List<PsiElement> result = new ArrayList<>();
+            for (AhkDeclStmt decl : PsiTreeUtil.findChildrenOfType(file, AhkDeclStmt.class)) {
+                ASTNode keyword = decl.getNode().getFirstChildNode();
+                if (keyword == null || !"global".equalsIgnoreCase(keyword.getText())) continue;
+                for (ASTNode item : decl.getNode().getChildren(TokenSet.create(AhkTypes.DECL_ITEM))) {
+                    ASTNode id = item.findChildByType(AhkTypes.IDENTIFIER);
+                    if (id != null) result.add(id.getPsi());
+                }
+            }
+            return CachedValueProvider.Result.create(List.copyOf(result), file);
+        });
     }
 
     /**

@@ -12,6 +12,7 @@ import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.completion.PrioritizedLookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
 import com.intellij.icons.AllIcons;
+import com.intellij.lang.ASTNode;
 import com.intellij.openapi.editor.colors.TextAttributesKey;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
@@ -42,13 +43,15 @@ import java.util.Set;
  *   <li>directive (token DIRECTIVE_NAME, with "#"): directives.txt</li>
  *   <li>after the dot: methods/properties (methods.txt, properties.txt, plus those of the own classes); if exactly
  *       an outer built-in class is on the left (Gui.), its nested classes first; if the name on the left is
- *       declared with ;@declare-type or @param {Type}, only the members of its classes (plus those of the own classes);
+ *       declared with ;@declare-type or @param {Type}, only the members of its classes and their base classes;
  *       never meta members starting with "__" (__New, __Item ...)</li>
  *   <li>directly after "Loop": Files/Parse/Read/Reg, plus the free-standing names</li>
  *   <li>free-standing: local variables and parameters of the function (first), built-in variables, classes,
- *       functions, own functions and classes of the file and of the
- *       files it includes, also indirectly (as for navigation);
+ *       functions, global variables declared with "global" (at the top level or in a function, not plain
+ *       assignments), own functions and classes of the file and of the files it includes, also indirectly (as for
+ *       navigation);
  *       at the start of a statement also the flow control keywords</li>
+ *   <li>name after "global" in a function: the declared global variables, without those the function declares</li>
  *   <li>after goto/break/continue: only labels (provided by AhkLabelReference.getVariants)</li>
  *   <li>in a string of Send.../ControlSend... after "{": key names (keys.txt), with "}"</li>
  *   <li>parameter values (values.txt, AhkCommandInfo): in the string of an argument (CoordMode "Mo"), at a free
@@ -157,6 +160,10 @@ public class AhkCompletionContributor extends CompletionContributor {
         }
         if (parentType == AhkTypes.MEMBER_EXPR) {
             if (isAfterDot(leaf) && !addModuleMembers(parent, out)) addMembers(parent, out);
+            return;
+        }
+        if (parentType == AhkTypes.DECL_ITEM) {
+            if (parent.getFirstChild() == leaf) addGlobalsToDeclare(parent, leaf, out);
             return;
         }
         if (parentType == AhkTypes.REF_EXPR) {
@@ -333,7 +340,8 @@ public class AhkCompletionContributor extends CompletionContributor {
 
     /**
      * Local variables and parameters of the function (also those shared with enclosing functions), built-in
-     * variables, classes and functions (priority as in highlighting) and own definitions.
+     * variables, classes and functions (priority as in highlighting), global variables declared with {@code global}
+     * and own definitions.
      */
     private static void addFreeStanding(PsiFile file, PsiElement leaf, CompletionResultSet out) {
         Set<String> seen = new HashSet<>();
@@ -353,6 +361,7 @@ public class AhkCompletionContributor extends CompletionContributor {
             addModuleScope(file, leaf, seen, out);
             return;
         }
+        addGlobals(file, leaf, null, seen, out);
         for (PsiFile source : definitionFiles(file)) {
             String where = origin(source, file);
             for (AhkFunc func : PsiTreeUtil.findChildrenOfType(source, AhkFunc.class)) {
@@ -370,11 +379,62 @@ public class AhkCompletionContributor extends CompletionContributor {
     }
 
     /**
-     * v2.1 file with modules: the functions and classes of the own module (in the file and its includes), then the
-     * names it imports (modules, list items, wildcard imports).
+     * Name in a declaration: only after {@code global} in a function, the global variables declared elsewhere (to
+     * make a name that the function can only read writable too); not those the function already declares itself.
+     * Nothing for {@code local}/{@code static} and at the top level (a declaration there defines a new name).
+     */
+    private static void addGlobalsToDeclare(PsiElement item, PsiElement leaf, CompletionResultSet out) {
+        ASTNode keyword = item.getParent() == null ? null : item.getParent().getNode().getFirstChildNode();
+        if (keyword == null || !"global".equalsIgnoreCase(keyword.getText())) return;
+        AhkFunc function = PsiTreeUtil.getParentOfType(item, AhkFunc.class);
+        if (function == null) return;
+        addGlobals(leaf.getContainingFile(), leaf, function, new HashSet<>(), out);
+    }
+
+    /**
+     * The global variables declared with {@code global}: of the own module in a v2.1 file with modules, otherwise
+     * of the file and the files it includes; declarations inside {@code skip} are left out.
+     */
+    private static void addGlobals(PsiFile file, PsiElement leaf, @Nullable AhkFunc skip, Set<String> seen,
+                                   CompletionResultSet out) {
+        List<PsiElement> identifiers = new java.util.ArrayList<>();
+        if (AhkModules.isActive(file) && AhkModules.usesModules(file)) {
+            identifiers.addAll(AhkModules.declaredVariables(AhkModules.moduleOf(leaf)));
+        } else {
+            for (PsiFile source : definitionFiles(file)) identifiers.addAll(AhkDefinitions.globalDeclarations(source));
+        }
+        if (skip != null) {
+            // also skip names the function declares, even if the first declaration of the name is elsewhere
+            for (PsiElement identifier : identifiers) {
+                if (PsiTreeUtil.isAncestor(skip, identifier, true)) seen.add(key(identifier.getText()));
+            }
+        }
+        for (PsiElement identifier : identifiers) {
+            if (skip == null || !PsiTreeUtil.isAncestor(skip, identifier, true)) {
+                addGlobal(identifier, origin(identifier.getContainingFile(), file), leaf, seen, out);
+            }
+        }
+    }
+
+    /**
+     * A global variable declared with {@code global} (only explicit declarations, never plain assignments, since
+     * without a symbol table any assigned name could be meant); each name once, after locals and parameters.
+     */
+    private static void addGlobal(PsiElement identifier, String where, PsiElement leaf, Set<String> seen,
+                                  CompletionResultSet out) {
+        String name = ownName(identifier.getText(), leaf, seen);
+        if (name != null) {
+            out.addElement(item(name, AhkBundle.message("completion.own.variable", where), AllIcons.Nodes.Variable, false));
+        }
+    }
+
+    /**
+     * v2.1 file with modules: the global variables declared with {@code global}, functions and classes of the own
+     * module (in the file and its includes), then the names it imports (modules, list items, wildcard imports).
      */
     private static void addModuleScope(PsiFile file, PsiElement leaf, Set<String> seen, CompletionResultSet out) {
         AhkModules.Module module = AhkModules.moduleOf(leaf);
+        addGlobals(file, leaf, null, seen, out);
         for (PsiElement definition : AhkModules.definitions(module, source -> {
             List<PsiElement> result = new java.util.ArrayList<>();
             for (AhkFunc func : PsiTreeUtil.findChildrenOfType(source, AhkFunc.class)) {
@@ -528,21 +588,22 @@ public class AhkCompletionContributor extends CompletionContributor {
     }
 
     /**
-     * After the dot: nested classes (Gui.Button), built-in members and members of the own classes. If the name on
-     * the left is declared with ;@declare-type (or @param {Type} of the enclosing function), only the
-     * instance members of its classes including base classes instead of all built-in members (type text = class that defines the member). If one of them is an own class,
-     * the members of the other own classes are left out.
+     * After the dot: nested classes (Gui.Button), built-in members and members of the own classes. If the expression
+     * on the left has a declared type ({@link AhkTypeDeclarations#typeOf}: a name declared with ;@declare-type or
+     * {@code @param {Type}} of the enclosing function, {@code this} in a class, a member declared with
+     * {@code ;@declare-type Class.member}), only the instance members of its classes including base classes instead
+     * of all built-in members (type text = class that defines the member); the members of the own classes are then
+     * left out, also for a built-in type.
      */
     private static void addMembers(PsiElement memberExpr, CompletionResultSet out) {
         PsiElement qualifier = memberExpr.getFirstChild();
         AhkNames names = AhkNames.of(memberExpr);
-        AhkTypeDeclarations.Declared declared = null;
         if (qualifier != null && qualifier.getNode().getElementType() == AhkTypes.REF_EXPR) {
             for (String name : names.nestedClassesOf(qualifier.getText())) {
                 out.addElement(item(name, AhkBundle.message("completion.class"), AllIcons.Nodes.Class, true));
             }
-            declared = AhkTypeDeclarations.lookup(qualifier, qualifier.getText());
         }
+        AhkTypeDeclarations.Declared declared = AhkTypeDeclarations.typeOf(qualifier);
         Set<String> seen = new HashSet<>();
         PsiFile file = memberExpr.getContainingFile();
         if (declared != null) {
@@ -569,8 +630,8 @@ public class AhkCompletionContributor extends CompletionContributor {
                 }
             }
         }
-        // declared as an own class: only its members including base classes, not those of all own classes
-        if (declared != null && AhkTypeDeclarations.hasOwnClass(file, declared)) return;
+        // declared type (built-in or own): only its members including base classes, not those of all own classes
+        if (declared != null) return;
         PsiElement leaf = PsiTreeUtil.getDeepestLast(memberExpr);
         for (PsiFile source : definitionFiles(file)) {
             String where = origin(source, file);

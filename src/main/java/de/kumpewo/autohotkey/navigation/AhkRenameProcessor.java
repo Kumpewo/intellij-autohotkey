@@ -1,5 +1,6 @@
 package de.kumpewo.autohotkey.navigation;
 
+import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiComment;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
@@ -39,7 +40,8 @@ import java.util.regex.Pattern;
  *       the file of the definition indirectly;</li>
  *   <li>"Search in comments and strings": whole-word occurrences, ignoring case, in comments and strings of the same
  *       files, as non-code usages (the platform's own search needs the word index, which AutoHotkey files don't
- *       have, see AhkFindUsagesProvider);</li>
+ *       have, see AhkFindUsagesProvider); not the class names and members in comments that are references
+ *       ({@link AhkTypeNameReference}), they are code usages;</li>
  *   <li>conflicts: a definition of the same kind with the new name (function/class at the top level, member of the
  *       same class, label of the same file).</li>
  * </ul>
@@ -105,13 +107,27 @@ public class AhkRenameProcessor extends RenamePsiElementProcessor {
                 if (!isCommentOrString(leaf)) continue;
                 Matcher matcher = word.matcher(leaf.getText());
                 int start = leaf.getTextRange().getStartOffset();
+                List<TextRange> references = referenceRanges(leaf, element);
                 while (matcher.find()) {
+                    if (references.contains(new TextRange(start + matcher.start(), start + matcher.end()))) continue;
                     NonCodeUsageInfo usage = NonCodeUsageInfo.create(file, start + matcher.start(), start + matcher.end(),
                             element, newName);
                     if (usage != null) result.add(usage);
                 }
             }
         }
+    }
+
+    /**
+     * Absolute ranges of the class names and members in the comment that refer to the element: they are code usages
+     * already ({@link AhkTypeNameReference}), not text occurrences.
+     */
+    private static List<TextRange> referenceRanges(PsiElement leaf, PsiElement element) {
+        List<TextRange> result = new ArrayList<>();
+        for (AhkTypeNameReference reference : AhkTypeNameReference.in(leaf)) {
+            if (reference.isReferenceTo(element)) result.add(reference.getAbsoluteRange());
+        }
+        return result;
     }
 
     /** Comment, string, continuation section or hotstring text. */

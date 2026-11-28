@@ -284,10 +284,9 @@ public class AhkModuleTest extends BasePlatformTestCase {
         List<String> free = suggestions(V21 + modules + "x := <caret>" + tail);
         assertTrue(free.toString(), free.containsAll(List.of("M", "Mf", "Xf", "Yf", "MsgBox")));
         assertFalse(free.toString(), free.contains("_Xh") || free.contains("Mv"));
-        List<String> inX = suggestions(V21 + modules + tail + "y := <caret>\n");
-        assertTrue(inX.toString(), inX.containsAll(List.of("Xf", "_Xh")));
-        assertFalse(inX.toString(), inX.contains("Mf"));
-        List<String> names = suggestions(V21 + "#Import <caret>\n#Module X\n");
+        List<String> inX = suggestions(V21 + modules + tail + "global Xv := 1\nXa := 2\ny := <caret>\n");
+        assertTrue(inX.toString(), inX.containsAll(List.of("Xf", "_Xh", "Xv")));
+        assertFalse(inX.toString(), inX.contains("Mf") || inX.contains("Xa"));        List<String> names = suggestions(V21 + "#Import <caret>\n#Module X\n");
         assertTrue(names.toString(), names.containsAll(List.of("AHK", "M", "X")));
         assertFalse(names.toString(), names.contains("main"));
         List<String> items = suggestions(V21 + "#Import M {<caret>}\n");

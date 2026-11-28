@@ -86,6 +86,10 @@
     <param name="Local" value="extra\declare-auto-type.htm">
   </object>
   <li><object type="text/sitemap">
+    <param name="Name" value=";@declare-member-type">
+    <param name="Local" value="extra\declare-member-type.htm">
+  </object>
+  <li><object type="text/sitemap">
     <param name="Name" value=";@declare-private">
     <param name="Local" value="extra\declare-private.htm">
   </object>

@@ -42,6 +42,8 @@ import java.util.List;
  *       nested functions that share it; a reference counts if it resolves to the same variable. For a parameter
  *       also its name after {@code @param} in the doc comment of the function ({@link AhkDocParamReference}).</li>
  * </ul>
+ * Class names and members in doc comments and type pragmas are references too ({@link AhkTypeNameReference}); for
+ * them also the {@code pragmas.ahk} of the project that the searched files include directly is searched.
  * Names are compared ignoring case, as in AutoHotkey, so the case-sensitive word index of the platform is not used.
  */
 public class AhkReferencesSearcher extends QueryExecutorBase<PsiReference, ReferencesSearch.SearchParameters> {
@@ -76,7 +78,7 @@ public class AhkReferencesSearcher extends QueryExecutorBase<PsiReference, Refer
         String name = ((PsiNamedElement) target).getName();
         PsiFile definitionFile = target.getContainingFile();
         if (name == null || !(definitionFile instanceof AhkFile)) return true;
-        for (PsiFile file : candidateFiles(definitionFile, scope, transitive)) {
+        for (PsiFile file : withPragmaFiles(candidateFiles(definitionFile, scope, transitive))) {
             List<PsiFile> visible = transitive ? includeClosure(file) : null;
             for (PsiElement element : PsiTreeUtil.collectElements(file, e -> e.getReferences().length > 0)) {
                 for (PsiReference reference : element.getReferences()) {
@@ -86,6 +88,24 @@ public class AhkReferencesSearcher extends QueryExecutorBase<PsiReference, Refer
             }
         }
         return true;
+    }
+
+    /**
+     * The files plus the {@code pragmas.ahk} of the project they include directly: class names in its type pragmas
+     * refer to the classes of the including files ({@link AhkTypeNameReference}). Not those in the AutoHotkey Lib
+     * folders: they belong to the library.
+     */
+    private static List<PsiFile> withPragmaFiles(List<PsiFile> files) {
+        List<PsiFile> result = new ArrayList<>(files);
+        for (PsiFile file : files) {
+            for (PsiFile included : AhkInclude.includedFiles(file)) {
+                if (de.kumpewo.autohotkey.types.AhkTypeDeclarations.isPragmaFile(included)
+                        && AhkTypeNameReference.inProject(included) && !result.contains(included)) {
+                    result.add(included);
+                }
+            }
+        }
+        return result;
     }
 
     /** Reports the references to the local variable inside the function that owns it (and in its doc comment). */

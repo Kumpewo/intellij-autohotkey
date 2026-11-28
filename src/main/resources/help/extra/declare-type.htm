@@ -10,7 +10,7 @@
 
 <h1>;@declare-type</h1>
 
-<p>Declares the class of one or more variables, so that the plugin knows their members. This is a <a href="pragmas.htm">pragma</a>: AutoHotkey treats it as an ordinary comment.</p>
+<p>Declares the class of one or more variables or members, so that the plugin knows their members. This is a <a href="pragmas.htm">pragma</a>: AutoHotkey treats it as an ordinary comment.</p>
 
 <pre class="Syntax">;@<span class="func">declare-type</span> Pattern as Class <span class="optional">, Pattern as Class, ...</span></pre>
 
@@ -24,6 +24,7 @@
       <li><strong>Name:</strong> exactly this name, e.g. <code>myGui</code>.</li>
       <li><strong>Prefix:</strong> all names starting with the prefix, e.g. <code>btn*</code> for <code>btnOK</code> and <code>btnCancel</code>.</li>
       <li><strong>Suffix:</strong> all names ending with the suffix, e.g. <code>*Edit</code> for <code>nameEdit</code>.</li>
+      <li><strong>Member:</strong> <code>Class.member</code>, a field or property of the instances of a class, e.g. <code>ToolGui.logWriter</code> (see <a href="#Members">Members</a>). No wildcard is allowed here.</li>
     </ul>
     <p>The wildcard <code>*</code> also matches nothing: <code>*Edit</code> covers <code>edit</code> as well. A pattern may contain only one wildcard, at its start or end; <code>*</code> alone and <code>a*b</code> are invalid.</p>
   </dd>
@@ -50,14 +51,26 @@
 </ul>
 <p>Base classes are taken into account: a variable declared as <code>Gui.Edit</code> also knows the members of <code>Gui.Control</code>, <code>Object</code> and <code>Any</code>. An own class without <code>extends</code> has the base class <code>Object</code>.</p>
 
+<h2 id="Members">Members</h2>
+<p>A pattern <code>Class.member</code> declares the class of an instance member: after <code>theGui.logWriter.</code> the plugin offers the members of the declared class, provided <code>theGui</code> is a declared variable of that class. It follows a chain step by step: with <code>ToolGui.logWriter as LogWriter</code> and <code>LogWriter.view as LogView</code>, <code>theGui.logWriter.view.</code> offers the members of <code>LogView</code>.</p>
+<p>Member declarations hit more reliably than name patterns: a field keeps its name wherever the object is passed, while a variable or parameter holding the same object may be called anything, and a name pattern may also catch variables of other classes. A few global variables with a declared type and typed members in their classes often cover a whole script (see the <a href="#ExMember">example</a>).</p>
+<ul>
+  <li>The class before the member is a built-in or an own class (also nested, <code>Outer.Inner.member</code>). The declaration also applies to the classes derived from it.</li>
+  <li>Inside a class, <code>this</code> has the type of the class in instance methods, properties and field initializers: <code>this.log.</code> uses the declaration, and <code>this.</code> alone offers the members of the class and its base classes. In a static method <code>this</code> is the class itself and has no declared type.</li>
+  <li>The declaration applies in its own file and, for an own class, in every file in which the class is used: write it once in the file of the class (e.g. in a library), and every script that includes it knows the member.</li>
+  <li>Alternatively, <a href="declare-member-type.htm">;@declare-member-type Class</a> right above the field declares it without naming class and member, so renaming them needs no change in the pragma.</li>
+  <li>Static members are not covered.</li>
+</ul>
+
 <h2 id="Remarks">Remarks</h2>
-<p>The declaration applies to the whole file in which it stands, no matter where it is placed. It never applies to other files, neither to included files nor to files including this one, with one exception: the pragmas of a directly included file named <code>pragmas.ahk</code> apply in the including file (see <a href="pragmas.htm#PragmaFile">Pragmas</a>).</p>
+<p>The declaration applies to the whole file in which it stands, no matter where it is placed. It never applies to other files, neither to included files nor to files including this one, with two exceptions: the pragmas of a directly included file named <code>pragmas.ahk</code> apply in the including file (see <a href="pragmas.htm#PragmaFile">Pragmas</a>), and the declaration of a member of an own class applies wherever the class is used (see <a href="#Members">Members</a>).</p>
 <p>Case does not matter, neither in the patterns nor in the class names.</p>
 <p>A name may be covered by several patterns and thus have several classes; the members of all of them are offered.</p>
 <p>A built-in name (e.g. a variable called <code>Edit</code>) keeps its built-in color if it is only covered by a pattern with a wildcard. Declare the exact name to give it the color of a declared variable.</p>
 <p>The color is meant for variables. A name that is called (<code>myFunc()</code>, <code>myFunc "x"</code> or <code>myFunc</code> alone on a line) keeps its normal color, even if a pattern covers it. Where a name may be a variable as well as a function (<code>x := myFunc</code>, <code>SetTimer myFunc</code>), it gets the color.</p>
 <p>Mistakes are marked in the comment: "Invalid pattern.", "'as' expected.", "Class expected.", "Unknown class." and "',' expected.".</p>
 <p>Several pragmas may be used in one file; they add up.</p>
+<p>The class names after <code>as</code> and before the member in <code>Class.member</code> belong to their classes, the member to its field or property: <kbd>Ctrl</kbd>+<kbd>B</kbd> leads there (for a built-in class to its help), <kbd>Ctrl</kbd>+<kbd>Q</kbd> on a class name shows its documentation, <a href="navigation.htm#Rename">renaming</a> the class or the member adjusts the pragma, and <a href="navigation.htm#Usages">Find Usages</a> lists it. In a <code>pragmas.ahk</code> the classes come from the files of the project that include it. The names before <code>as</code> are no references.</p>
 
 <h2 id="Related">Related</h2>
 <p><a href="declare-auto-type.htm">;@declare-auto-type</a>, <a href="pragmas.htm">Pragmas</a></p>
@@ -79,6 +92,29 @@ class ItemList extends Array {
 }
 listA := ItemList()
 listA.Last()   <em>; offers Last as well as Push, Pop ... of Array</em></pre>
+</div>
+
+<div class="ex" id="ExMember">
+<p><a class="ex_number" href="#ExMember"></a> Declares one global variable and the fields of its class. The member declarations can stand anywhere in the file of the class, e.g. in a library, also right next to the field.</p>
+<pre>;@declare-type theGui as ToolGui
+;@declare-type ToolGui.status as Gui.StatusBar
+class LogWriter {
+    Write(text) {
+    }
+}
+class ToolGui extends Gui {
+    ;@declare-type ToolGui.logWriter as LogWriter
+    logWriter := LogWriter()
+    __New(title) {
+        super.__New(, title)
+        this.status := this.AddStatusBar()   <em>; this. offers the members of ToolGui and Gui</em>
+    }
+}
+global theGui := ToolGui("Converter")
+Convert(file) {
+    theGui.logWriter.Write(file)   <em>; offers the members of LogWriter</em>
+    theGui.status.SetText(file)    <em>; parameter info of Gui.StatusBar.SetText</em>
+}</pre>
 </div>
 
 </body>

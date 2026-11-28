@@ -10,12 +10,12 @@
 
 <h1>Type declarations</h1>
 
-<p>AutoHotkey decides the class of a value only when the script runs. In the editor the plugin therefore cannot know that <code>win</code> holds a <code>Gui</code>: after <code>win.</code> it would have to offer the members of every class. Two <a href="pragmas.htm">pragmas</a> tell the plugin the class:</p>
+<p>AutoHotkey decides the class of a value only when the script runs. In the editor the plugin therefore cannot know that <code>win</code> holds a <code>Gui</code>: after <code>win.</code> it would have to offer the members of every class. <a href="pragmas.htm">Pragmas</a> tell the plugin the class:</p>
 <ul>
-  <li><a href="declare-type.htm">;@declare-type</a> names variables (or name patterns) and their class, built-in or own.</li>
+  <li><a href="declare-type.htm">;@declare-type</a> names variables (or name patterns) and their class, built-in or own, and the class of members of a class (<code>ToolGui.status as Gui.StatusBar</code>, see <a href="declare-type.htm#Members">Members</a>); <a href="declare-member-type.htm">;@declare-member-type</a> declares the class of a member right above its definition.</li>
   <li><a href="declare-auto-type.htm">;@declare-auto-type</a> declares, for a group of built-in classes at once, every variable whose name ends with the class name.</li>
 </ul>
-<p>Both are comments for AutoHotkey; the script runs unchanged. A declaration applies to the whole file in which it stands, wherever it is placed, and never to other files.</p>
+<p>Pragmas are comments for AutoHotkey; the script runs unchanged. A declaration applies to the whole file in which it stands, wherever it is placed, and never to other files.</p>
 
 <h2 id="Effect">What a declaration changes</h2>
 <table class="info">
@@ -28,6 +28,39 @@
 </table>
 
 <h2 id="Examples">Examples</h2>
+<div class="ex" id="ExMembers">
+<p><a class="ex_number" href="#ExMembers"></a> Recommended for larger scripts: few global variables with a declared type, and typed members in their classes. The member declarations belong in the file of the class, anywhere in it, or <code>;@declare-member-type</code> directly above the field; a library declares them once for every script that includes it.</p>
+<pre>;@declare-type theGui as ToolGui
+;@declare-type ToolGui.status as Gui.StatusBar
+
+class LogWriter {
+    Write(text) {
+    }
+    Clear() {
+    }
+    SaveAs(path) {
+    }
+}
+
+class ToolGui Extends Gui {
+    ;@declare-member-type LogWriter
+    logWriter := LogWriter()
+
+    __New(title) {
+        super.__New(, title)
+        this.status := this.AddStatusBar()   <em>; this. offers ToolGui and Gui</em>
+    }
+}
+
+global theGui := ToolGui("Converter")
+
+Convert(File) {
+    theGui.logWriter.|                       <em>; Write, Clear, SaveAs of LogWriter</em>
+    theGui.status.SetText(File)              <em>; members of Gui.StatusBar</em>
+}</pre>
+<p><img src="images/types-member-completion.png" alt="Completion after theGui.logWriter. with the members of LogWriter" style="max-width:100%; border:1px solid #ccc"><br><em>Completion after <code>theGui.logWriter.</code> inside the function <code>Convert</code>: the methods of <code>LogWriter</code> first, then those of its base classes <code>Object</code> and <code>Any</code>.</em></p>
+</div>
+
 <div class="ex" id="ExGui">
 <p><a class="ex_number" href="#ExGui"></a> A window with controls, declared by name and by suffix.</p>
 <pre>;@declare-type win as Gui, *Edit as Gui.Edit, *Btn as Gui.Button
@@ -65,10 +98,11 @@ listItems.Push(1)</pre>
 
 <h2 id="Tips">Tips</h2>
 <ul>
+  <li>Prefer typed members to name patterns: a field keeps its name wherever the object is passed, while a name pattern (and <code>;@declare-auto-type</code>) may also catch variables of other classes, e.g. <code>*Gui</code> a variable <code>logGui</code> that holds an own class.</li>
   <li>Put the declarations at the top of the file, next to <code>#Requires</code>, so they are easy to find.</li>
   <li>Patterns follow naming conventions: if your controls are called <code>...Edit</code>, <code>...Btn</code>, one pattern covers all of them.</li>
   <li>A wildcard declaration never changes the color of a built-in name (a variable called <code>Edit</code> stays a built-in class name); declare the exact name for that.</li>
-  <li>The live template <code>dt</code> inserts <code>;@declare-type name as Class</code>.</li>
+  <li>The live template <code>dt</code> inserts <code>;@declare-type myVar as ClassName</code>, <code>dm</code> inserts <code>;@declare-member-type ClassName</code>; left unchanged, the placeholder <code>ClassName</code> gets the warning "Unknown class.".</li>
   <li>Mistakes are marked in the comment; <kbd>Ctrl</kbd>+<kbd>Q</kbd> in the comment shows the syntax.</li>
 </ul>
 

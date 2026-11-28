@@ -10,8 +10,9 @@ import de.kumpewo.autohotkey.types.AhkTypeDeclarations;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Warnings in the pragmas ";@declare-type" and ";@declare-auto-type" (AhkTypeDeclarations): unknown class,
- * invalid pattern, missing "as" ... The faulty part of the comment is marked.
+ * Warnings in the pragmas ";@declare-type", ";@declare-auto-type", ";@declare-private" and ";@declare-member-type"
+ * (AhkTypeDeclarations): unknown class, invalid pattern, missing "as", no member in the next line ... The faulty part
+ * of the comment is marked.
  */
 public class AhkTypeDeclarationAnnotator implements Annotator {
 

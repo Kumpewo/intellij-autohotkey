@@ -39,6 +39,7 @@ extra\limitations.htm
 extra\declare-type.htm
 extra\declare-auto-type.htm
 extra\declare-private.htm
+extra\declare-member-type.htm
 extra\ignore-next-line.htm
 extra\images\settings-autohotkey.png
 extra\images\debugger-overview.png
@@ -47,6 +48,7 @@ extra\images\debugger-attach.png
 extra\images\library-add-to-project.png
 extra\images\library-added-file.png
 extra\images\library-installed-copy.png
+extra\images\types-member-completion.png
 styles\theme.css
 styles\content.css
 styles\icons.ttf

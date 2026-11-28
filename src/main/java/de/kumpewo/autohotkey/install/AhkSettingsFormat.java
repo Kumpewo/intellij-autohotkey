@@ -10,7 +10,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * The names of the settings file and the names of plugin version 2.1, which are still read until version 2.5.0. The
+ * The names of the settings file and the names of plugin version 2.1, which are still read until version 3.0.0. The
  * file name tells which names a file uses: {@code settings.ahk-v2-plugin.ini} ({@link AhkDeployConfig#FILE_NAME}) only
  * the new ones, {@code settings.ahk-plugin.ini} ({@link AhkDeployConfig#LEGACY_FILE_NAME}) only the old ones:
  * <table>

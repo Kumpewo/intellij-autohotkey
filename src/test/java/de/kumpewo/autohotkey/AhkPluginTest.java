@@ -1061,7 +1061,9 @@ public class AhkPluginTest extends BasePlatformTestCase {
         assertTrue(beide.toString(), beide.containsAll(List.of("Push", "Clear", "Length", "Count")));
         List<String> eigene = suggestions(";@declare-type g as Array\nclass K {\n    Tuwas() {\n    }\n}\n"
                 + "x := g.<caret>\n");
-        assertTrue(eigene.toString(), eigene.containsAll(List.of("Push", "Tuwas")));
+        // built-in type: no members of the own classes either
+        assertTrue(eigene.toString(), eigene.contains("Push"));
+        assertFalse(eigene.toString(), eigene.contains("Tuwas"));
         assertFalse(eigene.toString(), eigene.contains("SetColor"));
         assertInserted(";@declare-type g as Array\ng.Pu<caret>\n", ";@declare-type g as Array\ng.Push(<caret>)\n");
         // without a declaration all members, as before
@@ -1146,6 +1148,172 @@ public class AhkPluginTest extends BasePlatformTestCase {
         declared = AhkTypeDeclarations.lookup(myFixture.getFile(), "n");
         assertNotNull(declared);
         assertEquals(List.of("NurTief"), declared.classes());
+    }
+
+    /** Classes for the declared members: a window with a log, the log with a view. */
+    private static final String MEMBER_CLASSES = String.join("\n",
+            "class LogView {", "    Scroll() {", "    }", "}",
+            "class ToolLog {", "    Write(text) {", "    }", "}",
+            "class LogGui extends Gui {", "    log := ToolLog()", "    Run() {", "        this.<caret>", "    }",
+            "    static Create() {", "        this.<caret>", "    }", "}",
+            "class MyGui extends LogGui {", "}", "");
+
+    public void testDeclaredMemberType() {
+        String decl = ";@declare-type LogGui.log as ToolLog, ToolLog.view as LogView, g as LogGui, m as MyGui\n";
+        String classes = MEMBER_CLASSES.replace("<caret>", "");
+        // the member of a declared variable, also inherited by a derived class
+        List<String> log = suggestions(decl + classes + "x := g.log.<caret>\n");
+        assertTrue(log.toString(), log.containsAll(List.of("Write", "HasProp")));
+        assertFalse(log.toString(), log.contains("Scroll"));
+        assertFalse(log.toString(), log.contains("Push"));
+        assertTrue(suggestions(decl + classes + "x := m.log.<caret>\n").contains("Write"));
+        // step by step along the chain
+        List<String> view = suggestions(decl + classes + "x := g.log.view.<caret>\n");
+        assertTrue(view.toString(), view.contains("Scroll"));
+        assertFalse(view.toString(), view.contains("Write"));
+        // parameter info of a method of the member
+        assertEquals("ToolLog.Write(text) | 0", parameterInfo(decl + classes + "g.log.Write(<caret>)\n"));
+        // an undeclared member keeps all members
+        assertTrue(suggestions(decl + classes + "x := g.other.<caret>\n").containsAll(List.of("Push", "Scroll")));
+        // the member declaration does not declare a variable of that name
+        assertTrue(suggestions(decl + classes + "x := log.<caret>\n").contains("Push"));
+    }
+
+    public void testThisHasTheTypeOfTheClass() {
+        String decl = ";@declare-type LogGui.log as ToolLog\n";
+        // MEMBER_CLASSES has two places: in the instance method Run and in the static method Create
+        int second = MEMBER_CLASSES.lastIndexOf("this.<caret>");
+        String inRun = MEMBER_CLASSES.substring(0, second) + "this." + MEMBER_CLASSES.substring(second + 12);
+        String inCreate = MEMBER_CLASSES.replaceFirst("this\\.<caret>", "this.");
+        // this.log in an instance method
+        List<String> log = suggestions(decl + inRun.replace("this.<caret>", "this.log.<caret>"));
+        assertTrue(log.toString(), log.contains("Write"));
+        assertFalse(log.toString(), log.contains("Scroll"));
+        // this. alone: the members of the class and its base classes (own and built-in), no foreign ones
+        List<String> own = suggestions(decl + inRun);
+        assertTrue(own.toString(), own.containsAll(List.of("Run", "log", "Show", "AddEdit", "HasProp")));
+        assertFalse(own.toString(), own.contains("Scroll"));
+        assertFalse(own.toString(), own.contains("Write"));
+        // in a static method this is the class itself: no restriction
+        assertTrue(suggestions(decl + inCreate).contains("Scroll"));
+        // outside of a class: no restriction
+        assertTrue(suggestions("x := this.<caret>\n").contains("Push"));
+    }
+
+    /** The example of the manual: a typed global variable, an own and a built-in member type, used in a function. */
+    public void testDeclaredMemberTypeManualExample() {
+        String script = String.join("\n",
+                ";@declare-type theGui as ToolGui",
+                ";@declare-type ToolGui.status as Gui.StatusBar",
+                "class LogWriter {", "    Write(text) {", "    }", "    SaveAs(path) {", "    }", "}",
+                "class ToolGui extends Gui {", "    ;@declare-type ToolGui.logWriter as LogWriter",
+                "    logWriter := LogWriter()", "    __New(title) {",
+                "        super.__New(, title)", "        this.status := this.AddStatusBar()", "    }", "}",
+                "global theGui := ToolGui(\"Converter\")",
+                "Convert(file) {", "    <caret>", "}", "");
+        List<String> writer = suggestions(script.replace("<caret>", "theGui.logWriter.<caret>"));
+        assertTrue(writer.toString(), writer.containsAll(List.of("Write", "SaveAs")));
+        assertFalse(writer.toString(), writer.contains("AddStatusBar"));
+        List<String> status = suggestions(script.replace("<caret>", "theGui.status.<caret>"));
+        // built-in type: only its members and those of its base classes, none of the own classes
+        assertTrue(status.toString(), status.containsAll(List.of("SetText", "OnEvent", "HasProp")));
+        assertFalse(status.toString(), status.contains("SaveAs"));
+        assertFalse(status.toString(), status.contains("logWriter"));
+        assertFalse(status.toString(), status.contains("AddStatusBar"));
+        List<String> gui = suggestions(script.replace("<caret>", "theGui.<caret>"));
+        assertTrue(gui.toString(), gui.containsAll(List.of("logWriter", "AddStatusBar")));
+    }
+
+    public void testDeclaredMemberTypeWarnings() {
+        myFixture.configureByText("a.ahk", ""
+                + ";@declare-type LogGui.log as ToolLog, Gui.Edit.Value as Map, "
+                + "<warning descr=\"Invalid pattern.\">LogGui.log*</warning> as ToolLog, "
+                + "<warning descr=\"Invalid pattern.\">LogGui.*log</warning> as ToolLog, "
+                + "<warning descr=\"Invalid pattern.\">*Gui.log</warning> as ToolLog, "
+                + "<warning descr=\"Invalid pattern.\">LogGui..log</warning> as ToolLog, "
+                + "<warning descr=\"Invalid pattern.\">LogGui.</warning> as ToolLog, "
+                + "<warning descr=\"Unknown class.\">Fremd</warning>.log as ToolLog, "
+                + "LogGui.log as <warning descr=\"Unknown class.\">Fremd</warning>\n"
+                + MEMBER_CLASSES.replace("this.<caret>", "this.Show()"));
+        myFixture.checkHighlighting(true, false, false);
+    }
+
+    /** Classes for ;@declare-member-type: a field, a property, a field list and a doc comment in between. */
+    private static final String NEXT_MEMBER_CLASSES = String.join("\n",
+            "class LogView {", "    Scroll() {", "    }", "}",
+            "class ToolLog {", "    Write(text) {", "    }", "}",
+            "class LogGui extends Gui {",
+            "    ;@declare-member-type ToolLog",
+            "", "    ; the log of the window", "    /** Log. */",
+            "    log := ToolLog()",
+            "    ;@declare-member-type LogView",
+            "    View => this._view",
+            "    ;@declare-member-type LogView",
+            "    first := LogView(), second := LogView()",
+            "    other := ToolLog() ;@declare-member-type ToolLog",
+            "    Run() {", "        this.<caret>", "    }", "}",
+            "class MyGui extends LogGui {", "}", "");
+
+    public void testDeclaredNextMemberType() {
+        String decl = ";@declare-type g as LogGui, m as MyGui\n";
+        String classes = NEXT_MEMBER_CLASSES.replace("<caret>", "");
+        // field with blank line, comment and doc comment in between; also inherited by a derived class
+        List<String> log = suggestions(decl + classes + "x := g.log.<caret>\n");
+        assertTrue(log.toString(), log.contains("Write"));
+        assertFalse(log.toString(), log.contains("Scroll"));
+        assertTrue(suggestions(decl + classes + "x := m.log.<caret>\n").contains("Write"));
+        // property without parameters, both names of a field list, behind code in the same line
+        assertTrue(suggestions(decl + classes + "x := g.View.<caret>\n").contains("Scroll"));
+        assertTrue(suggestions(decl + classes + "x := g.first.<caret>\n").contains("Scroll"));
+        List<String> second = suggestions(decl + classes + "x := g.second.<caret>\n");
+        assertTrue(second.toString(), second.contains("Scroll"));
+        assertFalse(second.toString(), second.contains("Write"));
+        assertTrue(suggestions(decl + classes + "x := g.other.<caret>\n").contains("Write"));
+        // this. in the class
+        List<String> inRun = suggestions(NEXT_MEMBER_CLASSES.replace("this.<caret>", "this.log.<caret>"));
+        assertTrue(inRun.toString(), inRun.contains("Write"));
+        assertFalse(inRun.toString(), inRun.contains("Scroll"));
+        // together with ;@declare-type Class.member: both types count
+        List<String> both = suggestions(";@declare-type LogGui.log as LogView\n" + decl + classes
+                + "x := g.log.<caret>\n");
+        assertTrue(both.toString(), both.containsAll(List.of("Write", "Scroll")));
+    }
+
+    public void testDeclaredNextMemberTypeWarnings() {
+        String noMember = "<warning descr=\"No instance field or property without parameters follows.\">"
+                + ";@declare-member-type</warning>";
+        myFixture.configureByText("a.ahk", String.join("\n",
+                "class ToolLog {", "}",
+                "class LogGui {",
+                "    ;@declare-member-type <warning descr=\"Unknown class.\">Fremd</warning>",
+                "    a := 1",
+                "    ;@declare-member-type ToolLog <warning descr=\"Only one class expected.\">Map</warning>",
+                "    b := 1",
+                "    <warning descr=\"Class expected.\">;@declare-member-type</warning>",
+                "    c := 1",
+                "    " + noMember + " ToolLog",
+                "    static d := 1",
+                "    " + noMember + " ToolLog",
+                "    Run() {", "    }",
+                "    " + noMember + " ToolLog",
+                "    Item[i] => i",
+                "    ;@declare-member-type ToolLog",
+                "    e := 1",
+                "}",
+                noMember + " ToolLog",
+                "x := 1", ""));
+        myFixture.checkHighlighting(true, false, false);
+    }
+
+    public void testDeclaredMemberTypeFromLibraryFile() throws Exception {
+        java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("ahk").toRealPath();
+        java.nio.file.Files.writeString(dir.resolve("lib.ahk"), ";@declare-type LogGui.log as ToolLog\n"
+                + MEMBER_CLASSES.replace("<caret>", ""));
+        com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByNioFile(dir.resolve("lib.ahk"));
+        // the declaration in the file of the class applies to its users without a line of their own
+        List<String> log = suggestionsInFile(dir, "#Include lib.ahk\n;@declare-type g as LogGui\nx := g.log.<caret>\n");
+        assertTrue(log.toString(), log.contains("Write"));
+        assertFalse(log.toString(), log.contains("Scroll"));
     }
 
     public void testCompletionWithoutMetaMembers() {
@@ -1343,9 +1511,12 @@ public class AhkPluginTest extends BasePlatformTestCase {
     public void testFieldsAreMembers() {
         String cls = "class Counter {\n    §count := 0\n    _step := 1, _max := 9\n    static _instances := 0\n"
                 + "    Increment() {\n        x := this.";
-        // completion after the dot: fields with non-ASCII and other names, also static ones
+        // completion after the dot: fields with non-ASCII and other names; this in an instance method: no static ones
         List<String> list = suggestions(cls + "<caret>\n    }\n}\n");
-        assertTrue(list.toString(), list.containsAll(List.of("§count", "_step", "_max", "_instances")));
+        assertTrue(list.toString(), list.containsAll(List.of("§count", "_step", "_max")));
+        assertFalse(list.toString(), list.contains("_instances"));
+        // static fields after an undeclared name
+        assertTrue(suggestions(cls + "\n    }\n}\nx := o.<caret>\n").contains("_instances"));
         assertInserted(cls + "§co<caret>\n    }\n}\n", cls + "§count<caret>\n    }\n}\n");
         // a local variable in a method is no field
         assertFalse(suggestions("class A {\n    M() {\n        _local := 1\n        x := this._lo<caret>\n    }\n}\n")
@@ -1615,6 +1786,37 @@ public class AhkPluginTest extends BasePlatformTestCase {
                 insertedInFile(dir, "#Include a.ahk\nx := obj.LibMe<caret>\n"));
     }
 
+    /**
+     * Completion offers the global variables declared with "global" (top level and in functions, also from included
+     * files), but no names that are only assigned and no assume-global.
+     */
+    public void testCompletionDeclaredGlobals() throws Exception {
+        java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("ahk").toRealPath();
+        java.nio.file.Files.writeString(dir.resolve("lib.ahk"), String.join("\n",
+                "global GvLib := 1", "GvAssigned := 2", "Count() {", "    global GvShared, GvOther := 3", "}", ""));
+        com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByNioFile(dir.resolve("lib.ahk"));
+        String main = String.join("\n", "#Include lib.ahk", "global GvMain", "Other() {", "    global",
+                "    GvAssumed := 1", "    x := Gv<caret>", "}", "");
+        List<String> inFunction = suggestionsInFile(dir, main);
+        assertTrue(inFunction.toString(), inFunction.containsAll(List.of("GvLib", "GvShared", "GvOther", "GvMain")));
+        assertFalse(inFunction.toString(), inFunction.contains("GvAssigned") || inFunction.contains("GvAssumed"));
+        List<String> topLevel = suggestionsInFile(dir, "#Include lib.ahk\nx := Gv<caret>\n");
+        assertTrue(topLevel.toString(), topLevel.containsAll(List.of("GvLib", "GvShared")));
+        assertFalse(topLevel.toString(), topLevel.contains("GvAssigned") || topLevel.contains("GvMain"));
+        // a declared global is offered once, also when declared in several places
+        List<String> twice = suggestions("global Gva, Gvb\nF() {\n    global Gva\n}\nx := Gv<caret>\n");
+        assertEquals(twice.toString(), 1, twice.stream().filter("Gva"::equals).count());
+        // after "global" in a function: the globals declared elsewhere, without those the function declares itself
+        List<String> declare = suggestionsInFile(dir, String.join("\n", "#Include lib.ahk", "global GvMain",
+                "F() {", "    global GvOther", "    global GvMain, Gv<caret>", "}", ""));
+        assertTrue(declare.toString(), declare.containsAll(List.of("GvLib", "GvShared")));
+        assertFalse(declare.toString(), declare.contains("GvOther") || declare.contains("GvMain")
+                || declare.contains("GvAssigned") || declare.contains("MsgBox"));
+        // not after "local"/"static" and not at the top level
+        assertFalse(suggestionsInFile(dir, "#Include lib.ahk\nF() {\n    local Gv<caret>\n}\n").contains("GvLib"));
+        assertFalse(suggestionsInFile(dir, "#Include lib.ahk\nglobal Gv<caret>\n").contains("GvLib"));
+    }
+
     public void testFindUsages() throws Exception {
         java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("ahk").toRealPath();
         java.nio.file.Files.writeString(dir.resolve("lib.ahk"), String.join("\n",
@@ -1762,6 +1964,108 @@ public class AhkPluginTest extends BasePlatformTestCase {
         assertTrue(text, text.contains("    amount := 0\n    Launch() {\n        this.amount += 1\n"));
         assertTrue(text, text.endsWith("Again:\ngoto Again\n"));
         assertEquals("#Include lib.ahk\nHELPER()\nb := Box()\nb.Launch()\nx := b.amount\n", renamedText(lib, "main.ahk"));
+    }
+
+    /** Source for the tests of class names in doc comments and type pragmas. */
+    private static final String TYPE_NAME_SOURCE = String.join("\n",
+            "class Outer {",                                               // 1
+            "    class Inner {",                                           // 2
+            "    }",                                                       // 3
+            "}",                                                           // 4
+            "class LogWriter {",                                           // 5
+            "    ;@declare-member-type Outer.Inner",                       // 6
+            "    log := 0",                                                // 7
+            "}",                                                           // 8
+            ";@declare-type w as LogWriter, LogWriter.log as Outer.Inner", // 9
+            "/**",                                                         // 10
+            " * @param {LogWriter|String} writer the writer",              // 11
+            " * @returns {Map} the result",                                // 12
+            " */",                                                         // 13
+            "Convert(writer) {",                                           // 14
+            "}",                                                           // 15
+            "w := LogWriter()",                                            // 16
+            "");
+
+    /** The target of the reference at the n-th occurrence of {@code word} (0 = first) in the file. */
+    private com.intellij.psi.PsiElement typeNameTarget(String word, int n) {
+        String text = myFixture.getFile().getText();
+        int offset = -1;
+        for (int i = 0; i <= n; i++) offset = text.indexOf(word, offset + 1);
+        com.intellij.psi.PsiReference reference = myFixture.getFile().findReferenceAt(offset + 1);
+        assertTrue(word + " " + n + ": " + reference,
+                reference instanceof de.kumpewo.autohotkey.navigation.AhkTypeNameReference);
+        return reference.resolve();
+    }
+
+    public void testTypeNamesInCommentsAreReferences() {
+        myFixture.configureByText("a.ahk", TYPE_NAME_SOURCE);
+        // pragmas: the class after "as", the class and the member of Class.member, ;@declare-member-type
+        com.intellij.psi.PsiElement writer = typeNameTarget("LogWriter", 1);
+        assertTrue(String.valueOf(writer), writer instanceof de.kumpewo.autohotkey.psi.AhkClass);
+        assertEquals("LogWriter", ((de.kumpewo.autohotkey.psi.AhkClass) writer).getName());
+        assertSame(writer, typeNameTarget("LogWriter", 2));
+        assertTrue(typeNameTarget(".log", 0) instanceof de.kumpewo.autohotkey.navigation.AhkFieldTarget);
+        assertEquals("Outer", ((de.kumpewo.autohotkey.psi.AhkClass) typeNameTarget("Outer.", 0)).getName());
+        assertEquals("Inner", ((de.kumpewo.autohotkey.psi.AhkClass) typeNameTarget("Inner", 1)).getName());
+        assertEquals("Inner", ((de.kumpewo.autohotkey.psi.AhkClass) typeNameTarget("Inner", 2)).getName());
+        // doc comment: own class, built-in class (its help)
+        assertSame(writer, typeNameTarget("LogWriter", 3));
+        assertTrue(typeNameTarget("Map", 0) instanceof de.kumpewo.autohotkey.navigation.AhkHelpTarget);
+        // the variable before "as" is no class name
+        int w = myFixture.getFile().getText().indexOf(" w as") + 1;
+        com.intellij.psi.PsiReference none = myFixture.getFile().findReferenceAt(w);
+        assertFalse(String.valueOf(none), none instanceof de.kumpewo.autohotkey.navigation.AhkTypeNameReference);
+        // Find Usages of the class: code and comments
+        assertEquals(4, myFixture.findUsages(writer).size());
+    }
+
+    public void testTypeNamesInCommentsDocumentation() {
+        myFixture.configureByText("a.ahk", TYPE_NAME_SOURCE.replace("{Map}", "{M<caret>ap}"));
+        assertTrue(String.valueOf(pragmaHelpElement()),
+                pragmaHelpElement() instanceof de.kumpewo.autohotkey.documentation.AhkHelpElement);
+        myFixture.configureByText("a.ahk", TYPE_NAME_SOURCE.replace("as LogWriter", "as Log<caret>Writer"));
+        assertTrue(pragmaHelpElement() instanceof de.kumpewo.autohotkey.psi.AhkClass);
+        // elsewhere in the pragma: the help of the pragma
+        myFixture.configureByText("a.ahk", TYPE_NAME_SOURCE.replace(";@declare-type w", ";@decl<caret>are-type w"));
+        assertTrue(pragmaHelpElement() instanceof com.intellij.psi.PsiComment);
+    }
+
+    public void testRenameClassAndFieldInComments() throws Exception {
+        java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("ahk").toRealPath();
+        java.nio.file.Files.writeString(dir.resolve("main.ahk"), "#Include pragmas.ahk\n" + TYPE_NAME_SOURCE);
+        java.nio.file.Files.writeString(dir.resolve("pragmas.ahk"), ";@declare-type x as LogWriter, y as Outer.Inner\n");
+        var root = com.intellij.openapi.vfs.LocalFileSystem.getInstance().refreshAndFindFileByNioFile(dir);
+        var entry = com.intellij.testFramework.PsiTestUtil.addContentRoot(myFixture.getModule(), root);
+        com.intellij.openapi.util.Disposer.register(getTestRootDisposable(),
+                () -> com.intellij.testFramework.PsiTestUtil.removeContentEntry(myFixture.getModule(), entry.getFile()));
+        com.intellij.psi.PsiFile main = com.intellij.psi.PsiManager.getInstance(getProject()).findFile(
+                java.util.Objects.requireNonNull(java.util.Objects.requireNonNull(root).findChild("main.ahk")));
+        com.intellij.psi.PsiFile pragmas = com.intellij.psi.PsiManager.getInstance(getProject()).findFile(
+                java.util.Objects.requireNonNull(root.findChild("pragmas.ahk")));
+        // in pragmas.ahk the classes come from the file that includes it
+        com.intellij.psi.PsiReference fromPragmas = java.util.Objects.requireNonNull(pragmas)
+                .findReferenceAt(pragmas.getText().indexOf("LogWriter") + 1);
+        assertSame(definitionNamed(java.util.Objects.requireNonNull(main), "LogWriter"),
+                java.util.Objects.requireNonNull(fromPragmas).resolve());
+        // with "search in comments": every name exactly once
+        myFixture.renameElement(definitionNamed(main, "LogWriter"), "Writer", true, false);
+        myFixture.renameElement(definitionNamed(main, "Inner"), "Core", true, false);
+        String text = renamedText(main, "main.ahk");
+        assertTrue(text, text.contains("class Writer {\n    ;@declare-member-type Outer.Core\n"));
+        assertTrue(text, text.contains(";@declare-type w as Writer, Writer.log as Outer.Core\n"));
+        assertTrue(text, text.contains(" * @param {Writer|String} writer the writer\n"));
+        assertTrue(text, text.contains("w := Writer()\n"));
+        assertEquals(";@declare-type x as Writer, y as Outer.Core\n", renamedText(main, "pragmas.ahk"));
+        // the field: also the member in Class.member
+        com.intellij.psi.PsiFile renamed = com.intellij.psi.PsiManager.getInstance(getProject()).findFile(
+                java.util.Objects.requireNonNull(root.findChild("main.ahk")));
+        com.intellij.psi.PsiElement field = java.util.Objects.requireNonNull(java.util.Objects.requireNonNull(renamed)
+                .findReferenceAt(renamed.getText().indexOf("Writer.log") + 8)).resolve();
+        assertTrue(String.valueOf(field), field instanceof de.kumpewo.autohotkey.navigation.AhkFieldTarget);
+        myFixture.renameElement(java.util.Objects.requireNonNull(field), "output", true, false);
+        text = renamedText(main, "main.ahk");
+        assertTrue(text, text.contains("    output := 0\n"));
+        assertTrue(text, text.contains(";@declare-type w as Writer, Writer.output as Outer.Core\n"));
     }
 
     public void testRenameConflictsAndNames() throws Exception {
@@ -2100,6 +2404,87 @@ public class AhkPluginTest extends BasePlatformTestCase {
         myFixture.configureByText("a.ahk", DOC_SAMPLE + "Helper<caret>()\n");
         PsiElement leaf = myFixture.getFile().findElementAt(myFixture.getCaretOffset() - 1);
         assertEquals("Helper()", provider.getQuickNavigateInfo(leaf, leaf));
+    }
+
+    /** Source for the quick documentation of properties and fields. */
+    private static final String MEMBER_DOC_SAMPLE = String.join("\n",
+            "class LogWriter {",
+            "}",
+            "class ToolGui {",
+            "    /** Writes the log. */",
+            "    ;@declare-member-type LogWriter",
+            "    log := 0",
+            "    static count := 0",
+            "    /**",
+            "     * Cell of the grid.",
+            "     * @param index the position",
+            "     */",
+            "    Item[index] {",
+            "        get => 1",
+            "        set => 0",
+            "    }",
+            "    View => this.log",
+            "    Run() {",
+            "    }",
+            "}",
+            "class Other {",
+            "    log := 1",
+            "    Run() {",
+            "    }",
+            "}",
+            ";@declare-type ToolGui.View as LogWriter, g as ToolGui",
+            "");
+
+    public void testDocForPropertiesAndFields() {
+        de.kumpewo.autohotkey.documentation.AhkDocumentationProvider provider =
+                new de.kumpewo.autohotkey.documentation.AhkDocumentationProvider();
+        java.util.function.Function<String, String> doc = text -> {
+            myFixture.configureByText("a.ahk", text);
+            PsiElement leaf = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
+            return provider.generateDoc(leaf, leaf);
+        };
+        // at the definition: kind, class, type, doc text
+        String field = doc.apply(MEMBER_DOC_SAMPLE.replace("    log := 0", "    l<caret>og := 0"));
+        assertNotNull(field);
+        assertTrue(field, field.contains("field ToolGui.log") && field.contains("Type:") && field.contains("LogWriter")
+                && field.contains("Writes the log."));
+        String stat = doc.apply(MEMBER_DOC_SAMPLE.replace("static count", "static co<caret>unt"));
+        assertTrue(stat, stat.contains("static field ToolGui.count") && !stat.contains("Type:"));
+        String item = doc.apply(MEMBER_DOC_SAMPLE.replace("Item[index] {", "It<caret>em[index] {"));
+        assertTrue(item, item.contains("property ToolGui.Item[index] (get, set)") && item.contains("Cell of the grid.")
+                && item.contains("<code>index</code>"));
+        String view = doc.apply(MEMBER_DOC_SAMPLE.replace("View =>", "Vi<caret>ew =>"));
+        assertTrue(view, view.contains("property ToolGui.View (get)") && view.contains("Type:"));
+        // at a use with a declared type: only the members of that class
+        String use = doc.apply(MEMBER_DOC_SAMPLE + "x := g.l<caret>og\n");
+        assertTrue(use, use.contains("field ToolGui.log") && !use.contains("Other"));
+        String method = doc.apply(MEMBER_DOC_SAMPLE + "g.R<caret>un()\n");
+        assertTrue(method, method.contains("ToolGui.Run()") && !method.contains("Other.Run()"));
+        // this. in a method of the class
+        String self = doc.apply(MEMBER_DOC_SAMPLE.replace("View => this.log", "View => this.l<caret>og"));
+        assertTrue(self, self.contains("field ToolGui.log") && !self.contains("Other"));
+        // unknown type: overview of all definitions of the name
+        String all = doc.apply(MEMBER_DOC_SAMPLE + "x := y.l<caret>og\n");
+        assertTrue(all, all.contains("field ToolGui.log") && all.contains("field Other.log"));
+        // a declared built-in type: the help of its member, not an own method of the same name
+        String builtin = doc.apply("class Box {\n    Add() {\n    }\n}\n;@declare-type m as Gui\nm.Ad<caret>d(\"Text\")\n");
+        assertTrue(builtin, builtin != null && !builtin.contains("Box.Add()"));
+        // in the pragma: the member stands for the field
+        myFixture.configureByText("a.ahk", MEMBER_DOC_SAMPLE.replace("ToolGui.View as", "ToolGui.Vi<caret>ew as"));
+        PsiElement member = pragmaHelpElement();
+        assertTrue(String.valueOf(member), member instanceof de.kumpewo.autohotkey.psi.AhkClassProperty);
+        assertTrue(provider.generateDoc(member, null).contains("property ToolGui.View (get)"));
+        // Ctrl+hover: signature with the type
+        myFixture.configureByText("a.ahk", MEMBER_DOC_SAMPLE + "x := g.l<caret>og\n");
+        PsiElement leaf = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
+        assertEquals("field ToolGui.log : LogWriter", provider.getQuickNavigateInfo(leaf, leaf));
+    }
+
+    public void testDocCommentEnterForProperties() {
+        assertEquals("class K {\n    /**\n     * <caret>\n     * @param i\n     */\n    Item[i] => 1\n}\n",
+                afterEnter("class K {\n    /**<caret>\n    Item[i] => 1\n}\n"));
+        assertEquals("class K {\n    /**\n     * <caret>\n     */\n    count := 0\n}\n",
+                afterEnter("class K {\n    /**<caret>\n    count := 0\n}\n"));
     }
 
     public void testDocCommentInCompletionAndParameterInfo() {
@@ -3492,7 +3877,11 @@ public class AhkPluginTest extends BasePlatformTestCase {
         assertEquals(List.of("Left in Class RECT"), targets(code + "Le<caret>ft\n}\n"));
         assertEquals(List.of("Width in Class RECT"), targets(code + "Wi<caret>dth\n}\n"));
         assertEquals(List.of("Class RECT"), targets(v21 + "struct RECT {\n}\nstruct MI {\n    rc : RE<caret>CT.Ptr\n}\n"));
+        // this. in MI: only the members of MI; the fields of RECT after an undeclared name
         List<String> list = suggestions(code + "<caret>\n}\n");
+        assertTrue(list.toString(), list.containsAll(List.of("rc", "Get")));
+        assertFalse(list.toString(), list.contains("Left"));
+        list = suggestions(code + "Left\n}\nx := r.<caret>\n");
         assertTrue(list.toString(), list.containsAll(List.of("Left", "Top", "Width", "rc")));
         // Find Usages and Rename of a typed property (the target that navigation returns)
         myFixture.configureByText("c.ahk", v21 + "struct RECT {\n    Left : Int32, Top : Int32\n}\n"
@@ -4161,7 +4550,8 @@ public class AhkPluginTest extends BasePlatformTestCase {
         assertEquals("Switch value {\nCase 1:\n    |\nDefault:\n}\n", template("sw<caret>\n"));
         assertEquals("For key, value in obj {\n    |\n}\n", template("for<caret>\n"));
         assertEquals("Loop Files \"*.*\", \"F\" {\n    path := A_LoopFileFullPath|\n}\n", template("lf<caret>\n"));
-        assertEquals(";@declare-type myGui as Gui|\n", template("dt<caret>\n"));
+        assertEquals(";@declare-type myVar as ClassName|\n", template("dt<caret>\n"));
+        assertEquals(";@declare-member-type ClassName|\n", template("dm<caret>\n"));
         // not in comments and strings
         assertFalse(template("; fn<caret>\n").contains("MyFunction"));
         assertFalse(template("x := \"fn<caret>\"\n").contains("MyFunction"));
@@ -4730,12 +5120,14 @@ public class AhkPluginTest extends BasePlatformTestCase {
         de.kumpewo.autohotkey.documentation.AhkDocumentationProvider provider =
                 new de.kumpewo.autohotkey.documentation.AhkDocumentationProvider();
         String[][] cases = {
-                {";@declare-type g as G<caret>ui\n", "<h1>;@declare-type</h1>", "/extra/declare-type.htm"},
+                {";@declare-type g a<caret>s Gui\n", "<h1>;@declare-type</h1>", "/extra/declare-type.htm"},
                 {"x := 1 ;@decl<caret>are-auto-type Gui*\n", "<h1>;@declare-auto-type</h1>",
                         "/extra/declare-auto-type.htm"},
                 {";@ignore-next-line<caret>\nSetTimer () => 1, 100\n", "<h1>;@ignore-next-line</h1>",
                         "/extra/ignore-next-line.htm"},
                 {";@declare-private _<caret>*, §*\n", "<h1>;@declare-private</h1>", "/extra/declare-private.htm"},
+                {";@declare-member-<caret>type Map\n", "<h1>;@declare-member-type</h1>",
+                        "/extra/declare-member-type.htm"},
                 {";@IGNORE-NEXT-LINE re<caret>ason\nx := 1\n", "<h1>;@ignore-next-line</h1>",
                         "/extra/ignore-next-line.htm"},
         };
@@ -4751,9 +5143,13 @@ public class AhkPluginTest extends BasePlatformTestCase {
             assertEquals(c[0], chm, provider.canHandleExternal(leaf, leaf));
         }
         // links between the own pages stay inside extra/
-        myFixture.configureByText("a.ahk", ";@declare-type g as G<caret>ui\n");
+        myFixture.configureByText("a.ahk", ";@declare-type g a<caret>s Gui\n");
         PsiElement leaf = pragmaHelpElement();
         assertTrue(provider.generateDoc(leaf, leaf).contains("href=\"psi_element://extra/pragmas.htm\""));
+        // on the class name: the help of the class
+        myFixture.configureByText("a.ahk", ";@declare-type g as G<caret>ui\n");
+        leaf = pragmaHelpElement();
+        assertTrue(String.valueOf(leaf), leaf instanceof de.kumpewo.autohotkey.documentation.AhkHelpElement);
         // other comments and markers without whitespace after them: no help
         for (String text : new String[]{"; Msg<caret>Box\n", ";@declare-types g a<caret>s Gui\n",
                 "; @declare-type g a<caret>s Gui\n", ";@unknown-pra<caret>gma\n"}) {

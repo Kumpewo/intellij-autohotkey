@@ -42,6 +42,7 @@
 
 <h2 id="Remarks">Remarks</h2>
 <p>Only built-in classes are selected; own classes have to be declared with <a href="declare-type.htm">;@declare-type</a>.</p>
+<p>The names alone decide: <code>Gui*</code> also gives the class <code>Gui</code> to a variable <code>logGui</code> that holds an object of an own class. For own classes, declared fields are more reliable (see <a href="declare-type.htm#Members">Members</a>).</p>
 <p>All declarations created this way use a wildcard. Therefore a built-in name (e.g. a variable called <code>Edit</code>) keeps its built-in color.</p>
 <p>The declaration applies to the whole file in which it stands, no matter where it is placed, and to no other files except through a directly included <a href="pragmas.htm#PragmaFile">pragmas.ahk</a>. Case does not matter.</p>
 <p>Mistakes are marked in the comment: "Invalid pattern.", "Unknown class." (no class matches) and "',' expected.".</p>

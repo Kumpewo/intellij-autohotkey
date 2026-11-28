@@ -22,7 +22,9 @@ import org.jetbrains.annotations.Nullable;
  * <ul>
  *   <li>directly after {@code /**} (nothing else in the line, the comment not yet continued below): closes the
  *       comment; before a function or method with one {@code @param} line per parameter and {@code @returns} if it
- *       returns a value ({@code return x} or {@code =>}); the caret goes to the description line;</li>
+ *       returns a value ({@code return x} or {@code =>}), before a property with parameters ({@code Item[index]})
+ *       one {@code @param} line each (fields and other properties get the description line only); the caret goes to
+ *       the description line;</li>
  *   <li>inside a doc comment: the new line starts with {@code * } in the same column.</li>
  * </ul>
  */
@@ -110,12 +112,16 @@ public class AhkDocEnterHandler extends EnterHandlerDelegateAdapter {
         if (definition instanceof AhkFunc func) {
             for (String name : AhkDocComment.parameterNames(func)) tags.append("\n").append(indent).append(" * @param ").append(name);
             if (returnsValue(func)) tags.append("\n").append(indent).append(" * @returns");
+        } else if (definition instanceof de.kumpewo.autohotkey.psi.AhkClassProperty property) {
+            for (String name : AhkDocComment.parameterNames(property)) {
+                tags.append("\n").append(indent).append(" * @param ").append(name);
+            }
         }
         if (!tags.isEmpty()) document.insertString(descriptionEnd, tags);
         editor.getCaretModel().moveToOffset(descriptionEnd);
     }
 
-    /** The function, method or class whose doc comment ends after {@code offset}. */
+    /** The function, method, class or property whose doc comment ends after {@code offset}. */
     private static @Nullable PsiElement definitionAfter(PsiFile file, int offset) {
         PsiElement leaf = file.findElementAt(offset);
         while (leaf != null && !(leaf.getNode().getElementType() == AhkTypes.BLOCK_COMMENT && leaf.getText().endsWith("*/"))) {

@@ -10,7 +10,6 @@ import de.kumpewo.autohotkey.highlighting.AhkNames;
 import de.kumpewo.autohotkey.include.AhkInclude;
 import de.kumpewo.autohotkey.psi.AhkClass;
 import de.kumpewo.autohotkey.psi.AhkDefinitions;
-import de.kumpewo.autohotkey.psi.AhkRefExpr;
 import de.kumpewo.autohotkey.types.AhkTypeDeclarations;
 import org.jetbrains.annotations.Nullable;
 import java.util.LinkedHashSet;
@@ -205,8 +204,9 @@ public final class AhkCommandInfo {
     }
 
     /**
-     * Classes of the expression left of the dot: built-in class (also nested, "Gui.ListView") or a name declared
-     * with ;@declare-type or with {@code @param {Type}} in the doc comment of the enclosing function;
+     * Classes of the expression left of the dot: built-in class (also nested, "Gui.ListView") or a declared type
+     * ({@link AhkTypeDeclarations#typeOf}: a name declared with ;@declare-type or with {@code @param {Type}} in the
+     * doc comment of the enclosing function, {@code this} in a class, a declared member {@code a.b});
      * null = unknown (all forms).
      */
     public static @Nullable List<String> qualifierClasses(@NotNull PsiFile file, @Nullable PsiElement qualifier) {
@@ -214,8 +214,7 @@ public final class AhkCommandInfo {
         String text = qualifier.getText();
         if (!text.matches("\\w+(\\.\\w+)*")) return null;
         AhkNames.BuiltinClass builtin = AhkNames.of(file).builtinClass(text);
-        AhkTypeDeclarations.Declared declared = qualifier instanceof AhkRefExpr
-                ? AhkTypeDeclarations.lookup(qualifier, text) : null;
+        AhkTypeDeclarations.Declared declared = AhkTypeDeclarations.typeOf(qualifier);
         if (declared != null && (declared.explicit() || builtin == null)) return declared.classes();
         return builtin == null ? null : List.of(builtin.name());
     }

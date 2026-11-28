@@ -4,6 +4,35 @@
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-11-28
+
+### Added
+
+- Completion offers global variables declared with `global` (at the top level or in a function, also in included
+  files), also after `global` in a function; names that are only assigned are still not offered.
+- `;@declare-type Class.member as Type` declares the class of a field or property; completion, parameter info and
+  help follow chains such as `win.log.view.` and `this.log.`. A declaration in the file of a class applies wherever
+  the class is used.
+- `;@declare-member-type Type` declares the class of the field or property in the next line, right at its definition;
+  live template `dm`.
+- Class names in doc comments (`@param {Type}`, `@returns {Type}`) and in the type pragmas, and the member in
+  `;@declare-type Class.member`, are references: *Ctrl+B*, *Ctrl+Q*, *Find Usages* and *Rename* reach them without
+  the text search in comments.
+- *Ctrl+Q* and hover on own properties and fields: kind, class, declared type and doc comment; *Ctrl+hover* shows
+  the declared type. `/**` + *Enter* before a property with parameters adds the `@param` lines.
+
+### Changed
+
+- *Ctrl+Q* after the dot of a name with a declared type (or `this`) shows only the methods and properties of that
+  class and its base classes, not those of other classes with the same name.
+- A doc comment may be separated from its definition by pragma lines (`;@declare-member-type ...`).
+- `this.` in an instance method, property or field initializer of a class offers only the members of that class and
+  its base classes.
+- Completion after the dot for a declared built-in type (`;@declare-type win as Gui`) no longer appends the members of
+  all own classes; it offers only the members of the type and its base classes, as for own types.
+- The settings file of plugin version 2.1 (`settings.ahk-plugin.ini`) is still read by all versions 2.x; version
+  3.0.0 will no longer read it.
+
 ## [2.3.0] - 2026-11-26
 
 ### Added

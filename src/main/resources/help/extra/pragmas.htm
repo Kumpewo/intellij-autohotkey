@@ -31,6 +31,10 @@
     <td>Declares the class of variables by the end of their names (<code>okButton</code> as <code>Gui.Button</code>) for a group of built-in classes.</td>
   </tr>
   <tr>
+    <td nowrap="nowrap"><a href="declare-member-type.htm">;@declare-member-type</a></td>
+    <td>Declares the class of the field or property in the next line, right where it is defined.</td>
+  </tr>
+  <tr>
     <td nowrap="nowrap"><a href="declare-private.htm">;@declare-private</a></td>
     <td>Shows members with certain names (<code>_*</code>, <code>§*</code> ...) in the color for private members.</td>
   </tr>
@@ -44,12 +48,12 @@
 <p>A pragma applies to the file in which it stands. To make declarations once for many scripts, put them into a file named <code>pragmas.ahk</code> (case does not matter) and include it directly in each script:</p>
 <pre>#Include &lt;pragmas&gt;            <em>; from a library folder, or e.g. &lt;v2\pragmas&gt;</em>
 #Include ..\shared\pragmas.ahk  <em>; or with a relative path</em></pre>
-<p>The pragmas <code>;@declare-type</code>, <code>;@declare-auto-type</code> and <code>;@declare-private</code> of such a file apply in every file that includes it directly (not in files that include those). Own classes named in <code>;@declare-type</code> are looked up in the including file, so <code>pragmas.ahk</code> itself does not report them as unknown. Since the file contains only comments, including it has no effect when the script runs. <code>;@ignore-next-line</code> always refers to the next line of its own file.</p>
+<p>The pragmas <code>;@declare-type</code>, <code>;@declare-auto-type</code> and <code>;@declare-private</code> of such a file apply in every file that includes it directly (not in files that include those). Own classes named in <code>;@declare-type</code> are looked up in the including file, so <code>pragmas.ahk</code> itself does not report them as unknown. Since the file contains only comments, including it has no effect when the script runs. <code>;@ignore-next-line</code> and <code>;@declare-member-type</code> always refer to the next line of their own file.</p>
 
 <h2 id="Remarks">Remarks</h2>
 <p>Mistakes in a pragma are marked in the comment itself, for example "Unknown class." or "Invalid pattern.".</p>
 <p>Pressing <kbd>Ctrl</kbd>+<kbd>Q</kbd> anywhere in a pragma comment shows its help page.</p>
-<p>The live templates <code>dt</code> and <code>ign</code> insert <code>;@declare-type</code> and <code>;@ignore-next-line</code>.</p>
+<p>The live templates <code>dt</code>, <code>dm</code> and <code>ign</code> insert <code>;@declare-type</code>, <code>;@declare-member-type</code> and <code>;@ignore-next-line</code>.</p>
 <p>Comments starting with <code>;@Ahk2Exe-</code> look similar, but are directives of the compiler Ahk2Exe, not pragmas of the plugin. The plugin checks for <code>;@Ahk2Exe-Base</code> before compiling, can insert a head of directives (see <a href="compile.htm#Head">Compiling with Ahk2Exe</a>), and shows the help page of the directives with <kbd>Ctrl</kbd>+<kbd>Q</kbd> in such a comment.</p>
 
 <h2 id="Related">Related</h2>

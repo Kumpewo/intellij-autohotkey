@@ -3,3 +3,4 @@
 @declare-auto-type	/extra/declare-auto-type.htm	<null>
 @ignore-next-line	/extra/ignore-next-line.htm	<null>
 @declare-private	/extra/declare-private.htm	<null>
+@declare-member-type	/extra/declare-member-type.htm	<null>

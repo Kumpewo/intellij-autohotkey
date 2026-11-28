@@ -10,7 +10,7 @@
 
 <h1>Doc comments</h1>
 
-<p>A <em>doc comment</em> describes your own function, method or class, like JavaDoc or JSDoc in other languages. It is a block comment that starts with <code>/**</code> and stands directly before the definition. The plugin shows it as quick documentation (<kbd>Ctrl</kbd>+<kbd>Q</kbd> or hovering with the mouse) wherever the name is used. For AutoHotkey it is an ordinary comment.</p>
+<p>A <em>doc comment</em> describes your own function, method, class, property or field, like JavaDoc or JSDoc in other languages. It is a block comment that starts with <code>/**</code> and stands directly before the definition (pragma lines such as <a href="declare-member-type.htm">;@declare-member-type</a> may stand in between). The plugin shows it as quick documentation (<kbd>Ctrl</kbd>+<kbd>Q</kbd> or hovering with the mouse) wherever the name is used. For AutoHotkey it is an ordinary comment.</p>
 
 <pre>/**
  * Opens the box and counts the openings.
@@ -51,17 +51,19 @@ OpenBox(name, force := false) {
 <p>Typing <code>@</code> at the start of a line offers the tags; after <code>@param</code> the completion offers the parameters that are not described yet.</p>
 
 <h2 id="Popup">The popup</h2>
-<p>The quick documentation shows the signature (as in the parameter info, with the class: <code>Box.Open(name, [force := false])</code>), the description, a section per tag and the file. It works on the definition itself and on every use: <code>OpenBox()</code>, <code>obj.Open()</code>, <code>Box()</code>, <code>extends Box</code>. Like <a href="navigation.htm">Go to declaration</a>, it matches by name in the file and the files it includes. An own definition takes precedence over the built-in help of the same name. If several definitions match (for example a method <code>Open</code> in two classes), the popup lists them; click one to see its documentation. <kbd>Ctrl</kbd>+hover shows the signature.</p>
+<p>The quick documentation shows the signature (as in the parameter info, with the class: <code>Box.Open(name, [force := false])</code>), the description, a section per tag and the file. It works on the definition itself and on every use: <code>OpenBox()</code>, <code>obj.Open()</code>, <code>Box()</code>, <code>extends Box</code>. Like <a href="navigation.htm">Go to declaration</a>, it matches by name in the file and the files it includes. An own definition takes precedence over the built-in help of the same name. If several definitions match (for example a method <code>Open</code> in two classes), the popup lists them; click one to see its documentation. After the dot of a name with a <a href="types.htm">declared type</a> or of <code>this</code>, only the members of that class and its base classes count. <kbd>Ctrl</kbd>+hover shows the signature.</p>
+<p>For properties and fields the first line names the kind and the class (<code>field ToolGui.logWriter</code>, <code>static field Box.count</code>, <code>property Box.Item[index] (get, set)</code>); below it the declared type of an instance property or field (<a href="declare-member-type.htm">;@declare-member-type</a>, <a href="declare-type.htm#Members">;@declare-type Class.member</a>) and the doc comment, if there is one. <kbd>Ctrl</kbd>+hover shows <code>field ToolGui.logWriter : LogWriter</code>. A doc comment before <code>a := 0, b := 0</code> describes both fields.</p>
 <p>The doc comment also appears</p>
 <ul>
   <li>in the completion list: <kbd>Ctrl</kbd>+<kbd>Q</kbd> on a suggestion of an own function, method or class;</li>
   <li>in the <a href="completion.htm">parameter info</a>: the <code>@param</code> text of the current parameter in a second line.</li>
 </ul>
 <p>The name after <code>@param</code> belongs to the parameter: <kbd>Ctrl</kbd>+<kbd>B</kbd> on it leads to the parameter, <a href="navigation.htm#Rename">renaming</a> the parameter renames it as well, and <a href="navigation.htm#Usages">Find Usages</a> and the highlighting of occurrences show it.</p>
+<p>A class name in <code>{...}</code> belongs to the class in the same way: <kbd>Ctrl</kbd>+<kbd>B</kbd> leads to it (for a built-in class to its help), <kbd>Ctrl</kbd>+<kbd>Q</kbd> shows its documentation, and renaming the class renames it as well.</p>
 
 <h2 id="Writing">Writing doc comments</h2>
 <ul>
-  <li>Type <code>/**</code> in the line above a definition and press <kbd>Enter</kbd>: the plugin closes the comment and adds one <code>@param</code> line per parameter and <code>@returns</code> if the function returns a value (<code>return x</code> or <code>=&gt;</code>).</li>
+  <li>Type <code>/**</code> in the line above a definition and press <kbd>Enter</kbd>: the plugin closes the comment and adds one <code>@param</code> line per parameter and <code>@returns</code> if the function returns a value (<code>return x</code> or <code>=&gt;</code>). Before a property with parameters (<code>Item[index]</code>) it adds one <code>@param</code> line per parameter, before a field or another property only the description line.</li>
   <li><kbd>Enter</kbd> inside a doc comment starts the new line with <code> * </code>.</li>
   <li><a href="formatting.htm">Reformat Code</a> indents the comment like the definition below it and aligns the lines starting with <code>*</code> under the first line. With the tab <a href="formatting.htm#DocComments">Doc Comments</a> of the code style page it also aligns the <code>@param</code> lines, sets blank lines, wraps the text at the right margin and can sort, add or remove <code>@param</code> tags.</li>
   <li>A <code>@param</code> without a parameter of that name and an unknown class in <code>{...}</code> are marked as warnings.</li>

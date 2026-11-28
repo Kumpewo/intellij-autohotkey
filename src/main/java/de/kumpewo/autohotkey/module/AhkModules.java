@@ -661,6 +661,23 @@ public final class AhkModules {
         return result;
     }
 
+    /**
+     * The identifiers of the names the module declares with {@code global} (not plain assignments; first occurrence
+     * of each name, in the order of the parts), see {@link AhkDefinitions#globalDeclarations}.
+     */
+    public static @NotNull List<PsiElement> declaredVariables(@NotNull Module module) {
+        List<PsiElement> result = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (Part part : parts(module)) {
+            for (PsiElement identifier : AhkDefinitions.globalDeclarations(part.file())) {
+                if (part.range().contains(identifier.getTextOffset()) && seen.add(key(identifier.getText()))) {
+                    result.add(identifier);
+                }
+            }
+        }
+        return result;
+    }
+
     /** Identifiers of global variable definitions in the whole file (see {@link #variable}), in order. */
     private static List<PsiElement> fileVariables(PsiFile file) {
         return CachedValuesManager.getCachedValue(file, () -> {
@@ -673,14 +690,7 @@ public final class AhkModules {
                     }
                 }
             }
-            for (PsiElement decl : PsiTreeUtil.findChildrenOfType(file, de.kumpewo.autohotkey.psi.AhkDeclStmt.class)) {
-                ASTNode keyword = decl.getNode().getFirstChildNode();
-                if (keyword == null || !"global".equalsIgnoreCase(keyword.getText())) continue;
-                for (ASTNode item : decl.getNode().getChildren(com.intellij.psi.tree.TokenSet.create(AhkTypes.DECL_ITEM))) {
-                    ASTNode id = item.findChildByType(AhkTypes.IDENTIFIER);
-                    if (id != null) result.add(id.getPsi());
-                }
-            }
+            result.addAll(AhkDefinitions.globalDeclarations(file));
             result.sort(java.util.Comparator.comparingInt(PsiElement::getTextOffset));
             return CachedValueProvider.Result.create(List.copyOf(result), file);
         });

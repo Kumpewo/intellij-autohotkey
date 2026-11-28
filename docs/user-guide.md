@@ -119,9 +119,10 @@ standard library; in each folder `Name`, `Name\__Init.ahk` and `Name.ahk`. `#Imp
 `#Module Name` of that file. The plugin does not know the main script, so the folder of the file counts as
 `A_ScriptDir`. `AhkLibPath` also applies to `#Include <Name>` in v2.1 files.
 
-- **Completion** offers the own functions and classes and the imported names; after `X.` only what module X
-  offers, after `AHK.` the built-in names; after `#Import` the module names (`AHK`, the `#Module`s of the file and
-  its includes, module files of the search path) and in the braces the names the module offers.
+- **Completion** offers the own functions and classes, the variables declared with `global` and the imported names;
+  after `X.` only what module X offers, after `AHK.` the built-in names; after `#Import` the module names (`AHK`, the
+  `#Module`s of the file and its includes, module files of the search path) and in the braces the names the module
+  offers.
 - **Find Usages and Rename** also search the files that import the file of the definition directly. A `#Module`
   and an alias (`as Y`) can be renamed; renaming an exported function also changes `X.F` and `{F}` in importing
   files, an alias after `as` stays. A module file is not renamed with its imports.
@@ -223,9 +224,12 @@ What is offered depends on the position:
 
 - **Directive** (after `#`): all known directives.
 - **Free-standing name**: inside a function first its [local variables and parameters](#local-variables-and-parameters)
-  (also those it shares with enclosing functions); built-in variables, classes and functions; own functions and
-  classes of the file and of the files it includes, also indirectly. At the start of a statement also the flow control
-  keywords; directly after `Loop` also `Files`, `Parse`, `Read`, `Reg`.
+  (also those it shares with enclosing functions); built-in variables, classes and functions; global variables declared
+  with `global` (`global count`, at the top level or in a function; names that are only assigned are not offered); own
+  functions and classes of the file and of the files it includes, also indirectly. At the start of a statement also the
+  flow control keywords; directly after `Loop` also `Files`, `Parse`, `Read`, `Reg`.
+- **After `global` in a function**: the global variables declared with `global` elsewhere, to make a variable that the
+  function can only read writable as well; names the function already declares are left out.
 - **After the dot**: methods and properties of the built-in classes; methods, properties and fields (`count := 0`
   in a class body) of the own classes. After the name of
   a built-in class like `Gui.` its nested classes come first. For a name with a [declared type](#type-declarations)
@@ -332,7 +336,7 @@ For a local variable or parameter only its function is searched (see
 Searched are the file of the definition and all AutoHotkey files of the project that include it, directly or
 indirectly - exactly the places from which *Ctrl+B* leads to the definition. The matching follows navigation: by name,
 ignoring case, so a free-standing variable with the name of a function counts as well. *Ctrl+B* on a definition shows
-the same list.
+the same list. Class names in doc comments and type pragmas count as usages too.
 
 ### Rename
 
@@ -342,6 +346,10 @@ with a **preview**: all occurrences appear in the Find tool window; exclude thos
 
 - Searched are the file of the definition and all AutoHotkey files of the project that include it, directly or
   indirectly. Occurrences are found by name, ignoring case (as for *Find Usages*), and get the new spelling.
+- Class names in doc comments (`@param {LogWriter} writer`) and in the type pragmas (`;@declare-type w as LogWriter`,
+  `;@declare-member-type LogWriter`) are occurrences like code, and so is the member in
+  `;@declare-type LogWriter.log as ToolLog` when the field or property is renamed. A `pragmas.ahk` of the project
+  that these files include is searched as well, not one in a library folder.
 - *Search in comments and strings* adds whole-word occurrences in comments and strings of these files.
 - The new name must be a valid AutoHotkey name and no reserved word; an existing function or class (or member of
   the same class) with that name is reported as a conflict.
@@ -456,9 +464,18 @@ OpenBox(name, force := false) {
 - Completion: after `@` at the start of a line the tags, after `@param ` the parameters not yet described.
 - *Ctrl+Q* or hover on the definition or any use shows the signature, the description, a section per tag and the
   file. The definitions are found by name like *Ctrl+B*; an own definition takes precedence over built-in help of
-  the same name, several matching definitions are listed with links. *Ctrl+hover* shows the signature.
+  the same name, several matching definitions are listed with links. After the dot of a name with a declared type
+  or of `this`, only the members of that class and its base classes count. *Ctrl+hover* shows the signature.
+- Properties and fields: the first line names kind and class (`field ToolGui.logWriter`,
+  `static field Box.count`, `property Box.Item[index] (get, set)`), then the declared type of an instance
+  property or field (`;@declare-member-type`, `;@declare-type Class.member`) and the doc comment; *Ctrl+hover*
+  shows `field ToolGui.logWriter : LogWriter`. A doc comment before `a := 0, b := 0` describes both fields; pragma
+  lines may stand between the doc comment and the definition. `/**` + *Enter* before `Item[index]` adds the
+  `@param` lines.
 - The name after `@param` belongs to the parameter: *Ctrl+B* on it leads to the parameter, renaming the parameter
-  renames it as well, and *Find Usages* and the highlighting of occurrences show it.
+  renames it as well, and *Find Usages* and the highlighting of occurrences show it. A class name in `{...}` belongs
+  to the class in the same way: *Ctrl+B* leads to it (for a built-in class to its help), *Ctrl+Q* shows its
+  documentation, renaming the class renames it as well.
 - The doc comment also appears for *Ctrl+Q* in the completion list, and the parameter info shows the `@param`
   text of the current parameter.
 - `@param {Gui} g` works like `;@declare-type g as Gui`, but only inside that function (several types with `|`).
@@ -498,6 +515,55 @@ an exact name does. The color is meant for variables: a name that is called (`my
 it gets the color.
 
 Mistakes in a pragma are marked in the comment ("Unknown class.", "Invalid pattern.", "'as' expected." ...).
+
+### Members with a declared type
+
+`;@declare-type Class.member as Type` declares the class of an instance member (field or property) of a class,
+without wildcards. The plugin follows a chain step by step, and `this` in an instance method, property or field
+initializer has the type of its class:
+
+```autohotkey
+;@declare-type theGui as ToolGui
+;@declare-type LogWriter.view as LogView
+class ToolGui extends Gui {
+    ;@declare-type ToolGui.logWriter as LogWriter   ; anywhere in the file, also next to the field
+    logWriter := LogWriter()
+    Run() {
+        this.logWriter.  ; members of LogWriter; this. alone offers the members of ToolGui and its base classes
+    }
+}
+global theGui := ToolGui()
+theGui.logWriter.        ; members of LogWriter
+theGui.logWriter.view.   ; members of LogView
+```
+
+Typed members are more reliable than name patterns (a field keeps its name wherever the object is passed), so
+few global variables with a declared type plus typed members in their classes often cover a whole script.
+
+- The class is a built-in or an own class (also nested); the declaration also applies to classes derived from it.
+- Besides the file itself, the declarations in the file that defines an own class apply: a library declares the
+  members of its classes once, every script that includes it profits.
+- Static members are not covered; in a static method `this` (the class itself) has no declared type.
+
+`;@declare-member-type Type` declares the same right at the definition, without naming class and member (renaming
+them needs no change in the pragma). It applies to the field or property without parameters in the next code line
+(blank lines and comments in between are skipped), or to its own line when it stands behind code; in a line with
+several fields (`a := 0, b := 0`) to each of them. It is a line comment, so it survives commenting out a region with
+`/* */`.
+
+Class names in the pragmas (after `as`, before the member, after `;@declare-member-type`) and the member in
+`Class.member` are references: *Ctrl+B* leads to the class (for a built-in class to its help) or to the field,
+*Ctrl+Q* on a class name shows its documentation, renaming the class or the member adjusts the pragma. In a
+`pragmas.ahk` the classes come from the files of the project that include it.
+
+```autohotkey
+class ToolGui extends Gui {
+    ;@declare-member-type LogWriter
+    logWriter := LogWriter()
+}
+```
+
+If the next code line is not an instance field or a property without parameters, the pragma gets a warning.
 
 ### Private members
 
@@ -576,7 +642,7 @@ AutoHotkey* and only apply in code (not in comments or strings).
 | `if`, `ife`, `while`, `loop`, `lf`, `lp`, `lr` | if, if/else, while, loop, Loop Files / Parse / Read |
 | `for`, `forv`, `try`, `sw` | for with key and value, for with value, try/catch, switch |
 | `gui`, `timer`, `onexit` | Gui window, SetTimer call, OnExit handler |
-| `dt`, `ign` | `;@declare-type` and `;@ignore-next-line` pragmas |
+| `dt`, `dm`, `ign` | `;@declare-type`, `;@declare-member-type` and `;@ignore-next-line` pragmas |
 
 *Code > Surround With* (*Ctrl+Alt+T*) wraps the selected lines in `If`, `While`, `Loop`, `For` or
 `Try ... Catch`.
@@ -784,7 +850,7 @@ Plugin version 2.1 read `settings.ahk-plugin.ini`, with other names: `[Install]`
 project has no `settings.ahk-v2-plugin.ini`; the confirmation of *Deploy* then shows a gray hint and the button *Update
 Settings*, which turns it into `settings.ahk-v2-plugin.ini` with the new names (also in its comments; Git sees a rename)
 and shows the confirmation again. If the old file has errors, the error message offers *Update Settings*, too. If both
-files exist, the new one counts and the confirmation warns about the old one. Plugin version 2.5.0 will no longer read
+files exist, the new one counts and the confirmation warns about the old one. Plugin version 3.0.0 will no longer read
 the old file. Old names in the new file are errors that name the new name.
 
 *Create Settings...* (same menus, only while the project root has no such file) writes a default
